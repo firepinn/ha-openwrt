@@ -185,14 +185,18 @@ async def async_create_fix_flow(
 ) -> RepairsFlow:
     """Create a repair flow for fixable issues."""
     if issue_id.startswith("auth_failed_"):
-        return AuthFailedRepairFlow()
+        return AuthFailedRepairFlow(data)
     if issue_id.startswith("stale_permissions_"):
-        return StalePermissionsRepairFlow()
+        return StalePermissionsRepairFlow(data)
     return ConfirmRepairFlow()
 
 
 class AuthFailedRepairFlow(RepairsFlow):
     """Handler for auth failure repair flow - triggers re-authentication."""
+
+    def __init__(self, data: dict[str, Any] | None) -> None:
+        """Initialize."""
+        self.data = data
 
     async def async_step_init(
         self,
@@ -213,8 +217,9 @@ class AuthFailedRepairFlow(RepairsFlow):
 class StalePermissionsRepairFlow(RepairsFlow):
     """Handler for stale permissions repair flow - re-provisions the user."""
 
-    def __init__(self) -> None:
+    def __init__(self, data: dict[str, Any] | None) -> None:
         """Initialize."""
+        self.data = data
         self._root_data: dict[str, Any] = {}
 
     async def async_step_init(
