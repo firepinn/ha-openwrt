@@ -55,7 +55,7 @@ Supports **OpenWrt 25.12** and newer (older versions are supported via `opkg` fa
 - **Backup & Commands**: Trigger configuration backups or execute arbitrary shell commands directly from HA.
 - **Parental Control & Device Management**:
   - **Internet Access Control**: Per-device "Internet Access" switches to block/allow traffic (Fritz!Box style).
-  - **Wireless Management**: WPS control switches and buttons to kick (disconnect) specific wireless clients.
+  - **Wireless Management**: WPS control switches and buttons to disconnect specific wireless clients.
 - **Smart Tracking & Events**: 
   - **Multi-source Device Tracking**: Combines DHCP leases with ARP/NDP tables (`ip neigh`) for instant and reliable presence detection.
   - **Persistent History**: Tracks `initially_seen` and `last_seen` timestamps for every device, persisting across Home Assistant restarts.
@@ -67,8 +67,9 @@ Supports **OpenWrt 25.12** and newer (older versions are supported via `opkg` fa
   - Integration with the third-party [OpenWRT_HA_Presence](https://github.com/f45tb00t/OpenWRT_HA_Presence) scripts.
   - High-performance, low-latency tracking via MQTT events instead of polling.
   - Automatic script deployment and configuration directly from the Home Assistant UI.
-  - > [!IMPORTANT]
-    > **Randomized MACs**: The "Ignore devices with randomized MAC addresses" option currently **only applies to native device tracking**. MQTT presence detection (via the third-party script) will still track and create entities for randomized MAC addresses if they connect to your WiFi.
+
+  > [!IMPORTANT]
+  > **Randomized MACs**: The "Ignore devices with randomized MAC addresses" option currently **only applies to native device tracking**. MQTT presence detection (via the third-party script) will still track and create entities for randomized MAC addresses if they connect to your WiFi.
 - **Advanced Diagnostics**:
   - **UPnP Mappings**: Track active UPnP and NAT-PMP port forwardings.
   - **Refined Naming**: Routers are primarily identified by their product model (e.g. "Xiaomi AX3600") for a premium dashboard look.
