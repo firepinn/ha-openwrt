@@ -1,17 +1,17 @@
 """Test the OpenWrt sensor platform."""
 
-from __future__ import annotations
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
-from unittest.mock import MagicMock
-
-from homeassistant.const import UnitOfTime
+from homeassistant.components.sensor import SensorDeviceClass
 
 from custom_components.openwrt.api.base import OpenWrtData, SystemResources
 from custom_components.openwrt.sensor import OpenWrtSensorEntity, _get_system_sensors
 
 
 def test_uptime_conversion() -> None:
-    """Test that uptime uses seconds for HA duration formatting."""
+    """Test that uptime uses timestamp for HA formatting."""
+    now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     data = OpenWrtData(
         system_resources=SystemResources(
             uptime=120,
@@ -33,11 +33,12 @@ def test_uptime_conversion() -> None:
     uptime_desc = next(d for d in _get_system_sensors() if d.key == "uptime")
 
     # Check description
-    assert uptime_desc.native_unit_of_measurement == UnitOfTime.SECONDS
+    assert uptime_desc.device_class == SensorDeviceClass.TIMESTAMP
 
     # Check value via entity
-    sensor = OpenWrtSensorEntity(coordinator, entry, uptime_desc)
-    assert sensor.native_value == 120
+    with patch("custom_components.openwrt.sensor.dt_util.utcnow", return_value=now):
+        sensor = OpenWrtSensorEntity(coordinator, entry, uptime_desc)
+        assert sensor.native_value == now - timedelta(seconds=120)
 
 
 def test_sensor_english_names() -> None:
