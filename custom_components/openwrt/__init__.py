@@ -76,7 +76,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await client.connect()
             device_info = await client.get_device_info()
-            await client.disconnect()
 
             if device_info.mac_address:
                 new_unique_id = dr.format_mac(device_info.mac_address)
@@ -99,6 +98,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.exception("Migration failed for %s: %s", entry.entry_id, err)
             return False
+        finally:
+            await client.disconnect()
 
     return True
 
@@ -149,55 +150,53 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client = create_client({**entry.data, **entry.options})
 
     try:
-        await client.connect()
-    except (UbusAuthError, LuciRpcAuthError, SshAuthError) as err:
-        msg = f"Authentication failed: {err}"
-        raise ConfigEntryAuthFailed(msg) from err
-    except (UbusError, LuciRpcError, SshError) as err:
-        msg = f"Cannot connect to {entry.data[CONF_HOST]}: {err}"
-        raise ConfigEntryNotReady(
-            msg,
-        ) from err
+        try:
+            await client.connect()
+        except (UbusAuthError, LuciRpcAuthError, SshAuthError) as err:
+            msg = f"Authentication failed: {err}"
+            raise ConfigEntryAuthFailed(msg) from err
+        except (UbusError, LuciRpcError, SshError) as err:
+            msg = f"Cannot connect to {entry.data[CONF_HOST]}: {err}"
+            raise ConfigEntryNotReady(msg) from err
 
-    coordinator = OpenWrtDataCoordinator(hass, entry, client)
+        coordinator = OpenWrtDataCoordinator(hass, entry, client)
 
-    # Initialize coordinator data which also handles device registry updates
-    try:
+        # Initialize coordinator data which also handles device registry updates
         await coordinator.async_config_entry_first_refresh()
+
+        # Clear any stale unit_of_measurement overrides from previous versions
+        _async_migrate_entity_units(hass, entry)
+
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN][entry.entry_id] = {
+            DATA_COORDINATOR: coordinator,
+            DATA_CLIENT: client,
+        }
+
+        # Pre-import platforms in the background to avoid blocking the event loop
+        # during async_forward_entry_setups which calls sync import_module
+        async def _import_platform(platform: str) -> None:
+            try:
+                await hass.async_add_import_executor_job(
+                    importlib.import_module,
+                    f"custom_components.{DOMAIN}.{platform}",
+                )
+            except Exception:
+                _LOGGER.debug("Could not pre-import platform %s", platform)
+
+        await asyncio.gather(*(_import_platform(platform) for platform in PLATFORMS))
+
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+        if not hass.services.has_service(DOMAIN, SERVICE_REBOOT):
+            _register_services(hass)
+
+        entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+        return True
     except Exception:
         await client.disconnect()
         raise
-
-    # Clear any stale unit_of_measurement overrides from previous versions
-    _async_migrate_entity_units(hass, entry)
-
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        DATA_COORDINATOR: coordinator,
-        DATA_CLIENT: client,
-    }
-
-    # Pre-import platforms in the background to avoid blocking the event loop
-    # during async_forward_entry_setups which calls sync import_module
-    async def _import_platform(platform: str) -> None:
-        try:
-            await hass.async_add_import_executor_job(
-                importlib.import_module,
-                f"custom_components.{DOMAIN}.{platform}",
-            )
-        except Exception:
-            _LOGGER.debug("Could not pre-import platform %s", platform)
-
-    await asyncio.gather(*(_import_platform(platform) for platform in PLATFORMS))
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    if not hass.services.has_service(DOMAIN, SERVICE_REBOOT):
-        _register_services(hass)
-
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
-
-    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: OpenWrtConfigEntry) -> bool:

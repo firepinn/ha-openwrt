@@ -93,8 +93,8 @@ async def test_config_flow_provision_cleanup(hass):
         )
         mock_create.return_value = mock_client
 
-        with pytest.raises(Exception, match="Provisioning failed intentionally"):
-            await flow.async_step_do_provision()
+        result = await flow.async_step_do_provision()
 
+        assert result["step_id"] == "provision_failed"
         # Verify disconnect was called in the finally block
         mock_client.disconnect.assert_called_once()

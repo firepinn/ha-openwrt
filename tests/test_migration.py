@@ -36,6 +36,7 @@ async def test_migration_v1_to_v2(hass: HomeAssistant):
             unique_id="aa:bb:cc:dd:ee:ff",
             version=2,
         )
+        mock_client.disconnect.assert_called_once()
 
 
 async def test_migration_v1_to_v2_fail_mac(hass: HomeAssistant):
@@ -59,6 +60,7 @@ async def test_migration_v1_to_v2_fail_mac(hass: HomeAssistant):
 
         # Should still bump version
         mock_update.assert_called_once_with(entry, version=2)
+        mock_client.disconnect.assert_called_once()
 
 
 async def test_migration_v1_to_v2_exceptions(hass: HomeAssistant):
@@ -77,6 +79,7 @@ async def test_migration_v1_to_v2_exceptions(hass: HomeAssistant):
     ):
         assert await async_migrate_entry(hass, entry) is False
         assert mock_update.call_count == 0
+        mock_client.disconnect.assert_called_once()
 
 
 @pytest.mark.asyncio
