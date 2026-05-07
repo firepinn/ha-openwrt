@@ -820,6 +820,21 @@ If left empty, the integration auto-generates a pattern based on your router's `
 OpenWrt's `rpcd` has very strict ACLs. Even `root` is sometimes restricted via the Ubus API.
 - **Solution 1**: Switch the connection method to **LuCI RPC** in the integration settings. It uses the same session as the web UI and often has more permissive defaults.
 - **Solution 2**: Check `/etc/config/rpcd` on your router and ensure your user has the required scopes.
+- **Solution 3**: If you recently upgraded OpenWrt, your ACL files might have been lost. See the entry below.
+
+### Why did my sensors stop working after an OpenWrt upgrade?
+If you recently upgraded OpenWrt and noticed that system sensors like CPU, memory, load, or temperature are suddenly showing `0`, `unknown`, or `unavailable`, it is almost certainly because your **RPC ACL rules were reset** during the upgrade.
+
+By default, OpenWrt does not preserve the custom ACL file `/usr/share/rpcd/acl.d/homeassistant.json` during a sysupgrade unless you have manually added it to `/etc/sysupgrade.conf`.
+
+**How to fix this:**
+1.  **Check Repairs**: Look at **Settings > System > Repairs** in Home Assistant. The integration automatically detects missing permissions and offers a **"Refresh Permissions"** fix. Follow the steps and provide your router's root credentials to redeploy the ACLs.
+2.  **Options Flow**: Alternatively, go to the integration in Home Assistant, click **Configure**, and check the **"Re-deploy Home Assistant User & ACLs"** option. This will recreate the user and ACL file on your router.
+3.  **Manual Check**: If you set up ACLs manually, ensure the file `/usr/share/rpcd/acl.d/homeassistant.json` still exists on your router and contains the correct permissions.
+4.  **Persistent Fix**: To prevent this from happening in the next upgrade, add the ACL path to your sysupgrade configuration:
+    ```bash
+    echo "/usr/share/rpcd/acl.d/homeassistant.json" >> /etc/sysupgrade.conf
+    ```
 
 ### Sensors show "Unavailable"
 - Check **Settings > System > Repairs** in Home Assistant. The integration will create a repair issue if there's a specific API or package error.

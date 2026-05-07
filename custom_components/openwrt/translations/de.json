@@ -777,6 +777,30 @@
           "provision_failed": "Aktualisierung der Berechtigungen für den dedizierten Benutzer fehlgeschlagen."
         }
       }
+    },
+    "stale_permissions_upgrade": {
+      "title": "Berechtigungen nach OpenWrt-Upgrade auf {host} verloren",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Berechtigungen wiederherstellen",
+            "description": "Auf **{host}** wurde ein OpenWrt-Firmware-Upgrade erkannt. Diese Upgrades setzen oft benutzerdefinierte RPC-ACL-Regeln zurück, was den dedizierten Benutzer **{username}** daran hindert, auf Systemsensoren wie CPU, RAM oder Temperatur zuzugreifen.\n\nDu musst die ACLs neu bereitstellen, um die vollständige Überwachung wiederherzustellen. Du wirst aufgefordert, das **root**-Passwort für diese einmalige Behebung einzugeben.\n\nHinweis: Das root-Passwort wird nur für diese Sitzung verwendet und nicht gespeichert."
+          },
+          "root_login": {
+            "title": "Login als Root",
+            "description": "Bitte gib die Zugangsdaten für einen Benutzer mit **root**-Zugriff auf **{host}** ein.",
+            "data": {
+              "username": "Root Benutzername",
+              "password": "Root Passwort"
+            }
+          }
+        },
+        "abort": {
+          "unknown_error": "Ein unbekannter Fehler ist aufgetreten.",
+          "cannot_connect": "Verbindung zum Router als root fehlgeschlagen.",
+          "provision_failed": "Aktualisierung der Berechtigungen für den dedizierten Benutzer fehlgeschlagen."
+        }
+      }
     }
   },
   "services": {

@@ -777,6 +777,30 @@
           "provision_failed": "Failed to update permissions for the dedicated user."
         }
       }
+    },
+    "stale_permissions_upgrade": {
+      "title": "Permissions lost after OpenWrt upgrade on {host}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Restore Permissions",
+            "description": "An OpenWrt firmware upgrade was detected on **{host}**. These upgrades often reset custom RPC ACL rules, which prevents the dedicated user **{username}** from accessing system sensors like CPU, RAM, or Temperature.\n\nYou need to redeploy the ACLs to restore full monitoring. You will be asked to provide the **root** password for this one-time fix.\n\nNote: The root password is only used for this session and is not stored."
+          },
+          "root_login": {
+            "title": "Login as Root",
+            "description": "Please enter the credentials for a user with **root** access on **{host}**.",
+            "data": {
+              "username": "Root Username",
+              "password": "Root Password"
+            }
+          }
+        },
+        "abort": {
+          "unknown_error": "An unknown error occurred.",
+          "cannot_connect": "Failed to connect to the router as root.",
+          "provision_failed": "Failed to update permissions for the dedicated user."
+        }
+      }
     }
   },
   "services": {

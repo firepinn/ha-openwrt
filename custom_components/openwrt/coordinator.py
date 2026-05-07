@@ -209,6 +209,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         self.router_id = (
             self.config_entry.unique_id or self.config_entry.data[CONF_HOST]
         )
+        self._last_version: str | None = None
         self._store: storage.Store = storage.Store(
             hass,
             1,
@@ -230,14 +231,21 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
     async def _async_setup(self) -> None:
         """Set up the coordinator (connect to device)."""
-        # Load history from storage
+        # Load history and version from storage
         try:
-            stored_history = await self._store.async_load()
-            if stored_history:
-                self._device_history.update(stored_history)
+            stored_data = await self._store.async_load()
+            if stored_data:
+                if isinstance(stored_data, dict) and "devices" in stored_data:
+                    self._device_history.update(stored_data.get("devices", {}))
+                    self._last_version = stored_data.get("last_version")
+                else:
+                    # Legacy structure (direct dict of devices)
+                    self._device_history.update(stored_data)
+                
                 _LOGGER.debug(
-                    "Loaded %s devices from persistent history",
+                    "Loaded %s devices from persistent history (last_version: %s)",
                     len(self._device_history),
+                    self._last_version,
                 )
         except Exception as err:
             _LOGGER.warning("Could not load persistent history: %s", err)
@@ -310,9 +318,14 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         # 6. Device tracking and filtering
         await self._async_filter_and_track_devices(data)
 
-        # 7. Persist history if it changed
+        # 7. Persist history and version if it changed
         try:
-            await self._store.async_save(self._device_history)
+            await self._store.async_save(
+                {
+                    "devices": self._device_history,
+                    "last_version": self._last_version,
+                }
+            )
         except Exception as err:
             _LOGGER.warning("Could not save persistent history: %s", err)
 
@@ -360,7 +373,10 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         stale = False
         # We check for core features that indicate the 'homeassistant' user needs more rights
         # than what were granted during its creation.
-        if packages.wireless and not perms.read_wireless:
+        if not perms.read_system:
+            # Core system info is missing
+            stale = True
+        elif packages.wireless and not perms.read_wireless:
             stale = True
         elif packages.mwan3 and not perms.read_mwan:
             stale = True
@@ -372,11 +388,33 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             # nlbwmon needs network access
             stale = True
 
+        # Detect if an upgrade happened
+        current_version = data.device_info.release_version
+        is_upgrade = False
+        if (
+            self._last_version
+            and current_version
+            and self._last_version != current_version
+        ):
+            _LOGGER.info(
+                "OpenWrt upgrade detected: %s -> %s",
+                self._last_version,
+                current_version,
+            )
+            is_upgrade = True
+
+        # Update last version
+        if current_version:
+            self._last_version = current_version
+
         if stale:
             _LOGGER.debug(
-                "Detected stale permissions for 'homeassistant' user, creating repair issue"
+                "Detected stale permissions for 'homeassistant' user (is_upgrade=%s), creating repair issue",
+                is_upgrade,
             )
-            async_create_stale_permissions_repair(self.hass, self.config_entry)
+            async_create_stale_permissions_repair(
+                self.hass, self.config_entry, is_upgrade=is_upgrade
+            )
         else:
             async_delete_stale_permissions_repair(self.hass, self.config_entry)
 

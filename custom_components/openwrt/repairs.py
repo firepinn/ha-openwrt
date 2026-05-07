@@ -57,8 +57,11 @@ def async_create_auth_repair(
 def async_create_stale_permissions_repair(
     hass: HomeAssistant,
     entry: ConfigEntry,
+    is_upgrade: bool = False,
 ) -> None:
     """Create a repair issue for stale permissions."""
+    translation_key = "stale_permissions_upgrade" if is_upgrade else "stale_permissions"
+
     ir.async_create_issue(
         hass,
         DOMAIN,
@@ -66,7 +69,7 @@ def async_create_stale_permissions_repair(
         is_fixable=True,
         is_persistent=True,
         severity=ir.IssueSeverity.WARNING,
-        translation_key="stale_permissions",
+        translation_key=translation_key,
         translation_placeholders={
             "host": entry.data.get("host", "unknown"),
             "username": entry.data.get("username", "homeassistant"),
