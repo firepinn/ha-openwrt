@@ -192,6 +192,7 @@
           "skip_random_mac": "Geräte mit zufälligen MAC-Adressen ignorieren",
           "mqtt_presence": "MQTT Präsenzerkennung aktivieren",
           "redeploy_mqtt": "MQTT-Präsenz-Skripte erneut übertragen",
+          "redeploy_user": "Home Assistant Benutzer & ACLs neu übertragen",
           "trust_stale_arp": "ARP-Status 'STALE' als anwesend werten",
           "trust_bridge_fdb": "Bridge-FDB für Anwesenheit nutzen (Kabel)"
         },
@@ -239,6 +240,21 @@
       "options_deploy_failed": {
         "title": "Übertragung fehlgeschlagen",
         "description": "Die Übertragung der MQTT-Präsenz-Skripte ist fehlgeschlagen.\n\n**Fehler:**\n```\n{error}\n```\n\nBitte prüfe die Internetverbindung und den freien Speicherplatz deines Routers."
+      },
+      "options_redeploy_user": {
+        "title": "Home Assistant Benutzer neu übertragen",
+        "description": "Um den Home Assistant Benutzer und seine ACL-Regeln neu zu übertragen, gib bitte die Zugangsdaten für einen Benutzer mit Root-Zugriff (meist 'root') ein.\n\nDies wird den dedizierten Benutzer neu erstellen und alle notwendigen Berechtigungen wiederherstellen, damit die Integration korrekt funktioniert.",
+        "data": {
+          "username": "Root Benutzername",
+          "password": "Root Passwort"
+        }
+      },
+      "options_redeploy_user_failed": {
+        "title": "Neuübertragung fehlgeschlagen",
+        "description": "Die Neuübertragung des Home Assistant Benutzers ist fehlgeschlagen.\n\n**Fehler:**\n```\n{error}\n```\n\nBitte prüfe die Zugangsdaten und stelle sicher, dass der Router erreichbar ist.",
+        "data": {
+          "action": "Nächster Schritt"
+        }
       }
     }
   },
@@ -748,8 +764,9 @@
           },
           "root_login": {
             "title": "Login als Root",
-            "description": "Bitte gib das **root**-Passwort für **{host}** ein.",
+            "description": "Bitte gib die Zugangsdaten für einen Benutzer mit **root**-Zugriff auf **{host}** ein.",
             "data": {
+              "username": "Root Benutzername",
               "password": "Root Passwort"
             }
           }

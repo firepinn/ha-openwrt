@@ -33,6 +33,7 @@ CONF_MQTT_PASSWORD: Final = "mqtt_password"
 CONF_REDEPLOY_MQTT: Final = "redeploy_mqtt"
 CONF_TRUST_STALE_ARP: Final = "trust_stale_arp"
 CONF_TRUST_BRIDGE_FDB: Final = "trust_bridge_fdb"
+CONF_REDEPLOY_USER: Final = "redeploy_user"
 
 CONNECTION_TYPE_UBUS: Final = "ubus"
 CONNECTION_TYPE_LUCI_RPC: Final = "luci_rpc"

@@ -74,6 +74,7 @@ from .const import (
     CONF_MQTT_PRESENCE,
     CONF_MQTT_USERNAME,
     CONF_REDEPLOY_MQTT,
+    CONF_REDEPLOY_USER,
     CONF_SKIP_RANDOM_MAC,
     CONF_SSH_KEY,
     CONF_TARGET_OVERRIDE,
@@ -1824,6 +1825,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
         self._permissions: Any = None
         self._packages: Any = None
         self._ubus_restricted: bool = False
+        self._root_credentials: dict[str, Any] = {}
 
     async def async_step_init(
         self,
@@ -1838,6 +1840,9 @@ class OpenWrtOptionsFlow(OptionsFlow):
                 and not self._config_entry.options.get(CONF_MQTT_PRESENCE)
             ) or user_input.get(CONF_REDEPLOY_MQTT):
                 return await self.async_step_options_mqtt_presence()
+
+            if user_input.get(CONF_REDEPLOY_USER):
+                return await self.async_step_options_redeploy_user()
 
             # Check if we are disabling MQTT
             if not user_input.get(
@@ -1923,6 +1928,10 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     default=current.get(
                         CONF_TRUST_BRIDGE_FDB, DEFAULT_TRUST_BRIDGE_FDB
                     ),
+                ): bool,
+                vol.Optional(
+                    CONF_REDEPLOY_USER,
+                    default=False,
                 ): bool,
             },
         )
@@ -2169,6 +2178,77 @@ class OpenWrtOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="options_deploy_failed",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("action", default="retry"): vol.In(["retry", "back"]),
+                }
+            ),
+        )
+
+    async def async_step_options_redeploy_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle redeploying the HA user and ACLs."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._root_credentials = user_input
+            return await self.async_step_options_do_redeploy_user()
+
+        return self.async_show_form(
+            step_id="options_redeploy_user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default="root"): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_options_do_redeploy_user(self) -> ConfigFlowResult:
+        """Perform the actual user redeployment."""
+        # Use root credentials to redeploy the HA user
+        root_data = {
+            **self._config_entry.data,
+            CONF_USERNAME: self._root_credentials[CONF_USERNAME],
+            CONF_PASSWORD: self._root_credentials[CONF_PASSWORD],
+        }
+        client = create_client(root_data)
+
+        try:
+            await client.connect()
+            # The username to redeploy is the one from the config entry (usually 'homeassistant')
+            ha_username = self._config_entry.data[CONF_USERNAME]
+            ha_password = self._config_entry.data[CONF_PASSWORD]
+
+            success, error = await client.provision_user(ha_username, ha_password)
+            if success:
+                return await self.async_step_options_permissions()
+
+            return self.async_show_form(
+                step_id="options_redeploy_user_failed",
+                description_placeholders={"error": error or "Unknown error"},
+            )
+        except Exception as err:
+            _LOGGER.exception("User redeployment failed")
+            return self.async_show_form(
+                step_id="options_redeploy_user_failed",
+                description_placeholders={"error": str(err)},
+            )
+        finally:
+            await client.disconnect()
+
+    async def async_step_options_redeploy_user_failed(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle user redeployment failure."""
+        if user_input is not None:
+            if user_input.get("action") == "retry":
+                return await self.async_step_options_redeploy_user()
+            return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="options_redeploy_user_failed",
             data_schema=vol.Schema(
                 {
                     vol.Required("action", default="retry"): vol.In(["retry", "back"]),

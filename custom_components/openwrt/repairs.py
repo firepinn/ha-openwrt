@@ -266,30 +266,25 @@ class StalePermissionsRepairFlow(RepairsFlow):
 
         if user_input is not None:
             root_data = dict(entry.data)
-            root_data[CONF_USERNAME] = "root"
+            root_data[CONF_USERNAME] = user_input.get(CONF_USERNAME, "root")
             root_data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
 
             client = create_client(root_data)
             try:
                 await client.connect()
-                # Provision the user again
-                # We need the homeassistant user's current password if we want to 'reset' it,
-                # or we just generate a new one. Re-provisioning usually resets it.
-                import secrets
+                # Provision the user again with EXISTING credentials
+                ha_username = entry.data.get(CONF_USERNAME, "homeassistant")
+                ha_password = entry.data.get(CONF_PASSWORD)
 
-                new_password = secrets.token_hex(16)
                 success, error = await client.provision_user(
-                    "homeassistant", new_password
+                    ha_username, ha_password
                 )
                 if success:
-                    # Update the entry with the new password
-                    self.hass.config_entries.async_update_entry(
-                        entry,
-                        data={**entry.data, CONF_PASSWORD: new_password},
-                    )
+                    # We didn't change the password, so just reload or just mark as fixed
                     await self.hass.config_entries.async_reload(entry.entry_id)
                     return self.async_create_entry(title="", data={})
                 errors["base"] = "provision_failed"
+                _LOGGER.error("Provisioning failed during repair: %s", error)
             except Exception:
                 _LOGGER.exception("Failed to connect as root")
                 errors["base"] = "cannot_connect"
@@ -298,7 +293,12 @@ class StalePermissionsRepairFlow(RepairsFlow):
 
         return self.async_show_form(
             step_id="root_login",
-            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME, default="root"): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
             errors=errors,
             description_placeholders={"host": entry.data.get(CONF_HOST, "unknown")},
         )

@@ -192,6 +192,7 @@
           "skip_random_mac": "Ignore devices with randomized MAC addresses",
           "mqtt_presence": "Enable MQTT Presence Detection",
           "redeploy_mqtt": "Re-deploy MQTT Presence Scripts",
+          "redeploy_user": "Re-deploy Home Assistant User & ACLs",
           "trust_stale_arp": "Trust ARP 'STALE' state for presence",
           "trust_bridge_fdb": "Trust Bridge FDB for presence (Wired)"
         },
@@ -239,6 +240,21 @@
       "options_deploy_failed": {
         "title": "Deployment Failed",
         "description": "The deployment of the MQTT presence scripts failed.\n\n**Error:**\n```\n{error}\n```\n\nPlease check your router's internet connection and free space."
+      },
+      "options_redeploy_user": {
+        "title": "Redeploy Home Assistant User",
+        "description": "To redeploy the Home Assistant user and its ACL rules, please provide the credentials for a user with root access (usually 'root').\n\nThis will recreate the dedicated user and restore all necessary permissions for the integration to work correctly.",
+        "data": {
+          "username": "Root Username",
+          "password": "Root Password"
+        }
+      },
+      "options_redeploy_user_failed": {
+        "title": "Redeployment Failed",
+        "description": "The redeployment of the Home Assistant user failed.\n\n**Error:**\n```\n{error}\n```\n\nPlease check the credentials and ensure the router is reachable.",
+        "data": {
+          "action": "Next Step"
+        }
       }
     }
   },
@@ -748,8 +764,9 @@
           },
           "root_login": {
             "title": "Login as Root",
-            "description": "Please enter the **root** password for **{host}**.",
+            "description": "Please enter the credentials for a user with **root** access on **{host}**.",
             "data": {
+              "username": "Root Username",
               "password": "Root Password"
             }
           }
