@@ -1015,6 +1015,8 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                             results, translations
                         )
             return self._handle_test_error(err, data.get(CONF_USERNAME))
+        finally:
+            await client.disconnect()
 
     async def _perform_connection_test(self, client: Any, data: dict[str, Any]) -> None:
         """Perform the actual connection and info gathering."""
@@ -1052,8 +1054,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
             except Exception:
                 self._ubus_restricted = True
-
-        await client.disconnect()
 
     def _handle_test_error(self, err: Exception, username: str | None) -> str:
         """Map connection exceptions to translation keys."""
@@ -1371,7 +1371,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                                     f"SSH fallback also failed: {ssh_error}. "
                                     "Please reconfigure using SSH as the connection type."
                                 )
-                            await ssh_client.disconnect()
                         else:
                             self._provision_error = (
                                 "ubus file.exec is blocked on this router (common on Xiaomi/OEM firmwares) "
@@ -1387,19 +1386,17 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                             "Please enable SSH (System → Administration → SSH Access) "
                             "and reconfigure using SSH as the connection type."
                         )
+                    finally:
+                        await ssh_client.disconnect()
 
-                await client.disconnect()
         except TimeoutError:
             _LOGGER.warning(
                 "Provisioning timed out for %s. It might have succeeded if services are restarting.",
                 self._data.get(CONF_HOST),
             )
-            # We don't mark as success here, but if the script worked,
-            # the next step (testing new user) might still work
             self._provision_error = "Timeout during provisioning. The router might be slow or restarting services."
         except Exception as err:
             err_msg = str(err).lower()
-            # If we get a connection drop, it's highly likely service restarts triggered it
             if any(
                 m in err_msg
                 for m in ["connection reset", "broken pipe", "closed", "eof"]
@@ -1408,8 +1405,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                     "Connection dropped during provisioning for %s - this is expected during service restarts.",
                     self._data.get(CONF_HOST),
                 )
-                # We assume success if the command was at least sent and no explicit error returned
-                # The next step 'display_new_user' does a thorough re-connect test
                 success = True
             else:
                 _LOGGER.exception(
@@ -1418,6 +1413,8 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                     err,
                 )
                 self._provision_error = str(err)
+        finally:
+            await client.disconnect()
 
         if success:
             # Wait for rpcd to fully restart and apply ACLs

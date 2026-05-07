@@ -162,7 +162,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = OpenWrtDataCoordinator(hass, entry, client)
 
     # Initialize coordinator data which also handles device registry updates
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        await client.disconnect()
+        raise
 
     # Clear any stale unit_of_measurement overrides from previous versions
     _async_migrate_entity_units(hass, entry)

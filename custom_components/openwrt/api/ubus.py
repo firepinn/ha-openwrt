@@ -115,6 +115,7 @@ class UbusClient(OpenWrtClient):
         self._ubus_path = ubus_path
         self._session_id: str = "00000000000000000000000000000000"
         self._session: aiohttp.ClientSession | None = None
+        self._session_lock = asyncio.Lock()
         self._semaphore = asyncio.Semaphore(
             5
         )  # Limit concurrent RPC calls to avoid overloading uhttpd
@@ -141,16 +142,20 @@ class UbusClient(OpenWrtClient):
 
     async def _ensure_session(self) -> aiohttp.ClientSession:
         """Ensure an aiohttp session exists."""
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=30)
-            connector = aiohttp.TCPConnector(
-                ssl=self.verify_ssl if self.use_ssl else False,
-            )
-            self._session = aiohttp.ClientSession(
-                timeout=timeout,
-                connector=connector,
-            )
-        return self._session
+        if self._session is not None and not self._session.closed:
+            return self._session
+
+        async with self._session_lock:
+            if self._session is None or self._session.closed:
+                timeout = aiohttp.ClientTimeout(total=30)
+                connector = aiohttp.TCPConnector(
+                    ssl=self.verify_ssl if self.use_ssl else False,
+                )
+                self._session = aiohttp.ClientSession(
+                    timeout=timeout,
+                    connector=connector,
+                )
+            return self._session
 
     async def _call(
         self,
