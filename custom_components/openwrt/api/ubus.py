@@ -1789,6 +1789,7 @@ class UbusClient(OpenWrtClient):
             perms.write_services = has_perm("service", "list")
             perms.write_access_control = perms.write_firewall
             perms.read_batman = has_perm("batman", "*") or has_perm("file", "exec")
+            perms.write_mqtt = has_perm("file", "exec")
 
             return True
         return False
@@ -1865,6 +1866,7 @@ class UbusClient(OpenWrtClient):
         )
         perms.read_services = await can_call("service", "list") or is_root
         perms.write_services = await can_call("service", "list") or is_root
+        perms.write_mqtt = perms.write_devices
 
     async def check_packages(self) -> OpenWrtPackages:
         """Check installed packages."""

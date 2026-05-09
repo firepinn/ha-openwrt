@@ -200,6 +200,10 @@ def _generate_permission_table(
     rows.append(
         f"| {t('permissions_sub_batman', 'Batman-adv')} | {to_icon(perms.read_batman)} | - | {get_missing(perms.read_batman, True, t('permissions_sub_batman', 'Batman-adv'), [])}"
     )
+    # MQTT
+    rows.append(
+        f"| {t('permissions_sub_mqtt', 'MQTT Setup')} | - | {to_icon(perms.write_mqtt)} | {get_missing(True, perms.write_mqtt, t('permissions_sub_mqtt', 'MQTT Setup'), ['deploy_scripts'])} |"
+    )
 
     return header + "\n".join(rows)
 
@@ -1655,8 +1659,11 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_MQTT_PORT] = "invalid_port"
 
             if not errors:
-                self._data.update(user_input)
-                return await self.async_step_do_deploy_mqtt_presence()
+                if not self._permissions.write_mqtt:
+                    errors["base"] = "mqtt_permission_missing"
+                else:
+                    self._data.update(user_input)
+                    return await self.async_step_do_deploy_mqtt_presence()
 
         return self.async_show_form(
             step_id="mqtt_presence",
@@ -2092,8 +2099,11 @@ class OpenWrtOptionsFlow(OptionsFlow):
                 self._options.update(user_input)
                 return await self.async_step_options_permissions()
 
-            self._options.update(user_input)
-            return await self.async_step_options_do_deploy_mqtt_presence()
+            if not self._permissions.write_mqtt:
+                errors["base"] = "mqtt_permission_missing"
+            else:
+                self._options.update(user_input)
+                return await self.async_step_options_do_deploy_mqtt_presence()
 
         current = self._config_entry.options
         return self.async_show_form(

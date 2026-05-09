@@ -1606,6 +1606,7 @@ class SshClient(OpenWrtClient):
                 perms.write_devices = True
                 perms.write_services = True
                 perms.read_batman = True
+                perms.write_mqtt = True
                 return perms
 
             # 1. Check UCI read access (very common baseline for non-root)
@@ -1641,30 +1642,33 @@ class SshClient(OpenWrtClient):
                     perms.read_batman = True
 
             # 4. Write permissions
-            if is_root:
-                perms.write_system = True
-                perms.write_network = True
-                perms.write_firewall = True
-                perms.write_wireless = True
-                perms.write_sqm = True
-                perms.write_led = True
-                perms.write_devices = True
-                perms.write_services = True
-                perms.write_access_control = True
-                perms.write_vpn = True
-            else:
-                # Test write access with a dummy UCI change (without commit)
-                try:
-                    write_check = await self._exec(
-                        "uci set system.@system[0].ha_test='1' 2>/dev/null && echo 1"
-                    )
-                    if write_check.strip() == "1":
-                        perms.write_system = True
-                        # Assume others follow if system is writable
-                        perms.write_network = True
-                        perms.write_firewall = True
-                except Exception:
-                    pass
+            # Test write access with a dummy UCI change (without commit)
+            try:
+                write_check = await self._exec(
+                    "uci set system.@system[0].ha_test='1' 2>/dev/null && echo 1"
+                )
+                if write_check.strip() == "1":
+                    perms.write_system = True
+                    # Assume others follow if system is writable
+                    perms.write_network = True
+                    perms.write_firewall = True
+                    perms.write_mqtt = True
+                    perms.write_wireless = True
+                    perms.write_sqm = True
+                    perms.write_led = True
+                    perms.write_devices = True
+                    perms.write_services = True
+                    perms.write_access_control = True
+                    perms.write_vpn = True
+                    
+                    # 5. Check for MQTT write access specifically
+                    # If we have UCI write access, we probably have enough, 
+                    # but let's be sure we can write to /etc/presence if it exists
+                    mqtt_check = await self._exec("[ -w /etc/presence ] || [ -w /tmp ] && echo 1")
+                    if mqtt_check.strip() == "1":
+                        perms.write_mqtt = True
+            except Exception:
+                pass
         except Exception:
             if is_root:
                 # Fallback for root if probes fail

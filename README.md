@@ -23,21 +23,21 @@ Supports **OpenWrt 25.12** and newer (older versions are supported via `opkg` fa
 
 ## ✨ Features
 
-- **VPN Monitoring**: 
+- **VPN Monitoring**:
   - Tracks status (Up/Down) for WireGuard and OpenVPN tunnels.
   - Monitors throughput (RX/TX) and detailed WireGuard peer statistics (handshake, transfer, allowed IPs).
-- **Network & Connectivity**: 
+- **Network & Connectivity**:
   - **Latency/Ping**: Monitor network latency to a target (e.g. 8.8.8.8) with packet loss tracking.
   - **DHCP Monitoring**: Track the number of active DHCP leases.
   - **Public IP**: Track your external WAN IP address with change detection.
   - **Advanced Interface Diagnostics**: Individual sensors/attributes for IPv6 addresses, link speed (Mbps), duplex mode, and interface uptime.
-- **4G/5G QModem Support (ModemManager integration)**: 
+- **4G/5G QModem Support (ModemManager integration)**:
   - Comprehensive signal diagnostics: RSRP, RSRQ, RSSI, SINR for LTE and 5G.
   - Device health: Modem temperature, voltage, and ISP detection.
   - SIM status: Tracking SIM slots and connectivity state.
 - **Configurable Control**:
   - **WiFi TX Power**: Native slider to control transmission power of WiFi radios.
-  - **SQM (Smart Queue Management)**: 
+  - **SQM (Smart Queue Management)**:
     - Control enabled state of SQM instances.
     - Set download and upload limits (Mbps) via native number sliders.
     - Diagnostic sensors for configured interface, qdisc, and setup script.
@@ -56,14 +56,14 @@ Supports **OpenWrt 25.12** and newer (older versions are supported via `opkg` fa
 - **Parental Control & Device Management**:
   - **Internet Access Control**: Per-device "Internet Access" switches to block/allow traffic (Fritz!Box style).
   - **Wireless Management**: WPS control switches and buttons to disconnect specific wireless clients.
-- **Smart Tracking & Events**: 
+- **Smart Tracking & Events**:
   - **Multi-source Device Tracking**: Combines DHCP leases with ARP/NDP tables (`ip neigh`) for instant and reliable presence detection.
   - **Persistent History**: Tracks `initially_seen` and `last_seen` timestamps for every device, persisting across Home Assistant restarts.
   - **Connection Type Detection**: Automatically identifies if a device is connected via `wired` or a specific WiFi band (`2.4GHz`, `5GHz`, `6GHz`).
   - **Topology Mapping**: Wireless clients are automatically linked to their respective Access Point via the `via_device` attribute.
   - **Infrastructure Filtering**: Automatically identifies and filters out the router's own network interfaces to prevent circular self-tracking.
   - **New Device Event**: Fires `openwrt_new_device` when previously unknown MAC addresses are discovered.
-- **MQTT Presence Detection (Optional)**: 
+- **MQTT Presence Detection (Optional)**:
   - Integration with the third-party [OpenWRT_HA_Presence](https://github.com/f45tb00t/OpenWRT_HA_Presence) scripts.
   - High-performance, low-latency tracking via MQTT events instead of polling.
   - Automatic script deployment and configuration directly from the Home Assistant UI.
@@ -74,12 +74,12 @@ Supports **OpenWrt 25.12** and newer (older versions are supported via `opkg` fa
   - **UPnP Mappings**: Track active UPnP and NAT-PMP port forwardings.
   - **Refined Naming**: Routers are primarily identified by their product model (e.g. "Xiaomi AX3600") for a premium dashboard look.
   - **LLDP Neighbors**: Discover and monitor physical port connections via the LLDP protocol (if available on the router).
-- **Batman-adv Mesh Support**: 
+- **Batman-adv Mesh Support**:
   - **Topology Overview**: Monitor mesh neighbors, originators (nodes), and gateways.
   - **Link Quality**: Track Transmit Quality (TQ) sensors for each mesh neighbor.
   - **Client Routing**: Automatically track which mesh node a mobile client is currently connected to.
   - **Status**: Monitor mesh activity status.
-- **Optimized for Large Environments**: 
+- **Optimized for Large Environments**:
   - Parallel API calls and background platform loading prevent Home Assistant blocking warnings and ensure smooth startup even with 100+ devices.
 - **Native Experience**:
   - **Full Localization**: English and German translations included.
@@ -183,6 +183,7 @@ If you are using a non-root user (e.g. for security reasons), you need to grant 
 | **Services** | Read active system services (OpenVPN, AdGuard, etc.) | Toggling & restarting services |
 | **LEDs** | Read current state of router LEDs | Toggling LEDs, changing brightness |
 | **MWAN3** | Read Multi-WAN load balancing status | - |
+| **MQTT Presence** | Automatic deployment of presence scripts | Deploying/Updating scripts (requires `file.exec`) |
 
 During setup, the integration will check your user's permissions and display a summary of available features.
 
@@ -222,7 +223,7 @@ You can control how the integration handles network clients (PCs, phones, IoT de
 #### Other Options
 - **Update Interval**: How frequently to poll data (default 30s). Adjust based on your router's performance.
 - **Consider Home**: Set the grace period (in seconds) for device presence detection (prevents devices from switching to "Away" during brief sleep cycles). Default is 180s.
-- **DHCP Software**: 
+- **DHCP Software**:
   - `Auto-detect`: Best for most users.
   - `dnsmasq`: Uses `/tmp/dhcp.leases`.
   - `odhcpd`: Uses `ubus call dhcp ipv4leases`.
@@ -253,7 +254,7 @@ Read a value from the UCI configuration. Returns the value as a service response
 
 ### `openwrt.uci_set`
 Modify any UCI setting and commit the change immediately.
-- **`config`**, **`section`**, **`option`**, **`value`**: The target setting. 
+- **`config`**, **`section`**, **`option`**, **`value`**: The target setting.
 
 ### `openwrt.wake_on_lan`
 Send a Magic Packet through the router to wake up a device.
@@ -847,7 +848,7 @@ The "Internet Access" switches in Home Assistant act as a toggle for the firewal
 The integration automatically hides "STA-style" sensors (Signal, Quality, Bitrate) if the WiFi interface is in **Master/AP mode**. These values only make sense when the router itself is acting as a client (Station) or Mesh node.
 
 ### Does this work with devices behind other Access Points (e.g. Unifi, TP-Link)?
-**Yes, absolutely!** A common setup is an OpenWrt router (acting as the main gateway) connected to separate Access Points via LAN cable. 
+**Yes, absolutely!** A common setup is an OpenWrt router (acting as the main gateway) connected to separate Access Points via LAN cable.
 
 Even if the WiFi on your OpenWrt router is disabled, the integration can still track mobile devices (phones, tablets) connected to those external APs. It does this by monitoring two low-level system sources:
 - **ARP/Neighbor Table (`ip neigh`)**: Every device that communicates with the internet or the router itself must appear in the ARP table. The integration identifies these devices and marks them as "Home" as long as they are in an active state (`REACHABLE` or `STALE`).
@@ -866,6 +867,15 @@ In the integration **Options**, you can enable higher precision for presence det
 - **Trust ARP 'STALE' state**: If disabled, devices that the router hasn't verified recently will be marked as "Away" immediately. This can save several minutes but might cause "flickering" if a device is idle.
 - **Trust Bridge FDB**: If disabled, the integration will only rely on active ARP communication. This is the most responsive method but might miss devices that are only talking to other local devices.
 - **Consider Home**: Lower this value in the options flow (e.g. to 60 seconds).
+
+### Required MQTT Permissions
+
+To set up and use the MQTT presence detection feature, the OpenWrt user configured in Home Assistant requires the following permissions:
+
+*   **RPC Object `file` / Method `exec`**: Required to deploy the shell scripts, create directories, and manage services.
+*   **RPC Object `hostapd.*` / Method `get_clients`**: Required by the script on the router to poll connected clients.
+
+If you are using the `homeassistant` user created by this integration's provisioning script, all necessary permissions (including `file.exec` and access to `/etc/presence`) are automatically granted. If you use a custom user, ensure it has these ACLs configured in `/usr/share/rpcd/acl.d/`.
 
 ## 🧑‍💻 Development
 

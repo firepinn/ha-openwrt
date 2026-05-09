@@ -165,7 +165,8 @@
       "permission_error": "Unzureichende RPC-Berechtigungen. Prüfe deine Benutzer-ACLs in /etc/config/rpcd. Hinweis: 'Eingeschränkte Benutzer' in LuCI haben oft nur Zugriff auf Web-Interface RPCs, aber nicht auf die rohen Ubus-Objekte, die für diese Methode nötig sind.",
       "provision_failed": "Automatisches Erstellen des Benutzers fehlgeschlagen. Stelle sicher, dass du als root verbunden bist und genug freien Speicher auf dem Router für 'rpcd' ACL-Dateien hast.\n\nFehler: {error}",
       "no_devices_found": "Es wurden keine OpenWrt-Router automatisch in deinem Netzwerk gefunden. Du kannst versuchen, die Details manuell einzugeben.",
-      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
+      "mqtt_permission_missing": "Dem konfigurierten OpenWrt-Benutzer fehlen die erforderlichen Berechtigungen zum Bereitstellen der MQTT-Präsenzerkennungsskripte (erfordert file.exec/sys.exec-Rechte)."
     },
     "abort": {
       "already_configured": "Dieser Router ist bereits konfiguriert.",
@@ -313,6 +314,7 @@
           "permissions_sub_leds": "LEDs",
           "permissions_sub_mwan3": "MWAN3",
           "permissions_sub_batman": "Batman-adv",
+          "permissions_sub_mqtt": "MQTT-Präsenz-Setup",
           "permissions_feature_reboot": "Neustart",
           "permissions_feature_upgrade": "Upgrade",
           "permissions_feature_backup": "Backup",

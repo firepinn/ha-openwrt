@@ -165,7 +165,8 @@
       "permission_error": "Insufficient RPC permissions. Check your user ACLs in /etc/config/rpcd. Note: 'Restricted users' in LuCI often only have access to web-interface RPCs, but not the raw ubus objects required for this connection method.",
       "provision_failed": "Failed to automatically create the dedicated user. Ensure you are connected as root and have enough free space on the router for 'rpcd' ACL files.\n\nError: {error}",
       "no_devices_found": "No OpenWrt routers were automatically discovered on your network. You can try to enter the details manually.",
-      "unknown": "An unexpected error occurred."
+      "unknown": "An unexpected error occurred.",
+      "mqtt_permission_missing": "The configured OpenWrt user lacks the necessary permissions to deploy the MQTT presence detection scripts (requires file.exec/sys.exec rights)."
     },
     "abort": {
       "already_configured": "This router is already configured.",
@@ -313,12 +314,14 @@
           "permissions_sub_leds": "LEDs",
           "permissions_sub_mwan3": "MWAN3",
           "permissions_sub_batman": "Batman-adv",
+          "permissions_sub_mqtt": "MQTT Presence Setup",
           "permissions_feature_reboot": "Reboot",
           "permissions_feature_upgrade": "Upgrade",
           "permissions_feature_backup": "Backup",
           "permissions_feature_up_down_reconnect": "Up/Down/Reconnect",
           "permissions_feature_toggle_wifi": "Toggle WiFi",
           "permissions_feature_wps_control": "WPS Control",
+          "permissions_feature_deploy_scripts": "Deploy Presence Scripts",
           "permissions_feature_toggling_rules_redirects": "Toggling Rules/Redirects",
           "permissions_feature_access_control": "Access Control",
           "permissions_feature_wake_on_lan": "Wake on LAN",

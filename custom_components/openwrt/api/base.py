@@ -148,6 +148,8 @@ if ! cat <<EOF > "$ACL_FILE"
                 "/sbin/apk": ["read", "stat", "exec"],
                 "/bin/opkg": ["read", "stat", "exec"],
                 "/sbin/logread": ["read", "stat"],
+                "/etc/presence/*": ["read", "stat"],
+                "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],
                 "/usr/sbin/batctl": ["read", "stat", "exec"],
                 "/sys/module/batman_adv": ["read", "stat"],
                 "/bin/cat": ["read", "stat", "exec"],
@@ -160,6 +162,10 @@ if ! cat <<EOF > "$ACL_FILE"
                 "/bin/ping": ["read", "stat", "exec"],
                 "/usr/bin/ping": ["read", "stat", "exec"],
                 "/usr/bin/uptime": ["read", "stat", "exec"],
+                "/usr/bin/killall": ["read", "stat", "exec"],
+                "/bin/chmod": ["read", "stat", "exec"],
+                "/bin/mkdir": ["read", "stat", "exec"],
+                "/bin/rm": ["read", "stat", "exec"],
                 "/proc/stat": ["read"],
                 "/proc/meminfo": ["read"],
                 "/proc/net/arp": ["read"],
@@ -186,7 +192,9 @@ if ! cat <<EOF > "$ACL_FILE"
                 "/bin/ash": ["exec"],
                 "/usr/bin/id": ["exec"],
                 "/sbin/apk": ["exec"],
-                "/bin/opkg": ["exec"]
+                "/bin/opkg": ["exec"],
+                "/etc/presence/*": ["read", "stat", "write"],
+                "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]
             }}
         }}
     }}
@@ -830,6 +838,7 @@ class OpenWrtPermissions:
     write_devices: bool = False
     write_access_control: bool = False
     read_batman: bool = False
+    write_mqtt: bool = False
 
 
 @dataclass

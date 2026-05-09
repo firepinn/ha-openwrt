@@ -616,11 +616,13 @@ class LuciRpcClient(OpenWrtClient):
             perms.read_services = True
             perms.write_services = True
             perms.write_devices = True
+            perms.write_mqtt = True
         except LuciRpcError as err:
             denied = "Access denied" in str(err)
             perms.read_services = not denied
             perms.write_services = not denied
             perms.write_devices = not denied
+            perms.write_mqtt = not denied
 
         perms.write_access_control = perms.write_firewall
         perms.read_batman = perms.read_services
