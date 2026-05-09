@@ -82,6 +82,8 @@ class LuciRpcClient(OpenWrtClient):
 
     def __init__(
         self,
+        hass: Any,
+        session: Any,
         host: str,
         username: str,
         password: str,
@@ -94,6 +96,8 @@ class LuciRpcClient(OpenWrtClient):
     ) -> None:
         """Initialize the LuCI RPC client."""
         super().__init__(
+            hass,
+            session,
             host,
             username,
             password,
@@ -105,8 +109,7 @@ class LuciRpcClient(OpenWrtClient):
             trust_bridge_fdb,
         )
         self._auth_token: str = ""
-        self._session: aiohttp.ClientSession | None = None
-        self._session_lock = asyncio.Lock()
+
         self._rpc_id: int = 0
         self._semaphore = asyncio.Semaphore(
             5
@@ -118,22 +121,7 @@ class LuciRpcClient(OpenWrtClient):
         scheme = "https" if self.use_ssl else "http"
         return f"{scheme}://{self.host}:{self.port}"
 
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        """Ensure an aiohttp session exists."""
-        if self._session is not None and not self._session.closed:
-            return self._session
 
-        async with self._session_lock:
-            if self._session is None or self._session.closed:
-                timeout = aiohttp.ClientTimeout(total=30)
-                connector = aiohttp.TCPConnector(
-                    ssl=self.verify_ssl if self.use_ssl else False,
-                )
-                self._session = aiohttp.ClientSession(
-                    timeout=timeout,
-                    connector=connector,
-                )
-            return self._session
 
     async def _rpc_call(
         self,
@@ -143,7 +131,7 @@ class LuciRpcClient(OpenWrtClient):
         reauthenticated: bool = False,
     ) -> Any:
         """Make a LuCI JSON-RPC call."""
-        session = await self._ensure_session()
+        session = self.session
         self._rpc_id += 1
 
         url = f"{self._base_url}/cgi-bin/luci/rpc/{endpoint}"
@@ -164,6 +152,7 @@ class LuciRpcClient(OpenWrtClient):
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
+                    ssl=self.verify_ssl if self.use_ssl else False,
                 ) as response:
                     if response.status == 403:
                         if self._auth_token and not reauthenticated:
@@ -349,7 +338,7 @@ class LuciRpcClient(OpenWrtClient):
 
     async def connect(self) -> bool:
         """Authenticate with LuCI."""
-        session = await self._ensure_session()
+        session = self.session
         self._rpc_id += 1
 
         url = f"{self._base_url}/cgi-bin/luci/rpc/auth"
@@ -364,6 +353,7 @@ class LuciRpcClient(OpenWrtClient):
                 url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
+                ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
                 if response.status == 404:
                     msg = (
@@ -425,9 +415,7 @@ class LuciRpcClient(OpenWrtClient):
 
     async def disconnect(self) -> None:
         """Disconnect and cleanup."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-        self._session = None
+        # Shared session managed by HA, no need to close
         self._connected = False
 
     async def get_device_info(self) -> DeviceInfo:

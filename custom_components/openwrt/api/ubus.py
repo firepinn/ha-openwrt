@@ -89,6 +89,8 @@ class UbusClient(OpenWrtClient):
 
     def __init__(
         self,
+        hass: Any,
+        session: Any,
         host: str,
         username: str,
         password: str,
@@ -102,6 +104,8 @@ class UbusClient(OpenWrtClient):
     ) -> None:
         """Initialize the ubus client."""
         super().__init__(
+            hass,
+            session,
             host,
             username,
             password,
@@ -114,8 +118,7 @@ class UbusClient(OpenWrtClient):
         )
         self._ubus_path = ubus_path
         self._session_id: str = "00000000000000000000000000000000"
-        self._session: aiohttp.ClientSession | None = None
-        self._session_lock = asyncio.Lock()
+
         self._semaphore = asyncio.Semaphore(
             5
         )  # Limit concurrent RPC calls to avoid overloading uhttpd
@@ -140,22 +143,7 @@ class UbusClient(OpenWrtClient):
             "params": params,
         }
 
-    async def _ensure_session(self) -> aiohttp.ClientSession:
-        """Ensure an aiohttp session exists."""
-        if self._session is not None and not self._session.closed:
-            return self._session
 
-        async with self._session_lock:
-            if self._session is None or self._session.closed:
-                timeout = aiohttp.ClientTimeout(total=30)
-                connector = aiohttp.TCPConnector(
-                    ssl=self.verify_ssl if self.use_ssl else False,
-                )
-                self._session = aiohttp.ClientSession(
-                    timeout=timeout,
-                    connector=connector,
-                )
-            return self._session
 
     async def _call(
         self,
@@ -165,7 +153,7 @@ class UbusClient(OpenWrtClient):
         reauthenticated: bool = False,
     ) -> dict[str, Any]:
         """Make a ubus call."""
-        session = await self._ensure_session()
+        session = self.session
         payload = self._build_request(
             "call",
             [self._session_id, ubus_object, ubus_method, params or {}],
@@ -179,6 +167,7 @@ class UbusClient(OpenWrtClient):
                     self._base_url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
+                    ssl=self.verify_ssl if self.use_ssl else False,
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
@@ -275,7 +264,7 @@ class UbusClient(OpenWrtClient):
 
     async def _list_objects(self) -> list[str]:
         """List available ubus objects."""
-        session = await self._ensure_session()
+        session = self.session
         if not self._connected:
             await self.connect()
 
@@ -293,6 +282,7 @@ class UbusClient(OpenWrtClient):
                 self._base_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
+                ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -309,7 +299,7 @@ class UbusClient(OpenWrtClient):
 
     async def _get_object_methods(self, object_name: str) -> dict[str, Any]:
         """Get methods for a specific ubus object."""
-        session = await self._ensure_session()
+        session = self.session
         token = self._session_id
         payload = self._build_request(
             "list",
@@ -321,6 +311,7 @@ class UbusClient(OpenWrtClient):
                 self._base_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
+                ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -333,7 +324,7 @@ class UbusClient(OpenWrtClient):
 
     async def connect(self) -> bool:
         """Authenticate with the ubus RPC endpoint."""
-        session = await self._ensure_session()
+        session = self.session
         payload = self._build_request(
             "call",
             [
@@ -350,6 +341,7 @@ class UbusClient(OpenWrtClient):
                 self._base_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
+                ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -402,9 +394,7 @@ class UbusClient(OpenWrtClient):
 
     async def disconnect(self) -> None:
         """Disconnect and cleanup."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-        self._session = None
+        # Shared session managed by HA
         self._connected = False
 
     async def get_device_info(self) -> DeviceInfo:

@@ -999,7 +999,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             {k: (v if k != CONF_PASSWORD else "********") for k, v in data.items()},
         )
         try:
-            client = create_client(data)
+            client = create_client(self.hass, data)
             _LOGGER.debug("Client created: %s", client)
             async with asyncio.timeout(30):
                 await self._perform_connection_test(client, data)
@@ -1323,7 +1323,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_do_provision(self) -> ConfigFlowResult:
         """Perform the actual provisioning."""
         self._generated_password = secrets.token_hex(16)
-        client = create_client(self._data)
+        client = create_client(self.hass, self._data)
         success = False
         self._provision_error = None
 
@@ -1699,7 +1699,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         """Perform the actual deployment."""
         from .helpers.mqtt_presence import async_deploy_mqtt_presence
 
-        client = create_client(self._data)
+        client = create_client(self.hass, self._data)
         try:
             await client.connect()
 
@@ -1854,7 +1854,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
             ) and self._config_entry.options.get(CONF_MQTT_PRESENCE):
                 from .helpers.mqtt_presence import async_remove_mqtt_presence
 
-                client = create_client(self._config_entry.data)
+                client = create_client(self.hass, self._config_entry.data)
                 try:
                     await client.connect()
                     await async_remove_mqtt_presence(client)
@@ -1952,7 +1952,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
                 return await self.async_step_options_packages()
             return self.async_create_entry(title="", data=self._options)
 
-        client = create_client({**self._config_entry.data, **self._options})
+        client = create_client(self.hass, {**self._config_entry.data, **self._options})
         try:
             async with asyncio.timeout(15):
                 await client.connect()
@@ -2143,7 +2143,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
         """Perform the actual deployment in options flow."""
         from .helpers.mqtt_presence import async_deploy_mqtt_presence
 
-        client = create_client({**self._config_entry.data, **self._options})
+        client = create_client(self.hass, {**self._config_entry.data, **self._options})
         try:
             await client.connect()
 
@@ -2220,7 +2220,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
             CONF_USERNAME: self._root_credentials[CONF_USERNAME],
             CONF_PASSWORD: self._root_credentials[CONF_PASSWORD],
         }
-        client = create_client(root_data)
+        client = create_client(self.hass, root_data)
 
         try:
             await client.connect()

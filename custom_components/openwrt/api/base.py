@@ -946,6 +946,8 @@ class OpenWrtClient(abc.ABC):
 
     def __init__(
         self,
+        hass: HomeAssistant,
+        session: aiohttp.ClientSession | None,
         host: str,
         username: str,
         password: str,
@@ -957,6 +959,8 @@ class OpenWrtClient(abc.ABC):
         trust_bridge_fdb: bool = True,
     ) -> None:
         """Initialize the client."""
+        self.hass = hass
+        self.session = session
         self.host = host
         self.username = username
         self.password = password

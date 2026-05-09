@@ -147,7 +147,7 @@ def _async_migrate_entity_units(hass: HomeAssistant, entry: ConfigEntry) -> None
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenWrt from a config entry."""
-    client = create_client({**entry.data, **entry.options})
+    client = create_client(hass, {**entry.data, **entry.options})
 
     try:
         try:

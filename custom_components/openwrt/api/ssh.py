@@ -75,6 +75,8 @@ class SshClient(OpenWrtClient):
 
     def __init__(
         self,
+        hass: Any,
+        session: Any,
         host: str,
         username: str,
         password: str,
@@ -88,6 +90,8 @@ class SshClient(OpenWrtClient):
     ) -> None:
         """Initialize the SSH client."""
         super().__init__(
+            hass,
+            session,
             host,
             username,
             password,

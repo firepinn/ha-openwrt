@@ -118,7 +118,7 @@ SNAPSHOT_TARGET_MAP = {
 }
 
 
-def create_client(config: Mapping[str, Any]) -> OpenWrtClient:
+def create_client(hass: HomeAssistant, config: Mapping[str, Any]) -> OpenWrtClient:
     """Create the appropriate API client based on configuration."""
     connection_type = config.get(CONF_CONNECTION_TYPE, CONNECTION_TYPE_UBUS)
     host = config[CONF_HOST]
@@ -136,6 +136,8 @@ def create_client(config: Mapping[str, Any]) -> OpenWrtClient:
     if connection_type == CONNECTION_TYPE_SSH:
         port = config.get(CONF_PORT, DEFAULT_PORT_SSH)
         return SshClient(
+        hass=hass,
+        session=None,
             host=host,
             username=username,
             password=password,
@@ -152,6 +154,8 @@ def create_client(config: Mapping[str, Any]) -> OpenWrtClient:
             DEFAULT_PORT_UBUS_SSL if use_ssl else DEFAULT_PORT_UBUS,
         )
         return LuciRpcClient(
+            hass=hass,
+            session=async_get_clientsession(hass),
             host=host,
             username=username,
             password=password,
@@ -168,6 +172,8 @@ def create_client(config: Mapping[str, Any]) -> OpenWrtClient:
         DEFAULT_PORT_UBUS_SSL if use_ssl else DEFAULT_PORT_UBUS,
     )
     return UbusClient(
+        hass=hass,
+        session=async_get_clientsession(hass),
         host=host,
         username=username,
         password=password,
