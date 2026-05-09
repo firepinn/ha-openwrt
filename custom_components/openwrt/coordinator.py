@@ -212,6 +212,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         )
         self._last_version: str | None = None
         self._boot_time: datetime | None = None
+        self._last_uptime: int | None = None
         self._store: storage.Store = storage.Store(
             hass,
             1,
@@ -314,18 +315,38 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         uptime = data.system_resources.uptime
         if uptime > 0:
             utc_now = dt_util.utcnow()
-            new_boot_time = utc_now - timedelta(seconds=uptime)
-            # Stabilize: if change is small (< 10s), keep old value to prevent sensor flickering
-            if self._boot_time:
-                diff = abs((new_boot_time - self._boot_time).total_seconds())
-                if diff < 10:
-                    data.boot_time = self._boot_time
-                else:
-                    self._boot_time = new_boot_time.replace(microsecond=0)
-                    data.boot_time = self._boot_time
+            # Calculate what the boot time would be based on current uptime
+            boot_time_raw = utc_now - timedelta(seconds=uptime)
+            if uptime >= 3600:
+                # More than 1 hour: Round to start of hour to reduce state changes
+                new_boot_time = boot_time_raw.replace(minute=0, second=0, microsecond=0)
             else:
-                self._boot_time = new_boot_time.replace(microsecond=0)
-                data.boot_time = self._boot_time
+                # Less than 1 hour: Round to start of minute
+                new_boot_time = boot_time_raw.replace(second=0, microsecond=0)
+            
+            # Stabilization logic:
+            # 1. If we don't have a boot time yet, set it.
+            # 2. If uptime decreased significantly (>10s), the router rebooted.
+            # 3. If the difference is significant (> 60s), update it (covers clock syncs/drift).
+            # 4. Otherwise, keep the old value to prevent sensor flickering from poll jitter.
+            
+            rebooted = self._last_uptime is not None and uptime < (self._last_uptime - 10)
+            
+            if self._boot_time is None or rebooted:
+                if rebooted:
+                    _LOGGER.info(
+                        "Reboot detected on %s (uptime decreased from %s to %s)",
+                        self.host, self._last_uptime, uptime
+                    )
+                self._boot_time = new_boot_time
+            else:
+                diff = abs((new_boot_time - self._boot_time).total_seconds())
+                if diff > 60:
+                    _LOGGER.debug("Boot time drifted significantly (>60s), updating: %s", self._boot_time)
+                    self._boot_time = new_boot_time
+            
+            data.boot_time = self._boot_time
+            self._last_uptime = uptime
 
         # 5. Calculate network rates
         self._async_process_network_rates(data, now)

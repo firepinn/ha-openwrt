@@ -465,10 +465,9 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             entity_category=EntityCategory.DIAGNOSTIC,
             value_fn=lambda data: data.boot_time,
             attrs_fn=lambda data: {
-                "uptime_seconds": data.system_resources.uptime,
                 "days": data.system_resources.uptime // 86400,
                 "hours": (data.system_resources.uptime % 86400) // 3600,
-                "minutes": (data.system_resources.uptime % 3600) // 60,
+                "minutes": (data.system_resources.uptime % 3600) // 60 if data.system_resources.uptime < 3600 else None,
             },
         ),
         OpenWrtSensorDescription(
@@ -2152,7 +2151,7 @@ def _create_net_status_sensors(
                 entity_registry_enabled_default=False,
                 value_fn=lambda data, n=iface_name: next(
                     (
-                        dt_util.utcnow() - timedelta(seconds=i.uptime)
+                        (dt_util.utcnow() - timedelta(seconds=i.uptime)).replace(second=0, microsecond=0)
                         for i in data.network_interfaces
                         if i.name == n and i.uptime > 0
                     ),
