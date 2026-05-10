@@ -25,7 +25,7 @@ async def test_coordinator_selective_tracking() -> None:
 
     config_entry = MagicMock()
     # Whitelist only device1
-    config_entry.options = {CONF_TRACKED_DEVICES: ["aa:bb:cc:dd:ee:01"]}
+    config_entry.options = {CONF_TRACKED_DEVICES: ["00:bb:cc:dd:ee:01"]}
     config_entry.data = {"host": "192.168.1.1"}
     config_entry.entry_id = "test_entry"
 
@@ -37,21 +37,21 @@ async def test_coordinator_selective_tracking() -> None:
         system_resources=SystemResources(uptime=100),
         connected_devices=[
             ConnectedDevice(
-                mac="aa:bb:cc:dd:ee:01",
+                mac="00:bb:cc:dd:ee:01",
                 hostname="device1",
                 interface="br-lan",
                 is_wireless=True,
             ),
             ConnectedDevice(
-                mac="aa:bb:cc:dd:ee:02",
+                mac="00:bb:cc:dd:ee:02",
                 hostname="device2",
                 interface="br-lan",
                 is_wireless=True,
             ),
         ],
         dhcp_leases=[
-            DhcpLease(mac="aa:bb:cc:dd:ee:01", hostname="device1", ip="192.168.1.10"),
-            DhcpLease(mac="aa:bb:cc:dd:ee:02", hostname="device2", ip="192.168.1.11"),
+            DhcpLease(mac="00:bb:cc:dd:ee:01", hostname="device1", ip="192.168.1.10"),
+            DhcpLease(mac="00:bb:cc:dd:ee:02", hostname="device2", ip="192.168.1.11"),
         ],
         network_interfaces=[],
         wireless_interfaces=[],
@@ -68,10 +68,10 @@ async def test_coordinator_selective_tracking() -> None:
 
     # Should only contain device1
     assert len(data.connected_devices) == 1
-    assert data.connected_devices[0].mac == "aa:bb:cc:dd:ee:01"
+    assert data.connected_devices[0].mac == "00:bb:cc:dd:ee:01"
 
     assert len(data.dhcp_leases) == 1
-    assert data.dhcp_leases[0].mac == "aa:bb:cc:dd:ee:01"
+    assert data.dhcp_leases[0].mac == "00:bb:cc:dd:ee:01"
 
 
 @pytest.mark.asyncio

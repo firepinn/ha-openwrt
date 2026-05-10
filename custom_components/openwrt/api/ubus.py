@@ -151,7 +151,10 @@ class UbusClient(OpenWrtClient):
         reauthenticated: bool = False,
     ) -> dict[str, Any]:
         """Make a ubus call."""
+        if self.session is None:
+            raise UbusError("Session not initialized")
         session = self.session
+
         payload = self._build_request(
             "call",
             [self._session_id, ubus_object, ubus_method, params or {}],
@@ -261,7 +264,9 @@ class UbusClient(OpenWrtClient):
         return result
 
     async def _list_objects(self) -> list[str]:
-        """List available ubus objects."""
+        """List all available ubus objects."""
+        if self.session is None:
+            raise UbusError("Session not initialized")
         session = self.session
         if not self._connected:
             await self.connect()
@@ -297,6 +302,8 @@ class UbusClient(OpenWrtClient):
 
     async def _get_object_methods(self, object_name: str) -> dict[str, Any]:
         """Get methods for a specific ubus object."""
+        if self.session is None:
+            raise UbusError("Session not initialized")
         session = self.session
         token = self._session_id
         payload = self._build_request(
@@ -321,7 +328,9 @@ class UbusClient(OpenWrtClient):
         return {}
 
     async def connect(self) -> bool:
-        """Authenticate with the ubus RPC endpoint."""
+        """Authenticate with ubus."""
+        if self.session is None:
+            raise UbusError("Session not initialized")
         session = self.session
         payload = self._build_request(
             "call",
@@ -391,7 +400,7 @@ class UbusClient(OpenWrtClient):
         return True
 
     async def disconnect(self) -> None:
-        """Disconnect and cleanup."""
+        """Log out from ubus and cleanup."""
         # Shared session managed by HA
         self._connected = False
 
@@ -738,7 +747,7 @@ class UbusClient(OpenWrtClient):
                                 )
                                 resources.storage.append(usage)
                                 self._update_legacy_fs_fields(resources, usage)
-                            except (ValueError, IndexError):
+                            except ValueError, IndexError:
                                 continue
 
     def _update_legacy_fs_fields(self, resources: SystemResources, usage: Any) -> None:
@@ -862,7 +871,7 @@ class UbusClient(OpenWrtClient):
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 continue
 
             # Only keep top 10
@@ -1668,6 +1677,8 @@ class UbusClient(OpenWrtClient):
 
     async def check_permissions(self) -> OpenWrtPermissions:
         """Check user permissions via ubus session list and uci tests."""
+        if self.session is None:
+            raise UbusError("Session not initialized")
 
         from .base import OpenWrtPermissions
 
@@ -3024,7 +3035,7 @@ class UbusClient(OpenWrtClient):
                 )
                 try:
                     status.blocked_domains = int(float(blocked))
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     pass
                 status.last_update = res.get("last_run")
                 return status
@@ -3228,7 +3239,7 @@ class UbusClient(OpenWrtClient):
                 idx = parts.index("lladdr")
                 if len(parts) > idx + 1:
                     return parts[idx + 1].upper()
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 pass
         return None
 

@@ -131,7 +131,9 @@ for platform in platforms:
 # Other required classes
 sys.modules["homeassistant.exceptions"] = MagicMock()
 sys.modules["homeassistant.const"] = MagicMock()
-sys.modules["homeassistant.core"] = MagicMock()
+core_mock = MagicMock()
+core_mock.callback = lambda x: x
+sys.modules["homeassistant.core"] = core_mock
 sys.modules["homeassistant.helpers"] = MagicMock()
 sys.modules["homeassistant.helpers.entity"] = MagicMock()
 sys.modules["homeassistant.helpers.entity"].EntityDescription = MockEntityDescription

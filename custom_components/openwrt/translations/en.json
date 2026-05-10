@@ -267,7 +267,8 @@
         "title": "Select Devices to Track",
         "description": "Select the devices you want to track in Home Assistant. If none are selected, all discovered devices will be tracked.",
         "data": {
-          "tracked_devices": "Tracked Devices"
+          "tracked_devices": "Tracked Devices",
+          "manual_tracked_devices": "Manual MAC Address Whitelist (One per line)"
         }
       }
     }

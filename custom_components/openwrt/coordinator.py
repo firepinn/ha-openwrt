@@ -19,7 +19,7 @@ from typing import Any
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     device_registry as dr,
 )
@@ -55,6 +55,7 @@ from .const import (
     CONF_CONNECTION_TYPE,
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
+    CONF_MANUAL_TRACKED_DEVICES,
     CONF_MQTT_PRESENCE,
     CONF_PASSWORD,
     CONF_PORT,
@@ -609,6 +610,9 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             CONF_SKIP_RANDOM_MAC, DEFAULT_SKIP_RANDOM_MAC
         )
 
+        # 1. Get active whitelist (merged selected + manual)
+        whitelist = self._async_get_tracked_devices_whitelist()
+
         # 4. Filter connected devices
         filtered_devices = []
         for device in data.connected_devices:
@@ -657,8 +661,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 await self._async_discovery_mqtt_device(mac, device.hostname or mac)
 
             # 6. Filter by whitelist if configured
-            tracked_devices = self.config_entry.options.get(CONF_TRACKED_DEVICES)
-            if tracked_devices and mac not in tracked_devices:
+            if whitelist and mac not in whitelist:
                 _LOGGER.debug(
                     "Skipping device %s: not in tracked_devices whitelist", mac
                 )
@@ -693,12 +696,11 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
         data.connected_devices = filtered_devices
         # 5. Filter DHCP leases by whitelist
-        tracked_devices = self.config_entry.options.get(CONF_TRACKED_DEVICES)
-        if tracked_devices:
+        if whitelist:
             data.dhcp_leases = [
                 lease
                 for lease in data.dhcp_leases
-                if lease.mac and lease.mac.lower() in tracked_devices
+                if lease.mac and lease.mac.lower() in whitelist
             ]
 
         # 5. Filter DHCP leases to prevent entities for internal interfaces (veth, wlanX, etc.)
@@ -797,6 +799,26 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         # Global registry cleanup (independent of device history)
         if clean:
             await self._async_global_registry_cleanup()
+
+    @callback
+    def _async_get_tracked_devices_whitelist(self) -> set[str] | None:
+        """Get the merged whitelist of tracked devices."""
+        tracked_devices = self.config_entry.options.get(CONF_TRACKED_DEVICES, [])
+        manual_devices_raw = self.config_entry.options.get(
+            CONF_MANUAL_TRACKED_DEVICES, ""
+        )
+
+        whitelist = set(tracked_devices)
+
+        if manual_devices_raw:
+            # Parse multi-line string of MAC addresses
+            for line in manual_devices_raw.splitlines():
+                mac = line.strip().lower()
+                if mac:
+                    # Basic MAC validation could be added here, but for now we just trust the user
+                    whitelist.add(mac)
+
+        return whitelist if whitelist else None
 
         _LOGGER.debug("MQTT discovery loop finished")
 

@@ -267,7 +267,8 @@
         "title": "Geräte zum Tracking auswählen",
         "description": "Wählen Sie die Geräte aus, die in Home Assistant verfolgt werden sollen. Wenn keine ausgewählt sind, werden alle erkannten Geräte verfolgt.",
         "data": {
-          "tracked_devices": "Verfolgte Geräte"
+          "tracked_devices": "Verfolgte Geräte",
+          "manual_tracked_devices": "Manuelle MAC-Adress-Whitelist (Eine pro Zeile)"
         }
       }
     }

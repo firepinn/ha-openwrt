@@ -74,6 +74,7 @@ from .const import (
     CONF_ENABLE_SERVICES,
     CONF_ENABLE_SQM,
     CONF_ENABLE_VPN,
+    CONF_MANUAL_TRACKED_DEVICES,
     CONF_MQTT_BROKER,
     CONF_MQTT_PASSWORD,
     CONF_MQTT_PORT,
@@ -1878,7 +1879,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
             if user_input.get(CONF_TRACK_DEVICES):
                 return await self.async_step_options_select_devices()
             return await self.async_step_options_permissions()
-        
+
         current = self._config_entry.options
         schema = vol.Schema(
             {
@@ -1999,6 +2000,12 @@ class OpenWrtOptionsFlow(OptionsFlow):
             device_options[mac] = f"{name} ({mac})"
 
         current = self._config_entry.options.get(CONF_TRACKED_DEVICES, [])
+        current_manual = self._config_entry.options.get(CONF_MANUAL_TRACKED_DEVICES, "")
+
+        # Prepare device options for selector
+        options: list[selector.SelectOptionDict] = [
+            {"value": k, "label": v} for k, v in device_options.items()
+        ]
 
         return self.async_show_form(
             step_id="options_select_devices",
@@ -2009,18 +2016,23 @@ class OpenWrtOptionsFlow(OptionsFlow):
                         default=current,
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[
-                                {"value": k, "label": v}
-                                for k, v in device_options.items()
-                            ],
+                            options=options,
                             multiple=True,
                             mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MANUAL_TRACKED_DEVICES,
+                        default=current_manual,
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            multiline=True,
+                            type=selector.TextSelectorType.TEXT,
                         )
                     ),
                 }
             ),
         )
-
 
     async def async_step_options_permissions(
         self,
@@ -2184,7 +2196,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     )
                     if coordinator and coordinator.data:
                         self._permissions = coordinator.data.permissions
-                except (KeyError, AttributeError):
+                except KeyError, AttributeError:
                     pass
             if not user_input.get(CONF_MQTT_PRESENCE):
                 self._options.update(user_input)

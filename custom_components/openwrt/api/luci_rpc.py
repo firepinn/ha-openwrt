@@ -129,6 +129,8 @@ class LuciRpcClient(OpenWrtClient):
         reauthenticated: bool = False,
     ) -> Any:
         """Make a LuCI JSON-RPC call."""
+        if self.session is None:
+            raise LuciRpcError("Session not initialized")
         session = self.session
         self._rpc_id += 1
 
@@ -336,6 +338,8 @@ class LuciRpcClient(OpenWrtClient):
 
     async def connect(self) -> bool:
         """Authenticate with LuCI."""
+        if self.session is None:
+            raise LuciRpcError("Session not initialized")
         session = self.session
         self._rpc_id += 1
 
@@ -2137,7 +2141,7 @@ class LuciRpcClient(OpenWrtClient):
 
                 try:
                     enabled = bool(int(val.get("enabled", "1")))
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     enabled = True
                 rules.append(
                     FirewallRule(
@@ -2300,7 +2304,7 @@ class LuciRpcClient(OpenWrtClient):
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except (ValueError, TypeError):
+                        except ValueError, TypeError:
                             pass
                         status.last_update = res.get("last_run")
                         return status
