@@ -215,7 +215,10 @@ class AuthFailedRepairFlow(RepairsFlow):
             if entry_id:
                 entry = self.hass.config_entries.async_get_entry(str(entry_id))
                 if entry:
+                    _LOGGER.debug("Starting reauth for %s from repair flow", entry.title)
                     entry.async_start_reauth(self.hass)
+                else:
+                    _LOGGER.warning("Could not find config entry %s for reauth repair", entry_id)
             return self.async_abort(reason="reauth_started")
 
         return self.async_show_form(step_id="init")
@@ -237,13 +240,16 @@ class StalePermissionsRepairFlow(RepairsFlow):
         """Handle the init step."""
         entry_id = self.data.get("entry_id") if self.data else None
         if not entry_id:
-            entry_id = self.issue_id.split("_")[-1]
+            # More robust extraction: everything after the last underscore
+            entry_id = self.issue_id.rsplit("_", 1)[-1]
 
         if not entry_id:
+            _LOGGER.error("Failed to extract entry_id from issue_id: %s", self.issue_id)
             return self.async_abort(reason="unknown_error")
 
         entry = self.hass.config_entries.async_get_entry(str(entry_id))
         if not entry:
+            _LOGGER.error("Config entry %s not found for repair flow", entry_id)
             return self.async_abort(reason="unknown_error")
 
         if user_input is not None:
@@ -270,7 +276,8 @@ class StalePermissionsRepairFlow(RepairsFlow):
         errors: dict[str, str] = {}
         entry_id = self.data.get("entry_id") if self.data else None
         if not entry_id:
-            entry_id = self.issue_id.split("_")[-1]
+            # More robust extraction: everything after the last underscore
+            entry_id = self.issue_id.rsplit("_", 1)[-1]
 
         if not entry_id:
             return self.async_abort(reason="unknown_error")

@@ -426,22 +426,27 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         packages = data.packages
 
         stale = False
+        reason = ""
         # We check for core features that indicate the 'homeassistant' user needs more rights
         # than what were granted during its creation.
         if not perms.read_system:
-            # Core system info is missing
             stale = True
+            reason = "missing core system read permissions"
         elif packages.wireless and not perms.read_wireless:
             stale = True
+            reason = "missing wireless read permissions (wireless package detected)"
         elif packages.mwan3 and not perms.read_mwan:
             stale = True
+            reason = "missing mwan3 read permissions (mwan3 package detected)"
         elif packages.sqm_scripts and not perms.read_sqm:
             stale = True
+            reason = "missing sqm read permissions (sqm package detected)"
         elif packages.adblock and not perms.read_services:
             stale = True
+            reason = "missing service read permissions (adblock package detected)"
         elif packages.nlbwmon and not perms.read_network:
-            # nlbwmon needs network access
             stale = True
+            reason = "missing network read permissions (nlbwmon package detected)"
 
         # Detect if an upgrade happened
         current_version = data.device_info.release_version
@@ -464,7 +469,8 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
         if stale:
             _LOGGER.debug(
-                "Detected stale permissions for 'homeassistant' user (is_upgrade=%s), creating repair issue",
+                "Detected stale permissions for 'homeassistant' user: %s (is_upgrade=%s), creating repair issue",
+                reason,
                 is_upgrade,
             )
             async_create_stale_permissions_repair(
