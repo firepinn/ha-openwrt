@@ -1003,6 +1003,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _test_connection(self, data: dict[str, Any]) -> str | None:
         """Test connection to the device. Returns error key or None on success."""
+        self._diagnostic_report = None
         _LOGGER.debug(
             "Starting connection test with data: %s",
             {k: (v if k != CONF_PASSWORD else "********") for k, v in data.items()},
@@ -1015,18 +1016,22 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             return None
         except Exception as err:
             _LOGGER.exception("Connection test failed: %s", err)
-            # Try to run diagnostics if possible
-            with contextlib.suppress(Exception):
-                if client:
-                    results = await client.perform_diagnostics()
-                    if results:
-                        # Get translations for report
-                        translations = await translation.async_get_translations(
-                            self.hass, self.hass.config.language, "config", [DOMAIN]
-                        )
-                        self._diagnostic_report = _generate_diagnostic_report(
-                            results, translations
-                        )
+            # Try to run diagnostics if possible, but skip for plain auth errors
+            # to avoid overwhelming the user with a report for a simple wrong password.
+            if not isinstance(
+                err, (UbusAuthError, LuciRpcAuthError, SshAuthError, SshKeyError)
+            ):
+                with contextlib.suppress(Exception):
+                    if client:
+                        results = await client.perform_diagnostics()
+                        if results:
+                            # Get translations for report
+                            translations = await translation.async_get_translations(
+                                self.hass, self.hass.config.language, "config", [DOMAIN]
+                            )
+                            self._diagnostic_report = _generate_diagnostic_report(
+                                results, translations
+                            )
             return self._handle_test_error(err, data.get(CONF_USERNAME))
         finally:
             await client.disconnect()

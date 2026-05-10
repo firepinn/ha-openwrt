@@ -123,7 +123,7 @@
       },
       "provision_failed": {
         "title": "Provisioning Failed",
-        "description": "The automatic user provisioning failed.\n\n**Analysis:**\n{tip}\n\n**Raw Error Output:**\n```\n{error}\n```\n\n**What to do now?**\n- **Check Permissions:** Ensure your current user has `file.exec` rights.\n- **Check Space:** Ensure your router has enough free space in `/usr/share/rpcd/`.\n- **Try SSH:** SSH is often more robust for initial setup if ubus is restricted.\n\nYou can still proceed with the current credentials by skipping this step."
+        "description": "The automatic user provisioning failed.\\n\\n**What to do now?**\\n- **Check Permissions:** Ensure your current user has `file.exec` rights.\\n- **Check Space:** Ensure your router has enough free space in `/usr/share/rpcd/`.\\n- **Try SSH:** SSH is often more robust for initial setup if ubus is restricted.\\n\\nYou can still proceed with the current credentials by skipping this step."
       },
       "diagnostics": {
         "title": "Connection Diagnostics",
@@ -163,7 +163,7 @@
       "ssl_error": "SSL verification failed. If using self-signed certs, disable 'Verify SSL Certificate'.",
       "package_missing": "Required OpenWrt package is missing. For ubus: 'uhttpd-mod-ubus'. For LuCI: 'luci-mod-rpc'. Install via SSH: 'opkg update && opkg install PACKAGE' (or 'apk add PACKAGE' on newer versions).",
       "permission_error": "Insufficient RPC permissions. Check your user ACLs in /etc/config/rpcd. Note: 'Restricted users' in LuCI often only have access to web-interface RPCs, but not the raw ubus objects required for this connection method.",
-      "provision_failed": "Failed to automatically create the dedicated user. Ensure you are connected as root and have enough free space on the router for 'rpcd' ACL files.\n\nError: {error}",
+      "provision_failed": "Failed to automatically create the dedicated user. Ensure you are connected as root and have enough free space on the router for 'rpcd' ACL files.",
       "no_devices_found": "No OpenWrt routers were automatically discovered on your network. You can try to enter the details manually.",
       "unknown": "An unexpected error occurred.",
       "mqtt_permission_missing": "The configured OpenWrt user lacks the necessary permissions to deploy the MQTT presence detection scripts (requires file.exec/sys.exec rights)."

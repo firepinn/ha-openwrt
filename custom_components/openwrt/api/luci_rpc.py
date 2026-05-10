@@ -248,6 +248,8 @@ class LuciRpcClient(OpenWrtClient):
             if isinstance(res, dict):
                 stdout = str(res.get("stdout") or "").strip()
                 stderr = str(res.get("stderr") or "").strip()
+                if stderr and not stdout:
+                    _LOGGER.debug("LuCI RPC file.exec stderr: %s", stderr)
                 return stdout or stderr
         except Exception as err:
             _LOGGER.debug(

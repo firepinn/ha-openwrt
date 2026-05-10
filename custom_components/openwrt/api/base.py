@@ -24,23 +24,15 @@ PROVISION_SCRIPT_TEMPLATE = """
 # Dedicated Home Assistant User Provisioning Script
 # This script creates a system user, sets a password, and configures RPC/LuCI ACLs.
 
-USER=$(cat <<'EOF'
-{username}
-EOF
-)
-PASS=$(cat <<'EOF'
-{password}
-EOF
-)
-
-# Use absolute paths for core utilities to ensure they are found
+USER='{username}'
+PASS='{password}'
 LOGGER="/usr/bin/logger"
 [ -x "$LOGGER" ] || LOGGER="logger"
 UCI="/sbin/uci"
 [ -x "$UCI" ] || UCI="uci"
 
-# Log start
-$LOGGER -t ha-openwrt "Starting provisioning for user: $USER"
+$LOGGER -t ha-openwrt "Starting provisioning for $USER"
+echo "LOG: TRACE: Start"
 
 # Create a safe section name (alphanumeric only)
 SECTION=$(echo "$USER" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')
@@ -51,166 +43,34 @@ if ! grep -q "^/bin/ash" /etc/shells 2>/dev/null; then
     echo "/bin/ash" >> /etc/shells
 fi
 
-# Create user if it doesn't exist
 if ! id "$USER" >/dev/null 2>&1; then
-    $LOGGER -t ha-openwrt "Creating system user $USER"
     if command -v adduser >/dev/null 2>&1; then
-        adduser -D -s /bin/ash "$USER" >/dev/null 2>&1 || echo "LOG: FAIL: adduser failed"
+        adduser -D -s /bin/ash "$USER" >/dev/null 2>&1
     elif command -v useradd >/dev/null 2>&1; then
-        useradd -m -s /bin/ash "$USER" >/dev/null 2>&1 || echo "LOG: FAIL: useradd failed"
+        useradd -m -s /bin/ash "$USER" >/dev/null 2>&1
     else
-        # Manual fallback for minimal systems
-        mkdir -p "/home/$USER"
-        # Use GID 0 (root) for better system access on some firmwares
-        if ! echo "$USER:x:1001:0:HomeAssistant:/home/$USER:/bin/ash" >> /etc/passwd; then
-            echo "ANALYSIS: PASSWD_WRITE_FAILED"
-            echo "LOG: FAIL: could not write to /etc/passwd"
-            exit 1
-        fi
+        echo "$USER:x:1001:0:HomeAssistant:/home/$USER:/bin/ash" >> /etc/passwd
         echo "$USER:x:1001:" >> /etc/group
-        # Ensure user is in root group
         grep -q "^root:.*$USER" /etc/group || sed -i "s/^root:x:0:/root:x:0:$USER,/" /etc/group
     fi
-else
-    # Update existing user to have valid shell
-    $LOGGER -t ha-openwrt "Updating existing user $USER to use /bin/ash"
-    if command -v usermod >/dev/null 2>&1; then
-        usermod -s /bin/ash "$USER" >/dev/null 2>&1 || true
-    else
-        uid=$(id -u "$USER" 2>/dev/null)
-        gid=$(id -g "$USER" 2>/dev/null)
-        sed -i "s|^$USER:.*|$USER:x:$uid:$gid:HomeAssistant:/home/$USER:/bin/ash|" /etc/passwd 2>/dev/null || true
-    fi
-    mkdir -p "/home/$USER"
 fi
+echo "LOG: TRACE: User verified"
 
-# IMPORTANT: Ensure shadow compatibility.
-# 1. Force 'x' in passwd to trigger shadow usage
 sed -i "s|^$USER:[^:]*:|$USER:x:|" /etc/passwd
-# 2. Ensure entry exists in shadow if shadow exists
-if [ -f /etc/shadow ]; then
-    grep -q "^$USER:" /etc/shadow || echo "$USER:*::0:99999:7:::" >> /etc/shadow
-fi
+[ -f /etc/shadow ] && {{ grep -q "^$USER:" /etc/shadow || echo "$USER:*::0:99999:7:::" >> /etc/shadow; }}
 
-# Set password using the most robust method
-$LOGGER -t ha-openwrt "Updating password for $USER"
 if command -v chpasswd >/dev/null 2>&1; then
-    if ! printf "%s:%s\\n" "$USER" "$PASS" | chpasswd >/dev/null 2>&1; then
-        echo "ANALYSIS: CHPASSWD_FAILED"
-        echo "LOG: FAIL: chpasswd failed"
-        exit 1
-    fi
+    printf "%s:%s\\n" "$USER" "$PASS" | chpasswd >/dev/null 2>&1
 else
-    # Fallback to passwd with piped input
-    if ! (echo "$PASS"; sleep 1; echo "$PASS") | passwd "$USER" >/dev/null 2>&1; then
-        echo "ANALYSIS: PASSWD_BINARY_FAILED"
-        echo "LOG: FAIL: passwd failed"
-        exit 1
-    fi
+    (echo "$PASS"; sleep 1; echo "$PASS") | passwd "$USER" >/dev/null 2>&1
 fi
+echo "LOG: TRACE: Password set"
 
-# Create ACL file
 ACL_FILE="/usr/share/rpcd/acl.d/homeassistant.json"
-$LOGGER -t ha-openwrt "Creating ACL file $ACL_FILE"
 mkdir -p "$(dirname "$ACL_FILE")"
-if ! cat <<EOF > "$ACL_FILE"
-{{
-    "homeassistant": {{
-        "description": "Home Assistant Integration",
-        "read": {{
-            "ubus": {{
-                "system": ["info", "board", "logread", "upgrade"],
-                "log": ["read"],
-                "network": ["*"],
-                "network.*": ["*"],
-                "iwinfo": ["*"],
-                "file": ["*"],
-                "firewall": ["*"],
-                "rc": ["*"],
-                "service": ["*"],
-                "system": ["*"],
-                "uci": ["*"],
-                "session": ["*"],
-                "hostapd.*": ["*"],
-                "luci": ["*"],
-                "luci-rpc": ["*"],
-                "attendedsysupgrade": ["*"]
-            }},
-            "uci": ["*"],
-            "file": {{
-                "/etc/config/*": ["read", "stat"],
-                "/etc/passwd": ["read"],
-                "/etc/group": ["read"],
-                "/etc/shadow": ["read"],
-                "/etc/shells": ["read"],
-                "/usr/bin/iwinfo": ["read", "stat", "exec"],
-                "/usr/bin/etherwake": ["read", "stat", "exec"],
-                "/usr/bin/wg": ["read", "stat", "exec"],
-                "/usr/sbin/openvpn": ["read", "stat", "exec"],
-                "/usr/bin/id": ["read", "stat", "exec"],
-                "/bin/sh": ["read", "stat", "exec"],
-                "/bin/ash": ["read", "stat", "exec"],
-                "/bin/ls": ["read", "stat", "exec"],
-                "/sbin/apk": ["read", "stat", "exec"],
-                "/bin/opkg": ["read", "stat", "exec"],
-                "/sbin/logread": ["read", "stat"],
-                "/etc/presence/*": ["read", "stat"],
-                "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],
-                "/usr/sbin/batctl": ["read", "stat", "exec"],
-                "/sys/module/batman_adv": ["read", "stat"],
-                "/bin/cat": ["read", "stat", "exec"],
-                "/bin/grep": ["read", "stat", "exec"],
-                "/usr/bin/awk": ["read", "stat", "exec"],
-                "/bin/df": ["read", "stat", "exec"],
-                "/sbin/ip": ["read", "stat", "exec"],
-                "/usr/sbin/ip": ["read", "stat", "exec"],
-                "/bin/ubus": ["read", "stat", "exec"],
-                "/bin/ping": ["read", "stat", "exec"],
-                "/usr/bin/ping": ["read", "stat", "exec"],
-                "/usr/bin/uptime": ["read", "stat", "exec"],
-                "/usr/bin/killall": ["read", "stat", "exec"],
-                "/bin/chmod": ["read", "stat", "exec"],
-                "/bin/mkdir": ["read", "stat", "exec"],
-                "/bin/rm": ["read", "stat", "exec"],
-                "/proc/stat": ["read"],
-                "/proc/meminfo": ["read"],
-                "/proc/net/arp": ["read"],
-                "/proc/net/dev": ["read"],
-                "/tmp/dhcp.leases": ["read"],
-                "/sys/class/thermal/*": ["read"]
-            }}
-        }},
-        "write": {{
-            "ubus": {{
-                "system": ["reboot", "upgrade"],
-                "network.interface": ["up", "down", "reconnect"],
-                "network": ["*"],
-                "firewall": ["*"],
-                "rc": ["*"],
-                "service": ["*"],
-                "uci": ["*"],
-                "file": ["exec"],
-                "hostapd.*": ["*"]
-            }},
-            "uci": ["*"],
-            "file": {{
-                "/bin/sh": ["exec"],
-                "/bin/ash": ["exec"],
-                "/usr/bin/id": ["exec"],
-                "/sbin/apk": ["exec"],
-                "/bin/opkg": ["exec"],
-                "/etc/presence/*": ["read", "stat", "write"],
-                "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]
-            }}
-        }}
-    }}
-}}
-EOF
-then
-    echo "ANALYSIS: ACL_WRITE_FAILED"
-    echo "LOG: FAIL: could not create ACL file $ACL_FILE"
-    exit 1
-fi
+printf '{{\\n  "homeassistant": {{\\n    "description": "Home Assistant Integration",\\n    "read": {{\\n      "ubus": {{\\n        "system": ["info", "board", "logread", "upgrade"],\\n        "log": ["read"],\\n        "network": ["*"],\\n        "network.*": ["*"],\\n        "iwinfo": ["*"],\\n        "file": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "system": ["*"],\\n        "uci": ["*"],\\n        "session": ["*"],\\n        "hostapd.*": ["*"],\\n        "luci": ["*"],\\n        "luci-rpc": ["*"],\\n        "attendedsysupgrade": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/etc/config/*": ["read", "stat"],\\n        "/etc/passwd": ["read"],\\n        "/etc/group": ["read"],\\n        "/etc/shadow": ["read"],\\n        "/etc/shells": ["read"],\\n        "/usr/bin/iwinfo": ["read", "stat", "exec"],\\n        "/usr/bin/etherwake": ["read", "stat", "exec"],\\n        "/usr/bin/wg": ["read", "stat", "exec"],\\n        "/usr/sbin/openvpn": ["read", "stat", "exec"],\\n        "/usr/bin/id": ["read", "stat", "exec"],\\n        "/bin/sh": ["read", "stat", "exec"],\\n        "/bin/ash": ["read", "stat", "exec"],\\n        "/bin/ls": ["read", "stat", "exec"],\\n        "/sbin/apk": ["read", "stat", "exec"],\\n        "/bin/opkg": ["read", "stat", "exec"],\\n        "/sbin/logread": ["read", "stat"],\\n        "/etc/presence/*": ["read", "stat"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],\\n        "/usr/sbin/batctl": ["read", "stat", "exec"],\\n        "/sys/module/batman_adv": ["read", "stat"],\\n        "/bin/cat": ["read", "stat", "exec"],\\n        "/bin/grep": ["read", "stat", "exec"],\\n        "/usr/bin/awk": ["read", "stat", "exec"],\\n        "/bin/df": ["read", "stat", "exec"],\\n        "/sbin/ip": ["read", "stat", "exec"],\\n        "/usr/sbin/ip": ["read", "stat", "exec"],\\n        "/bin/ubus": ["read", "stat", "exec"],\\n        "/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/uptime": ["read", "stat", "exec"],\\n        "/usr/bin/killall": ["read", "stat", "exec"],\\n        "/bin/chmod": ["read", "stat", "exec"],\\n        "/bin/mkdir": ["read", "stat", "exec"],\\n        "/bin/rm": ["read", "stat", "exec"],\\n        "/proc/stat": ["read"],\\n        "/proc/meminfo": ["read"],\\n        "/proc/net/arp": ["read"],\\n        "/proc/net/dev": ["read"],\\n        "/tmp/dhcp.leases": ["read"],\\n        "/sys/class/thermal/*": ["read"]\\n      }}\\n    }},\\n    "write": {{\\n      "ubus": {{\\n        "system": ["reboot", "upgrade"],\\n        "network.interface": ["up", "down", "reconnect"],\\n        "network": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "uci": ["*"],\\n        "file": ["exec"],\\n        "hostapd.*": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/bin/sh": ["exec"],\\n        "/bin/ash": ["exec"],\\n        "/usr/bin/id": ["exec"],\\n        "/sbin/apk": ["exec"],\\n        "/bin/opkg": ["exec"],\\n        "/etc/presence/*": ["read", "stat", "write"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]\\n      }}\\n    }}\\n  }}\\n}}' > "$ACL_FILE"
+chmod 644 "$ACL_FILE"
+echo "LOG: TRACE: ACL created"
 
 chmod 644 "$ACL_FILE"
 
@@ -223,51 +83,24 @@ for s in $($UCI show luci 2>/dev/null | grep "=user" | cut -d. -f2 | cut -d= -f1
     [ "$($UCI get luci.$s.username 2>/dev/null)" = "$USER" ] && $UCI delete luci.$s
 done
 
-# Configure UCI authorization.
-$LOGGER -t ha-openwrt "Configuring UCI authorization for $USER (section: $SECTION)"
-$UCI set luci.$SECTION=user
-$UCI set luci.$SECTION.username="$USER"
-$UCI set luci.$SECTION.password='*'
-$UCI add_list luci.$SECTION.write="homeassistant"
-$UCI add_list luci.$SECTION.read="homeassistant"
+$UCI set luci."$SECTION"=user
+$UCI set luci."$SECTION".username="$USER"
+$UCI set luci."$SECTION".password='*'
+$UCI add_list luci."$SECTION".write="homeassistant"
+$UCI add_list luci."$SECTION".read="homeassistant"
+$UCI set rpcd."$SECTION"=login
+$UCI set rpcd."$SECTION".username="$USER"
+$UCI set rpcd."$SECTION".password="\\$p\\$$USER"
+$UCI add_list rpcd."$SECTION".read="homeassistant"
+$UCI add_list rpcd."$SECTION".write="homeassistant"
+$UCI commit luci && $UCI commit rpcd
 
-$UCI set rpcd.$SECTION=login
-$UCI set rpcd.$SECTION.username="$USER"
-$UCI set rpcd.$SECTION.password="\\$p\\$$USER"
-$UCI add_list rpcd.$SECTION.read="homeassistant"
-$UCI add_list rpcd.$SECTION.write="homeassistant"
-
-if ! ($UCI commit luci && $UCI commit rpcd); then
-    echo "ANALYSIS: UCI_COMMIT_FAILED"
-    echo "LOG: FAIL: uci commit failed"
-    exit 1
-fi
-
-# Ensure ACL file is persistent across upgrades
-SYSUPGRADE_CONF="/etc/sysupgrade.conf"
-if [ -f "$SYSUPGRADE_CONF" ]; then
-    if ! grep -q "$ACL_FILE" "$SYSUPGRADE_CONF"; then
-        $LOGGER -t ha-openwrt "Adding $ACL_FILE to $SYSUPGRADE_CONF for persistence"
-        echo "$ACL_FILE" >> "$SYSUPGRADE_CONF"
-    fi
-fi
-
-# Restart services to apply changes
-$LOGGER -t ha-openwrt "Restarting services to apply ACLs"
-/etc/init.d/rpcd restart >/dev/null 2>&1
-/etc/init.d/uhttpd restart >/dev/null 2>&1
-
-$LOGGER -t ha-openwrt "Provisioning SUCCESS for $USER"
-echo "ANALYSIS: SUCCESS"
 echo "LOG: Provisioning SUCCESS"
 
-# Asynchronously restart services to apply changes without breaking the current session
 (
-    sleep 3
-    $LOGGER -t ha-openwrt "Restarting rpcd to apply ACL changes"
-    /etc/init.d/rpcd restart
     sleep 2
-    $LOGGER -t ha-openwrt "Restarting uhttpd to apply LuCI changes"
+    /etc/init.d/rpcd restart
+    sleep 1
     /etc/init.d/uhttpd restart
 ) >/dev/null 2>&1 &
 """

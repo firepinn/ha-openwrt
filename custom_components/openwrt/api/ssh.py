@@ -122,14 +122,15 @@ class SshClient(OpenWrtClient):
             exit_code = stdout.channel.recv_exit_status()
             output = out_bytes.decode("utf-8", errors="replace")
             error = err_bytes.decode("utf-8", errors="replace")
-            if exit_code != 0 and error:
+            if exit_code != 0 or error:
                 _LOGGER.debug(
-                    "SSH command '%s' returned %d: %s",
-                    command,
+                    "SSH command '%s' returned %d. Stdout: '%s', Stderr: '%s'",
+                    command[:100] + "..." if len(command) > 100 else command,
                     exit_code,
-                    error,
+                    output.strip(),
+                    error.strip(),
                 )
-            return output
+            return output or error
 
         try:
             async with self._semaphore:
