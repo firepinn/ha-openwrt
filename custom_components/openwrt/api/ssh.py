@@ -661,7 +661,7 @@ class SshClient(OpenWrtClient):
                 try:
                     dev_idx = parts.index("dev")
                     wan_iface = parts[dev_idx + 1]
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
 
             # 2. Get interface dump
@@ -1287,7 +1287,7 @@ class SshClient(OpenWrtClient):
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
 
             if len(resources.top_processes) >= 10:
@@ -1434,7 +1434,7 @@ class SshClient(OpenWrtClient):
                                     else "wireless"
                                 )
                             )
-                except json.JSONDecodeError, KeyError:
+                except (json.JSONDecodeError, KeyError):
                     continue
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("ubus hostapd discovery failed (SSH): %s", err)
@@ -2177,7 +2177,7 @@ class SshClient(OpenWrtClient):
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status

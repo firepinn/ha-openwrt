@@ -1878,52 +1878,8 @@ class OpenWrtOptionsFlow(OptionsFlow):
             if user_input.get(CONF_TRACK_DEVICES):
                 return await self.async_step_options_select_devices()
             return await self.async_step_options_permissions()
-
-    async def async_step_options_select_devices(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Handle selective device tracking step."""
-        if user_input is not None:
-            self._options.update(user_input)
-            return await self.async_step_options_permissions()
-
-        # Get discovered devices from coordinator
-        coordinator = self.hass.data[DOMAIN][self._config_entry.entry_id][
-            DATA_COORDINATOR
-        ]
-        devices = coordinator._device_history
-
-        device_options = {}
-        for mac, info in devices.items():
-            name = info.get("hostname") or info.get("name") or mac
-            device_options[mac] = f"{name} ({mac})"
-
-        current = self._config_entry.options.get(CONF_TRACKED_DEVICES, [])
-
-        return self.async_show_form(
-            step_id="options_select_devices",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_TRACKED_DEVICES,
-                        default=current,
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                {"value": k, "label": v}
-                                for k, v in device_options.items()
-                            ],
-                            multiple=True,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                }
-            ),
-        )
-
+        
         current = self._config_entry.options
-
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -2020,8 +1976,51 @@ class OpenWrtOptionsFlow(OptionsFlow):
                 ): bool,
             },
         )
-
         return self.async_show_form(step_id="init", data_schema=schema)
+
+    async def async_step_options_select_devices(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Handle selective device tracking step."""
+        if user_input is not None:
+            self._options.update(user_input)
+            return await self.async_step_options_permissions()
+
+        # Get discovered devices from coordinator
+        coordinator = self.hass.data[DOMAIN][self._config_entry.entry_id][
+            DATA_COORDINATOR
+        ]
+        devices = coordinator._device_history
+
+        device_options = {}
+        for mac, info in devices.items():
+            name = info.get("hostname") or info.get("name") or mac
+            device_options[mac] = f"{name} ({mac})"
+
+        current = self._config_entry.options.get(CONF_TRACKED_DEVICES, [])
+
+        return self.async_show_form(
+            step_id="options_select_devices",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_TRACKED_DEVICES,
+                        default=current,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": k, "label": v}
+                                for k, v in device_options.items()
+                            ],
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
+        )
+
 
     async def async_step_options_permissions(
         self,
@@ -2185,7 +2184,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     )
                     if coordinator and coordinator.data:
                         self._permissions = coordinator.data.permissions
-                except KeyError, AttributeError:
+                except (KeyError, AttributeError):
                     pass
             if not user_input.get(CONF_MQTT_PRESENCE):
                 self._options.update(user_input)
