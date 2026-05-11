@@ -160,6 +160,16 @@ class SshClient(OpenWrtClient):
         """Execute a command via SSH."""
         return await self._exec(command)
 
+    async def file_exec(self, command: str, params: list[str] | None = None) -> dict[str, Any]:
+        """Execute a binary directly via SSH, returning a file.exec-compatible dict."""
+        import shlex
+        parts = [command] + (params or [])
+        cmd = " ".join(shlex.quote(p) for p in parts)
+        result = await self._exec(cmd)
+        if result:
+            return {"stdout": result}
+        return {}
+
     async def provision_user(
         self,
         username: str,

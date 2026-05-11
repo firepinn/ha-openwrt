@@ -258,6 +258,26 @@ class LuciRpcClient(OpenWrtClient):
 
         return ""
 
+    async def file_exec(self, command: str, params: list[str] | None = None) -> dict[str, Any]:
+        """Execute a binary via the existing sys.exec/shell path on LuCI RPC.
+
+        Calling file.exec directly with an arbitrary binary fails unless that binary
+        is explicitly listed in the rpcd file ACL. Routing through execute_command()
+        uses /bin/sh (which IS in the ACL) and avoids that restriction.
+        """
+        import shlex
+        parts = [command] + (params or [])
+        cmd = " ".join(shlex.quote(p) for p in parts)
+        output = await self.execute_command(cmd)
+        if not output:
+            return {}
+        # execute_command merges stdout+stderr; classify permission errors as stderr
+        # so callers can distinguish them from normal (possibly empty-stdout) output.
+        lower = output.lower()
+        if "permission denied" in lower or "access denied" in lower:
+            return {"stderr": output, "code": 1}
+        return {"stdout": output, "code": 0}
+
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
         # 1. Try via LuCI RPC (often more restricted than ubus, but let's try reading passwd)
