@@ -157,10 +157,10 @@ async def test_luci_provision_user(luci_client: LuciRpcClient):
         assert success is True
         assert error is None
         script = mock_exec.call_args[0][0]
-        assert "USER=$(cat <<'EOF'\nhomeassistant\nEOF\n)" in script
-        assert "PASS=$(cat <<'EOF'\nnew-password\nEOF\n)" in script
-        assert "$UCI set rpcd.$SECTION=login" in script
-        assert '$UCI set rpcd.$SECTION.password="\\$p\\$$USER"' in script
+        assert "USER='homeassistant'" in script
+        assert "PASS='new-password'" in script
+        assert '$UCI set rpcd."$SECTION"=login' in script
+        assert '$UCI set rpcd."$SECTION".password="\\$p\\$$USER"' in script
         assert "/etc/init.d/rpcd restart" in script
 
 

@@ -242,15 +242,8 @@ def _generate_package_table(
 
         # Use translated name if available
         display_name = name
-        if (
-            translations
-            and key
-            and f"component.openwrt.entity.sensor.package_feature.state.{key}"
-            in translations
-        ):
-            display_name = translations[
-                f"component.openwrt.entity.sensor.package_feature.state.{key}"
-            ]
+        if translations and key and key in translations:
+            display_name = translations[key]
 
         if not required:
             return display_name
@@ -1618,8 +1611,13 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Show packages summary."""
+        """Show packages summary and allow enabling/disabling features."""
         if user_input is not None:
+            # Remove internal acknowledge field and update data
+            user_input.pop("acknowledge", None)
+            self._data.update(user_input)
+            if user_input.get(CONF_TRACK_DEVICES):
+                return await self.async_step_selective_tracking()
             return await self.async_step_mqtt_presence()
 
         if getattr(self, "_packages", None) is None:
@@ -1645,10 +1643,87 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             translations=feature_translations,
         )
 
+        # Build dynamic schema for feature toggles
+        schema_dict = {
+            vol.Optional(CONF_TRACK_DEVICES, default=True): bool,
+            vol.Optional(CONF_ENABLE_LOAD, default=True): bool,
+            vol.Optional(CONF_ENABLE_SERVICES, default=True): bool,
+            vol.Optional(CONF_ENABLE_FIREWALL, default=True): bool,
+            vol.Optional(CONF_ENABLE_LED, default=True): bool,
+        }
+
+        if self._packages.sqm_scripts:
+            schema_dict[vol.Optional(CONF_ENABLE_SQM, default=True)] = bool
+        if self._packages.wireguard or self._packages.openvpn:
+            schema_dict[vol.Optional(CONF_ENABLE_VPN, default=True)] = bool
+
         return self.async_show_form(
             step_id="packages",
-            data_schema=vol.Schema({vol.Optional("acknowledge", default=True): bool}),
+            data_schema=vol.Schema(schema_dict),
             description_placeholders={"packages_table": table},
+        )
+
+    async def async_step_selective_tracking(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Allow the user to select which devices to track during initial setup."""
+        if user_input is not None:
+            self._data.update(user_input)
+            return await self.async_step_mqtt_presence()
+
+        errors = {}
+        device_options = {}
+
+        try:
+            client = create_client(self.hass, self._data)
+            async with asyncio.timeout(15):
+                await client.connect()
+                # Fetch both connected devices and DHCP leases for a complete list
+                devices = await client.get_connected_devices()
+                leases = await client.get_dhcp_leases()
+                await client.disconnect()
+
+                # Combine them
+                for d in devices:
+                    if d.mac:
+                        mac = d.mac.lower()
+                        name = d.hostname or d.mac
+                        device_options[mac] = f"{name} ({d.mac})"
+                for lease in leases:
+                    if lease.mac:
+                        mac = lease.mac.lower()
+                        if mac not in device_options:
+                            name = lease.hostname or lease.mac
+                            device_options[mac] = f"{name} ({lease.mac}) [Lease]"
+        except Exception as err:
+            _LOGGER.warning("Could not fetch devices for selective tracking: %s", err)
+            errors["base"] = "cannot_connect"
+
+        options: list[selector.SelectOptionDict] = [
+            {"value": k, "label": v} for k, v in device_options.items()
+        ]
+
+        return self.async_show_form(
+            step_id="selective_tracking",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_TRACKED_DEVICES): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(CONF_MANUAL_TRACKED_DEVICES): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            multiline=True,
+                            type=selector.TextSelectorType.TEXT,
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_mqtt_presence(
@@ -1823,6 +1898,14 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_MQTT_PORT,
             CONF_MQTT_USERNAME,
             CONF_MQTT_PASSWORD,
+            CONF_TRACKED_DEVICES,
+            CONF_MANUAL_TRACKED_DEVICES,
+            CONF_ENABLE_FIREWALL,
+            CONF_ENABLE_SERVICES,
+            CONF_ENABLE_VPN,
+            CONF_ENABLE_LED,
+            CONF_ENABLE_SQM,
+            CONF_ENABLE_LOAD,
         ]:
             if key in data:
                 options[key] = data.pop(key)
@@ -2145,8 +2228,11 @@ class OpenWrtOptionsFlow(OptionsFlow):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Show packages summary."""
+        """Show packages summary and allow enabling/disabling features."""
         if user_input is not None:
+            # Remove internal acknowledge field and update options
+            user_input.pop("acknowledge", None)
+            self._options.update(user_input)
             return self.async_create_entry(title="", data=self._options)
 
         if self._packages is None:
@@ -2172,14 +2258,49 @@ class OpenWrtOptionsFlow(OptionsFlow):
             translations=feature_translations,
         )
 
-        _LOGGER.debug(
-            "Showing options packages step: table_len=%d",
-            len(table),
-        )
+        # Build dynamic schema for feature toggles based on current settings
+        current = {**self._config_entry.options, **self._options}
+        schema_dict = {
+            vol.Optional(
+                CONF_TRACK_DEVICES,
+                default=current.get(CONF_TRACK_DEVICES, True),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_LOAD,
+                default=current.get(CONF_ENABLE_LOAD, True),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_SERVICES,
+                default=current.get(CONF_ENABLE_SERVICES, True),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_FIREWALL,
+                default=current.get(CONF_ENABLE_FIREWALL, True),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_LED,
+                default=current.get(CONF_ENABLE_LED, True),
+            ): bool,
+        }
+
+        if self._packages.sqm_scripts:
+            schema_dict[
+                vol.Optional(
+                    CONF_ENABLE_SQM,
+                    default=current.get(CONF_ENABLE_SQM, True),
+                )
+            ] = bool
+        if self._packages.wireguard or self._packages.openvpn:
+            schema_dict[
+                vol.Optional(
+                    CONF_ENABLE_VPN,
+                    default=current.get(CONF_ENABLE_VPN, True),
+                )
+            ] = bool
 
         return self.async_show_form(
             step_id="options_packages",
-            data_schema=vol.Schema({vol.Optional("acknowledge", default=True): bool}),
+            data_schema=vol.Schema(schema_dict),
             description_placeholders={"packages_table": table},
         )
 

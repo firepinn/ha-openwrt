@@ -175,11 +175,11 @@ async def test_ssh_provision_user(ssh_client: SshClient):
         assert success is True
         assert error is None
         script = mock_exec.call_args[0][0]
-        assert "USER=$(cat <<'EOF'\nhomeassistant\nEOF\n)" in script
-        assert "PASS=$(cat <<'EOF'\nnew-password\nEOF\n)" in script
-        assert "$UCI set rpcd.$SECTION=login" in script
-        assert '$UCI set rpcd.$SECTION.password="\\$p\\$$USER"' in script
-        assert '$UCI add_list rpcd.$SECTION.read="homeassistant"' in script
+        assert "USER='homeassistant'" in script
+        assert "PASS='new-password'" in script
+        assert '$UCI set rpcd."$SECTION"=login' in script
+        assert '$UCI set rpcd."$SECTION".password="\\$p\\$$USER"' in script
+        assert '$UCI add_list rpcd."$SECTION".read="homeassistant"' in script
         assert "chpasswd" in script
         assert "passwd" in script
         assert "/etc/init.d/rpcd restart" in script

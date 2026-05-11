@@ -62,6 +62,7 @@ from .const import (
     CONF_SKIP_RANDOM_MAC,
     CONF_SSH_KEY,
     CONF_TARGET_OVERRIDE,
+    CONF_TRACK_DEVICES,
     CONF_TRACKED_DEVICES,
     CONF_TRUST_BRIDGE_FDB,
     CONF_TRUST_STALE_ARP,
@@ -77,6 +78,7 @@ from .const import (
     DEFAULT_PORT_UBUS,
     DEFAULT_PORT_UBUS_SSL,
     DEFAULT_SKIP_RANDOM_MAC,
+    DEFAULT_TRACK_DEVICES,
     DEFAULT_UBUS_PATH,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -617,7 +619,11 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         )
 
         # 1. Get active whitelist (merged selected + manual)
-        whitelist = self._async_get_tracked_devices_whitelist()
+        whitelist = None
+        if self.config_entry.options.get(
+            CONF_TRACK_DEVICES, DEFAULT_TRACK_DEVICES
+        ) or self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
+            whitelist = self._async_get_tracked_devices_whitelist()
 
         # 4. Filter connected devices
         filtered_devices = []
@@ -820,7 +826,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
                 # Small delay between discovery calls to avoid flooding
                 await asyncio.sleep(0.05)
-        
+
         # Global registry cleanup (independent of device history)
         if clean and mqtt_ready:
             await self._async_global_registry_cleanup()
@@ -846,8 +852,6 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     whitelist.add(mac)
 
         return whitelist if whitelist else None
-
-
 
     async def _async_discovery_mqtt_device_cleanup(self, mac: str) -> None:
         """Remove legacy MQTT discovery messages for a device tracker."""
