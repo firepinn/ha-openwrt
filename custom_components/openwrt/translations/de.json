@@ -42,7 +42,6 @@
           "port": "Port",
           "ubus_path": "Ubus Pfad (z.B. /ubus)",
           "dhcp_software": "DHCP Software",
-          "track_devices": "Netzwerk-Clients verfolgen (Device Tracker)",
           "skip_random_mac": "Geräte mit zufälligen MAC-Adressen ignorieren"
         }
       },
@@ -55,7 +54,6 @@
           "ssh_key": "Privater SSH-Schlüssel (Optional, lässt Passwort leer wenn genutzt)",
           "port": "Port",
           "dhcp_software": "DHCP Software",
-          "track_devices": "Netzwerk-Clients verfolgen (Device Tracker)",
           "skip_random_mac": "Geräte mit zufälligen MAC-Adressen ignorieren"
         }
       },
@@ -76,7 +74,6 @@
           "use_ssl": "SSL verwenden (HTTPS)",
           "port": "Port (Optional)",
           "dhcp_software": "DHCP Software",
-          "track_devices": "Netzwerk-Clients verfolgen (Device Tracker)",
           "skip_random_mac": "Geräte mit zufälligen MAC-Adressen ignorieren"
         }
       },
@@ -198,7 +195,6 @@
         "title": "OpenWrt Optionen",
         "data": {
           "update_interval": "Update-Intervall (Sekunden)",
-          "track_devices": "Netzwerkgeräte verfolgen",
           "track_wired": "Kabelgebundene Geräte in Tracking einbeziehen",
           "consider_home": "Verzögerung für 'Anwesend' Status (Sekunden)",
           "dhcp_software": "DHCP Software",
@@ -211,13 +207,7 @@
           "redeploy_mqtt": "MQTT-Präsenz-Skripte erneut übertragen",
           "redeploy_user": "Home Assistant Benutzer & ACLs neu übertragen",
           "trust_stale_arp": "ARP-Status 'STALE' als anwesend werten",
-          "trust_bridge_fdb": "Bridge-FDB für Anwesenheit nutzen (Kabel)",
-          "enable_firewall": "Firewall-Entitäten aktivieren (Regeln & Umleitungen)",
-          "enable_services": "Dienst-Überwachung & Steuerung aktivieren",
-          "enable_vpn": "VPN-Überwachung & Steuerung aktivieren",
-          "enable_led": "LED-Steuerung aktivieren",
-          "enable_sqm": "SQM-QoS-Steuerung aktivieren",
-          "enable_load": "System-Last-Sensoren aktivieren (1m, 5m, 15m)"
+          "trust_bridge_fdb": "Bridge-FDB für Anwesenheit nutzen (Kabel)"
         },
         "description": "Konfiguriere die Optionen der OpenWrt-Integration."
       },

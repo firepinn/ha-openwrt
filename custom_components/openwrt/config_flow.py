@@ -103,7 +103,6 @@ from .const import (
     DEFAULT_PORT_UBUS,
     DEFAULT_PORT_UBUS_SSL,
     DEFAULT_SKIP_RANDOM_MAC,
-    DEFAULT_TRACK_DEVICES,
     DEFAULT_TRACK_WIRED,
     DEFAULT_TRUST_BRIDGE_FDB,
     DEFAULT_TRUST_STALE_ARP,
@@ -890,7 +889,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 ),
             ),
-            vol.Optional(CONF_TRACK_DEVICES, default=True): bool,
             vol.Optional(CONF_PORT): int,
         }
 
@@ -943,7 +941,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_DHCP_SOFTWARE, default="auto"): vol.In(
                     ["auto", "dnsmasq", "odhcpd", "none"],
                 ),
-                vol.Optional(CONF_TRACK_DEVICES, default=True): bool,
                 vol.Optional(CONF_PORT, default=DEFAULT_PORT_SSH): int,
             },
         )
@@ -1962,8 +1959,6 @@ class OpenWrtOptionsFlow(OptionsFlow):
                 finally:
                     await client.disconnect()
 
-            if user_input.get(CONF_TRACK_DEVICES):
-                return await self.async_step_options_select_devices()
             return await self.async_step_options_permissions()
 
         current = self._config_entry.options
@@ -1973,10 +1968,6 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     CONF_UPDATE_INTERVAL,
                     default=current.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
                 ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
-                vol.Optional(
-                    CONF_TRACK_DEVICES,
-                    default=current.get(CONF_TRACK_DEVICES, DEFAULT_TRACK_DEVICES),
-                ): bool,
                 vol.Optional(
                     CONF_TRACK_WIRED,
                     default=current.get(CONF_TRACK_WIRED, DEFAULT_TRACK_WIRED),
@@ -1997,30 +1988,6 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     CONF_ASU_URL,
                     default=current.get(CONF_ASU_URL, "https://sysupgrade.openwrt.org"),
                 ): str,
-                vol.Optional(
-                    CONF_ENABLE_FIREWALL,
-                    default=current.get(CONF_ENABLE_FIREWALL, True),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_SERVICES,
-                    default=current.get(CONF_ENABLE_SERVICES, True),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_VPN,
-                    default=current.get(CONF_ENABLE_VPN, True),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_LED,
-                    default=current.get(CONF_ENABLE_LED, True),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_SQM,
-                    default=current.get(CONF_ENABLE_SQM, True),
-                ): bool,
-                vol.Optional(
-                    CONF_ENABLE_LOAD,
-                    default=current.get(CONF_ENABLE_LOAD, True),
-                ): bool,
                 vol.Optional(
                     CONF_TARGET_OVERRIDE,
                     default=current.get(CONF_TARGET_OVERRIDE, ""),
@@ -2233,6 +2200,8 @@ class OpenWrtOptionsFlow(OptionsFlow):
             # Remove internal acknowledge field and update options
             user_input.pop("acknowledge", None)
             self._options.update(user_input)
+            if user_input.get(CONF_TRACK_DEVICES):
+                return await self.async_step_options_select_devices()
             return self.async_create_entry(title="", data=self._options)
 
         if self._packages is None:
