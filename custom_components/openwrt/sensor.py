@@ -1765,7 +1765,7 @@ def _create_wifi_base_sensors(
                 state_class=SensorStateClass.MEASUREMENT,
                 value_fn=lambda data, n=iface_name, s=section_id, i=ifname: sum(
                     1
-                    for d in data.connected_devices
+                    for d in data.all_connected_devices
                     if d.is_wireless
                     and d.connected
                     and (
