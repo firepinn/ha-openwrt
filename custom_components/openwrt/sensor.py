@@ -546,14 +546,18 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             name="Connected Clients",
             translation_key="connected_clients",
             state_class=SensorStateClass.MEASUREMENT,
-            value_fn=lambda data: sum(1 for d in data.connected_devices if d.connected),
+            value_fn=lambda data: sum(
+                1 for d in data.all_connected_devices if d.connected
+            ),
             attrs_fn=lambda data: {
                 "wireless": sum(
-                    1 for d in data.connected_devices if d.is_wireless and d.connected
+                    1
+                    for d in data.all_connected_devices
+                    if d.is_wireless and d.connected
                 ),
                 "wired": sum(
                     1
-                    for d in data.connected_devices
+                    for d in data.all_connected_devices
                     if not d.is_wireless and d.connected
                 ),
             },
@@ -565,7 +569,7 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             state_class=SensorStateClass.MEASUREMENT,
             entity_registry_enabled_default=False,
             value_fn=lambda data: sum(
-                1 for d in data.connected_devices if d.is_wireless and d.connected
+                1 for d in data.all_connected_devices if d.is_wireless and d.connected
             ),
         ),
         OpenWrtSensorDescription(
