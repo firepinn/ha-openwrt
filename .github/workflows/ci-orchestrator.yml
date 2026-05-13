@@ -14,16 +14,6 @@ permissions:
   actions: read
 
 jobs:
-  labeler:
-    name: Label PR
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/labeler@v6
-        with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          configuration-path: .github/labeler.yml
-
   lint-test:
     name: Lint & Test
     runs-on: ubuntu-latest
