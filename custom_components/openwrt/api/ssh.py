@@ -165,7 +165,7 @@ class SshClient(OpenWrtClient):
         import shlex
         parts = [command] + (params or [])
         cmd = " ".join(shlex.quote(p) for p in parts)
-        output = await self._exec(f"{cmd}; echo __HA_RC__$?")
+        output = await self._exec(f"{cmd} 2>&1; echo __HA_RC__$?")
         if not output:
             return {}
         lines = output.splitlines()
@@ -176,8 +176,10 @@ class SshClient(OpenWrtClient):
             except ValueError:
                 rc = 1
             lines = lines[:-1]
-        stdout = "\n".join(lines).strip()
-        return {"code": rc, "stdout": stdout, "stderr": ""}
+        body = "\n".join(lines).strip()
+        if rc != 0:
+            return {"code": rc, "stdout": "", "stderr": body}
+        return {"code": rc, "stdout": body, "stderr": ""}
 
     async def provision_user(
         self,
