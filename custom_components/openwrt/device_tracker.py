@@ -368,6 +368,8 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         # Add optional metrics
         optional_metrics = {
             "interface": device.interface,
+            "port": device.port,
+            "fdb_age": device.fdb_age,
             "rx_bytes": device.rx_bytes,
             "tx_bytes": device.tx_bytes,
             "uptime": device.uptime,

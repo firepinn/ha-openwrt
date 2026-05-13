@@ -107,6 +107,18 @@ async def async_get_config_entry_diagnostics(
                 "latest_version": data.firmware_latest_version,
                 "is_custom_build": data.is_custom_build,
             }
+            diag["connected_devices_sample"] = [
+                {
+                    "mac": d.mac,
+                    "is_wireless": d.is_wireless,
+                    "connected": d.connected,
+                    "neighbor_state": d.neighbor_state,
+                    "fdb_age": d.fdb_age,
+                    "port": d.port,
+                    "interface": d.interface,
+                }
+                for d in data.connected_devices[:20]
+            ]
             diag["wireless_interfaces"] = [
                 {
                     "name": w.name,

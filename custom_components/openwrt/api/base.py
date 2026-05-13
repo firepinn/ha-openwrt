@@ -277,6 +277,7 @@ class ConnectedDevice:
     connection_type: str = ""  # e.g. "wired", "2.4GHz", "5GHz", "6GHz"
     connection_info: str = ""  # e.g. "802.11ax", "1000Mbps"
     neighbor_state: str = ""
+    fdb_age: float | None = None
     uptime: int = 0
 
 
