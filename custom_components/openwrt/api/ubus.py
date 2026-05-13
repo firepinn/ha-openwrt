@@ -747,7 +747,7 @@ class UbusClient(OpenWrtClient):
                                 )
                                 resources.storage.append(usage)
                                 self._update_legacy_fs_fields(resources, usage)
-                            except ValueError, IndexError:
+                            except (ValueError, IndexError):
                                 continue
 
     def _update_legacy_fs_fields(self, resources: SystemResources, usage: Any) -> None:
@@ -871,7 +871,7 @@ class UbusClient(OpenWrtClient):
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
 
             # Only keep top 10
@@ -2826,11 +2826,8 @@ class UbusClient(OpenWrtClient):
         """Execute a binary directly via rpcd file.exec without shell wrapping."""
         try:
             return await self._call("file", "exec", {"command": command, "params": params or []})
-        except (UbusPermissionError, UbusAuthError, UbusTimeoutError, UbusConnectionError, UbusSslError):
+        except UbusError:
             raise
-        except UbusError as err:
-            _LOGGER.debug("file.exec failed for %s: %s", command, err)
-            return {}
 
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
@@ -3047,7 +3044,7 @@ class UbusClient(OpenWrtClient):
                 )
                 try:
                     status.blocked_domains = int(float(blocked))
-                except ValueError, TypeError:
+                except (ValueError, TypeError):
                     pass
                 status.last_update = res.get("last_run")
                 return status
@@ -3251,7 +3248,7 @@ class UbusClient(OpenWrtClient):
                 idx = parts.index("lladdr")
                 if len(parts) > idx + 1:
                     return parts[idx + 1].upper()
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
         return None
 

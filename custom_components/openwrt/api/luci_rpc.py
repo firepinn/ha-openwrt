@@ -268,15 +268,24 @@ class LuciRpcClient(OpenWrtClient):
         import shlex
         parts = [command] + (params or [])
         cmd = " ".join(shlex.quote(p) for p in parts)
-        output = await self.execute_command(cmd)
+        output = await self.execute_command(f"{cmd}; echo __HA_RC__$?")
         if not output:
             return {}
+        lines = output.splitlines()
+        rc = 0
+        if lines and lines[-1].startswith("__HA_RC__"):
+            try:
+                rc = int(lines[-1][9:].strip())
+            except ValueError:
+                rc = 1
+            lines = lines[:-1]
+        stdout = "\n".join(lines).strip()
         # execute_command merges stdout+stderr; classify permission errors as stderr
         # so callers can distinguish them from normal (possibly empty-stdout) output.
-        lower = output.lower()
+        lower = stdout.lower()
         if "permission denied" in lower or "access denied" in lower:
-            return {"stderr": output, "code": 1}
-        return {"stdout": output, "code": 0}
+            return {"code": rc or 1, "stdout": "", "stderr": stdout}
+        return {"code": rc, "stdout": stdout, "stderr": ""}
 
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
@@ -2163,7 +2172,7 @@ class LuciRpcClient(OpenWrtClient):
 
                 try:
                     enabled = bool(int(val.get("enabled", "1")))
-                except ValueError, TypeError:
+                except (ValueError, TypeError):
                     enabled = True
                 rules.append(
                     FirewallRule(
@@ -2326,7 +2335,7 @@ class LuciRpcClient(OpenWrtClient):
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status

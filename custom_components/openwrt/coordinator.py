@@ -456,15 +456,15 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         stdout = result.get("stdout", "")
         stderr = result.get("stderr", "")
 
-        if not stdout:
-            data.nlbwmon_top_hosts = empty
-            return
-
         combined = (stdout + stderr).lower()
         if "permission denied" in combined or "access denied" in combined:
             _LOGGER.warning(
                 "nlbwmon requires ubus file.exec permission for '/usr/sbin/nlbw' in rpcd ACL"
             )
+            data.nlbwmon_top_hosts = empty
+            return
+
+        if not stdout:
             data.nlbwmon_top_hosts = empty
             return
 
@@ -508,7 +508,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         try:
             raw_leases = await self.client.get_dhcp_leases()
             for lease in raw_leases:
-                if lease.mac and lease.hostname:
+                if lease.mac and lease.hostname and lease.hostname != "*":
                     hostname_map[lease.mac.upper()] = lease.hostname
         except Exception:
             pass
