@@ -56,6 +56,7 @@ from .const import (
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
     CONF_MANUAL_TRACKED_DEVICES,
+    CONF_ENABLE_NLBWMON_SENSORS,
     CONF_MQTT_PRESENCE,
     CONF_PASSWORD,
     CONF_PORT,
@@ -396,6 +397,16 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             except Exception as err:
                 _LOGGER.debug("MQTT presence data fetch failed: %s", err)
 
+        # 10. Fetch nlbwmon top hosts if enabled
+        if self.config_entry.options.get(
+            CONF_ENABLE_NLBWMON_SENSORS,
+            self.config_entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
+        ):
+            try:
+                await self._async_fetch_nlbwmon_top_hosts_data(data)
+            except Exception as err:
+                _LOGGER.debug("nlbwmon top hosts fetch failed: %s", err)
+
         return data
 
     async def _async_fetch_mqtt_presence_data(self, data: OpenWrtData) -> None:
@@ -417,6 +428,136 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             _LOGGER.debug("Failed to fetch MQTT presence data: %s", err)
             data.mqtt_presence_status = "error"
             data.mqtt_presence_logs = [str(err)]
+
+    @staticmethod
+    def _format_bytes(num_bytes: int) -> str:
+        value = float(num_bytes)
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if value < 1024 or unit == "TB":
+                return f"{int(value)} {unit}" if unit == "B" else f"{value:.2f} {unit}"
+            value /= 1024
+        return f"{num_bytes} B"
+
+    async def _async_fetch_nlbwmon_top_hosts_data(self, data: OpenWrtData) -> None:
+        """Fetch and parse nlbwmon top bandwidth hosts via file.exec."""
+        empty: dict[str, Any] = {
+            "top_hosts": [],
+            "host_count": 0,
+            "total_rx_bytes": 0,
+            "total_tx_bytes": 0,
+        }
+        result = await self.client.file_exec(
+            "/usr/sbin/nlbw", ["-c", "json", "-g", "ip,mac", "-o", "-rx_bytes,-tx_bytes"]
+        )
+        if not result:
+            data.nlbwmon_top_hosts = empty
+            return
+
+        stdout = result.get("stdout", "")
+        stderr = result.get("stderr", "")
+
+        if not stdout:
+            data.nlbwmon_top_hosts = empty
+            return
+
+        combined = (stdout + stderr).lower()
+        if "permission denied" in combined or "access denied" in combined:
+            _LOGGER.warning(
+                "nlbwmon requires ubus file.exec permission for '/usr/sbin/nlbw' in rpcd ACL"
+            )
+            data.nlbwmon_top_hosts = empty
+            return
+
+        try:
+            raw = json.loads(stdout)
+        except (json.JSONDecodeError, ValueError) as err:
+            _LOGGER.error("Failed to parse nlbwmon output: %s", err)
+            data.nlbwmon_top_hosts = empty
+            return
+
+        columns = raw.get("columns", [])
+        rows = raw.get("data", [])
+        if not columns or not rows:
+            data.nlbwmon_top_hosts = empty
+            return
+
+        col = {name: idx for idx, name in enumerate(columns)}
+        required = {"ip", "mac", "rx_bytes", "tx_bytes", "conns"}
+        if not required.issubset(col.keys()):
+            _LOGGER.error("nlbwmon output missing required columns: %s", columns)
+            data.nlbwmon_top_hosts = empty
+            return
+
+        aggregated: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            ip = row[col["ip"]] if "ip" in col else ""
+            mac = (row[col["mac"]] if "mac" in col else "").upper()
+            if mac == "00:00:00:00:00:00" and not ip:
+                continue
+            key = ip if mac == "00:00:00:00:00:00" else mac
+            if key not in aggregated:
+                aggregated[key] = {"mac": mac, "ip": ip, "rx_bytes": 0, "tx_bytes": 0, "conns": 0}
+            aggregated[key]["rx_bytes"] += row[col["rx_bytes"]]
+            aggregated[key]["tx_bytes"] += row[col["tx_bytes"]]
+            aggregated[key]["conns"] += row[col["conns"]]
+            current_ip = aggregated[key]["ip"]
+            if ":" in current_ip and ":" not in ip and ip:
+                aggregated[key]["ip"] = ip
+
+        hostname_map: dict[str, str] = {}
+        try:
+            raw_leases = await self.client.get_dhcp_leases()
+            for lease in raw_leases:
+                if lease.mac and lease.hostname:
+                    hostname_map[lease.mac.upper()] = lease.hostname
+        except Exception:
+            pass
+
+        device_reg = dr.async_get(self.hass)
+        for dev in device_reg.devices.values():
+            name = dev.name_by_user or dev.name
+            if not name:
+                continue
+            for conn_type, conn_mac in dev.connections:
+                if conn_type == dr.CONNECTION_NETWORK_MAC:
+                    mac_key = conn_mac.upper()
+                    if mac_key and mac_key not in hostname_map:
+                        hostname_map[mac_key] = name
+
+        hosts = []
+        for entry_data in aggregated.values():
+            total = entry_data["rx_bytes"] + entry_data["tx_bytes"]
+            if total == 0:
+                continue
+            mac = entry_data["mac"]
+            hostname = hostname_map.get(mac) or entry_data["ip"] or mac or "Unknown"
+            hosts.append({**entry_data, "total_bytes": total, "hostname": hostname})
+
+        hosts.sort(key=lambda x: x["total_bytes"], reverse=True)
+
+        top_hosts = [
+            {
+                "rank": i + 1,
+                "hostname": h["hostname"],
+                "ip": h["ip"],
+                "mac": h["mac"],
+                "connections": h["conns"],
+                "rx_bytes": h["rx_bytes"],
+                "tx_bytes": h["tx_bytes"],
+                "total_bytes": h["total_bytes"],
+                "download": self._format_bytes(h["rx_bytes"]),
+                "upload": self._format_bytes(h["tx_bytes"]),
+                "total": self._format_bytes(h["total_bytes"]),
+            }
+            for i, h in enumerate(hosts[:5])
+        ]
+
+        data.nlbwmon_top_hosts = {
+            "top_hosts": top_hosts,
+            "host_count": len(hosts),
+            "total_rx_bytes": sum(h["rx_bytes"] for h in hosts),
+            "total_tx_bytes": sum(h["tx_bytes"] for h in hosts),
+        }
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:
         """Check if the homeassistant user has stale permissions."""
