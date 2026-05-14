@@ -162,9 +162,12 @@ class OpenWrtWifiSensorEntity(OpenWrtSensorEntity):
             > 1
         ):
             name_label = f"{name_label} [{iface_name}]"
-            # We also need to update the description name so the entity name reflects this
-            if self._attr_name:
-                self._attr_name = f"{self._attr_name} [{iface_name}]"
+            # We also need to update the description name so the entity name reflects this.
+            # Use getattr to avoid AttributeError on HA versions where _attr_name has no
+            # class-level default until it is explicitly set.
+            existing_name = getattr(self, "_attr_name", None)
+            if existing_name:
+                self._attr_name = f"{existing_name} [{iface_name}]"
             elif description.name:
                 self._attr_name = f"{description.name} [{iface_name}]"
 
