@@ -154,15 +154,21 @@ async def async_setup_entry(
             if mac in tracked_macs:
                 continue
 
-            # Check if it's wireless (from current data or history)
-            is_wireless = False
+            # Determine if it's currently wireless on THIS node
+            is_currently_wireless = False
             for device in coordinator.data.connected_devices:
                 if device.mac and device.mac.lower() == mac:
-                    is_wireless = device.is_wireless
+                    is_currently_wireless = device.is_wireless
                     break
 
-            if not is_wireless and mac in coordinator._device_history:
-                is_wireless = coordinator._device_history[mac].get("is_wireless", False)
+            # Determine if it's a known wireless device from history
+            was_ever_wireless = coordinator._device_history.get(mac, {}).get(
+                "is_wireless", False
+            )
+
+            # A device is considered wireless for entity classification if it is
+            # currently wireless OR was ever known to be wireless.
+            is_wireless = is_currently_wireless or was_ever_wireless
 
             is_random = is_random_mac(mac)
             skip_random = entry.options.get(
@@ -170,10 +176,11 @@ async def async_setup_entry(
             )
 
             _LOGGER.debug(
-                "Evaluating device %s (hostname: %s): wireless=%s, random=%s, skip_random=%s, track_wired=%s",
+                "Evaluating device %s (hostname: %s): currently_wireless=%s, was_ever_wireless=%s, random=%s, skip_random=%s, track_wired=%s",
                 mac,
                 hostname,
-                is_wireless,
+                is_currently_wireless,
+                was_ever_wireless,
                 is_random,
                 skip_random,
                 track_wired,
@@ -186,9 +193,11 @@ async def async_setup_entry(
                 )
                 continue
 
-            if not track_wired and not is_wireless and not is_random:
+            # Skip if we don't track wired devices and this device is not wireless
+            # (neither currently nor historically).
+            if not track_wired and not is_wireless:
                 _LOGGER.debug(
-                    "Skipping device %s (hostname: %s): not wireless, not random, and track_wired is False",
+                    "Skipping device %s (hostname: %s): not wireless and track_wired is False",
                     mac,
                     hostname,
                 )
@@ -280,7 +289,22 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
     def is_connected(self) -> bool:
         """Return true if the device is connected."""
         device = self._get_device_data()
-        connected = device.connected if device else False
+        if not device:
+            return self._check_consider_home(False)
+
+        connected = device.connected
+
+        # In multi-AP setups with track_wired=False, we must ignore devices
+        # that are only seen via ARP/neighbors (is_wireless=False) on this node.
+        # Otherwise, a device connected to AP1 would also show as connected on AP2
+        # because it appears in AP2's ARP table.
+        track_wired = self._entry.options.get(
+            CONF_TRACK_WIRED,
+            self._entry.data.get(CONF_TRACK_WIRED, DEFAULT_TRACK_WIRED),
+        )
+        if not track_wired and not device.is_wireless:
+            connected = False
+
         return self._check_consider_home(connected)
 
     def _get_device_data(self) -> Any | None:
