@@ -31,7 +31,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OpenWrt event entities from a config entry."""
+    """Set up event entities."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
@@ -45,7 +45,7 @@ async def async_setup_entry(
 
     @callback
     def _async_add_new_entities() -> None:
-        """Add new event entities when discovered."""
+        """Add new entities."""
         if not coordinator.data:
             return
 
@@ -88,7 +88,7 @@ class OpenWrtNewDeviceEvent(CoordinatorEntity[OpenWrtDataCoordinator], EventEnti
         coordinator: OpenWrtDataCoordinator,
         entry: ConfigEntry,
     ) -> None:
-        """Initialize the event entity."""
+        """Initialize."""
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_new_device_event"
@@ -127,7 +127,7 @@ class OpenWrtNewDeviceEvent(CoordinatorEntity[OpenWrtDataCoordinator], EventEnti
             super()._handle_coordinator_update()
             return
 
-        # 1. New connections
+        # New connections
         for mac in current_connected:
             if mac not in self._connected_macs:
                 device_info = next(
@@ -166,7 +166,7 @@ class OpenWrtNewDeviceEvent(CoordinatorEntity[OpenWrtDataCoordinator], EventEnti
             # Update last seen timestamp
             self._connected_macs[mac] = current_time
 
-        # 2. Disconnections (with 60s grace period to handle polling glitches)
+        # Disconnections (with 60s grace period to handle polling glitches)
         disconnection_threshold = 60
         gone_macs = [
             mac

@@ -203,7 +203,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         config_entry: ConfigEntry,
         client: OpenWrtClient,
     ) -> None:
-        """Initialize the coordinator."""
+        """Initialize."""
         self.client = client
         self.client.coordinator = self
         self.hass = hass
@@ -244,7 +244,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         )
 
     async def _async_setup(self) -> None:
-        """Set up the coordinator (connect to device)."""
+        """Set up (connect to device)."""
         # Load history and version from storage
         try:
             stored_data = await self._store.async_load()
@@ -304,16 +304,14 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     self.last_update_success = False
 
     async def _async_update_data(self) -> OpenWrtData:
-        """Fetch data from the OpenWrt device."""
-        # 1. Fetch data from device
+        """Fetch data."""
         data = await self._async_fetch_all_data()
 
         async_delete_connection_lost_repair(self.hass, self.config_entry)
 
-        # 2. Transfer firmware state if revision hasn't changed
         self._async_sync_firmware_state(data)
 
-        # 3. Periodic firmware checks (wrapped in try-except to prevent crashing the whole coordinator)
+        # Periodic firmware checks (wrapped in try-except to prevent crashing the whole coordinator)
         now = self.hass.loop.time()
         if now - self._last_firmware_check > FIRMWARE_CHECK_INTERVAL.total_seconds():
             self._last_firmware_check = now
@@ -322,7 +320,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             except Exception as err:
                 _LOGGER.debug("Firmware update check failed: %s", err)
 
-        # 4. Calculate stabilized boot time
+        # Calculate stabilized boot time
         uptime = data.system_resources.uptime
         if uptime > 0:
             utc_now = dt_util.utcnow()
@@ -336,10 +334,10 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 new_boot_time = boot_time_raw.replace(second=0, microsecond=0)
 
             # Stabilization logic:
-            # 1. If we don't have a boot time yet, set it.
-            # 2. If uptime decreased significantly (>10s), the router rebooted.
-            # 3. If the difference is significant (> 60s), update it (covers clock syncs/drift).
-            # 4. Otherwise, keep the old value to prevent sensor flickering from poll jitter.
+            # If we don't have a boot time yet, set it.
+            # If uptime decreased significantly (>10s), the router rebooted.
+            # If the difference is significant (> 60s), update it (covers clock syncs/drift).
+            # Otherwise, keep the old value to prevent sensor flickering from poll jitter.
 
             rebooted = self._last_uptime is not None and uptime < (
                 self._last_uptime - 10
@@ -366,17 +364,13 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             data.boot_time = self._boot_time
             self._last_uptime = uptime
 
-        # 5. Calculate network rates
         self._async_process_network_rates(data, now)
         self._last_update_time = now
 
-        # 5. Update device registry
         await self._async_update_device_registry(data)
 
-        # 6. Device tracking and filtering
         await self._async_filter_and_track_devices(data)
 
-        # 7. Persist history and version if it changed
         try:
             await self._store.async_save(
                 {
@@ -387,17 +381,14 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         except Exception as err:
             _LOGGER.warning("Could not save persistent history: %s", err)
 
-        # 8. Check for stale permissions
         self._async_check_stale_permissions(data)
 
-        # 9. Fetch MQTT presence status if enabled
         if self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
             try:
                 await self._async_fetch_mqtt_presence_data(data)
             except Exception as err:
                 _LOGGER.debug("MQTT presence data fetch failed: %s", err)
 
-        # 10. Fetch nlbwmon top hosts if enabled
         if self.config_entry.options.get(
             CONF_ENABLE_NLBWMON_SENSORS,
             self.config_entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
@@ -410,7 +401,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         return data
 
     async def _async_fetch_mqtt_presence_data(self, data: OpenWrtData) -> None:
-        """Fetch MQTT presence status and logs if enabled."""
+        """Fetch MQTT presence status and logs."""
         try:
             status_output = await self.client.execute_command(
                 "/etc/init.d/presence_hostapd status 2>/dev/null"
@@ -439,7 +430,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         return f"{num_bytes} B"
 
     async def _async_fetch_nlbwmon_top_hosts_data(self, data: OpenWrtData) -> None:
-        """Fetch and parse nlbwmon top bandwidth hosts via file.exec."""
+        """Fetch and parse nlbwmon top bandwidth hosts."""
         empty: dict[str, Any] = {
             "top_hosts": [],
             "host_count": 0,
@@ -589,7 +580,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         }
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:
-        """Check if the homeassistant user has stale permissions."""
+        """Check for stale permissions."""
         if self.config_entry.data.get(CONF_USERNAME) != "homeassistant":
             return
 
@@ -652,7 +643,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             async_delete_stale_permissions_repair(self.hass, self.config_entry)
 
     async def _async_fetch_all_data(self) -> OpenWrtData:
-        """Fetch all data from the client with retry logic."""
+        """Fetch all data with retry logic."""
         if not self.client.connected:
             try:
                 await self.client.connect()
@@ -719,7 +710,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
     def _async_sync_firmware_state(self, data: OpenWrtData) -> None:
-        """Sync firmware metadata from previous data if revision is unchanged."""
+        """Sync firmware metadata."""
         if not data.device_info:
             return
 
@@ -750,7 +741,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             data.installed_packages = self.data.installed_packages
 
     def _async_process_network_rates(self, data: OpenWrtData, now: float) -> None:
-        """Calculate network rates based on bytes diff since last update."""
+        """Calculate network rates."""
         elapsed = now - self._last_update_time
         if self._last_update_time > 0 and elapsed > 0:
             for iface in data.network_interfaces:
@@ -773,7 +764,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             }
 
     async def _async_filter_and_track_devices(self, data: OpenWrtData) -> None:
-        """Filter out internal devices and update tracking history."""
+        """Filter and track devices."""
         # Load history if needed
         if not self._device_history:
             stored_data = await self._store.async_load()
@@ -788,14 +779,12 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             CONF_SKIP_RANDOM_MAC, DEFAULT_SKIP_RANDOM_MAC
         )
 
-        # 1. Get active whitelist (merged selected + manual)
         whitelist = None
         if self.config_entry.options.get(
             CONF_TRACK_DEVICES, DEFAULT_TRACK_DEVICES
         ) or self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
             whitelist = self._async_get_tracked_devices_whitelist()
 
-        # 4. Filter connected devices
         # all_devices: passes internal filters but ignores the tracking whitelist.
         # Used by the Connected Clients / Wireless Clients count sensors so they
         # always reflect total router occupancy, not just the selected tracked set.
@@ -811,7 +800,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             if mac in own_macs:
                 continue
 
-            # 2. Filter out randomized MACs if option is set
+            # Filter out randomized MACs if option is set
             if is_random_mac(mac):
                 if skip_random:
                     _LOGGER.debug(
@@ -822,11 +811,11 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     "Keeping randomized MAC device (option disabled): %s", mac
                 )
 
-            # 2. Filter out router's own IP addresses
+            # Filter out router's own IP addresses
             if device.ip and device.ip in own_ips:
                 continue
 
-            # 3. Filter out internal interface names masquerading as hostnames
+            # Filter out internal interface names masquerading as hostnames
             if device.hostname:
                 hostname = device.hostname.lower()
                 # Enhanced regex to catch more interface-like names (wlan0, eth0.1, br-lan, etc.)
@@ -836,7 +825,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 ):
                     continue
 
-            # 4. Filter if hostname is identical to the interface name (likely self-reported neighbor)
+            # Filter if hostname is identical to the interface name (likely self-reported neighbor)
             if (
                 device.interface
                 and device.hostname
@@ -847,11 +836,11 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             # Device passes internal filters — count it in the totals regardless of whitelist
             all_devices.append(device)
 
-            # 5. Handle MQTT Discovery if enabled
+            # Handle MQTT Discovery if enabled
             if self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
                 await self._async_discovery_mqtt_device(mac, device.hostname or mac)
 
-            # 6. Filter by whitelist if configured
+            # Filter by whitelist if configured
             if whitelist and mac not in whitelist:
                 _LOGGER.debug(
                     "Skipping device %s: not in tracked_devices whitelist", mac
@@ -887,7 +876,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
         data.all_connected_devices = all_devices
         data.connected_devices = filtered_devices
-        # 5. Filter DHCP leases by whitelist
+        # Filter DHCP leases by whitelist
         if whitelist:
             data.dhcp_leases = [
                 lease
@@ -895,7 +884,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 if lease.mac and lease.mac.lower() in whitelist
             ]
 
-        # 5. Filter DHCP leases to prevent entities for internal interfaces (veth, wlanX, etc.)
+        # Filter DHCP leases to prevent entities for internal interfaces (veth, wlanX, etc.)
         filtered_leases = []
         for lease in data.dhcp_leases:
             mac = lease.mac.lower()
@@ -946,7 +935,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         if history_updated:
             await self._store.async_save(self._device_history)
 
-        # 6. Handle MQTT Discovery (Start or Cleanup)
+        # Handle MQTT Discovery (Start or Cleanup)
         # Initial MQTT discovery if enabled, or cleanup if disabled
         if self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
             if not self._mqtt_discovery_started:

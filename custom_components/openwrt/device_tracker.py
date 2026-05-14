@@ -52,14 +52,14 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up device tracker from config entry."""
+    """Set up device tracker."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
 
     @callback
     def _async_cleanup_entities() -> None:
-        """Clean up device trackers that should no longer be tracked."""
+        """Clean up entities."""
         ent_reg = er.async_get(hass)
         entries = er.async_entries_for_config_entry(ent_reg, entry.entry_id)
 
@@ -129,7 +129,7 @@ async def async_setup_entry(
 
     @callback
     def _async_add_new_devices() -> None:
-        """Add new device tracker entities for newly discovered devices."""
+        """Add new devices."""
         if coordinator.data is None:
             return
 
@@ -239,7 +239,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         mac: str,
         hostname: str | None = None,
     ) -> None:
-        """Initialize the device tracker."""
+        """Initialize."""
         super().__init__(coordinator)
         self._mac = mac.lower()
         self._entry = entry
@@ -260,7 +260,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
+        """Return device info."""
         # Standard values for tracked devices
         manufacturer = ATTR_MANUFACTURER
         model = "Tracked device"
@@ -282,12 +282,12 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
     @property
     def source_type(self) -> SourceType:
-        """Return the source type."""
+        """Return source type."""
         return SourceType.ROUTER
 
     @property
     def is_connected(self) -> bool:
-        """Return true if the device is connected."""
+        """Return connection status."""
         device = self._get_device_data()
         if not device:
             return self._check_consider_home(False)
@@ -308,7 +308,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         return self._check_consider_home(connected)
 
     def _get_device_data(self) -> Any | None:
-        """Get data for this device from coordinator."""
+        """Get device data."""
         if not self.coordinator.data:
             return None
         return next(
@@ -321,7 +321,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         )
 
     def _check_consider_home(self, connected: bool) -> bool:
-        """Apply consider_home logic: keep device home for a grace period."""
+        """Apply consider_home logic."""
         now = datetime.now()
         if connected:
             self._last_seen = now
@@ -332,24 +332,24 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
     @property
     def mac_address(self) -> str:
-        """Return the MAC address."""
+        """Return MAC."""
         return self._mac
 
     @property
     def hostname(self) -> str | None:
-        """Return the hostname."""
+        """Return hostname."""
         device = self._get_device_data()
         return device.hostname if device else None
 
     @property
     def ip_address(self) -> str | None:
-        """Return the IP address."""
+        """Return IP."""
         device = self._get_device_data()
         return device.ip if device else None
 
     @property
     def name(self) -> str:
-        """Return the name of the device."""
+        """Return name."""
         hostname = self.hostname
         if hostname and hostname != "*":
             # Avoid using the router's hostname as a generic fallback for other devices
@@ -364,7 +364,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
+        """Return attributes."""
         device = self._get_device_data()
         if not device:
             return {}

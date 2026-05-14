@@ -29,7 +29,7 @@ from .coordinator import OpenWrtDataCoordinator
 
 @dataclass(frozen=True, kw_only=True)
 class OpenWrtBinarySensorDescription(BinarySensorEntityDescription):
-    """Describe an OpenWrt binary sensor."""
+    """OpenWrt binary sensor description."""
 
     is_on_fn: Callable[[OpenWrtData], bool | None]
     available_fn: Callable[[OpenWrtData], bool] | None = None
@@ -58,7 +58,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OpenWrt binary sensors."""
+    """Set up binary sensors."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
@@ -66,7 +66,7 @@ async def async_setup_entry(
     tracked_keys: set[str] = set()
 
     def _async_add_new_entities() -> None:
-        """Add new entities when devices are discovered."""
+        """Add new entities."""
         if not coordinator.data:
             return
 
@@ -316,7 +316,7 @@ class OpenWrtBinarySensorEntity(
         entry: ConfigEntry,
         description: OpenWrtBinarySensorDescription,
     ) -> None:
-        """Initialize the binary sensor."""
+        """Initialize."""
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
@@ -326,14 +326,14 @@ class OpenWrtBinarySensorEntity(
 
     @property
     def is_on(self) -> bool | None:
-        """Return true if the binary sensor is on."""
+        """Return status."""
         if self.coordinator.data is None:
             return None
         return self.entity_description.is_on_fn(self.coordinator.data)
 
     @property
     def available(self) -> bool:
-        """Return True if entity is available."""
+        """Return availability."""
         if not self.coordinator.last_update_success:
             return False
         if self.entity_description.available_fn and self.coordinator.data:

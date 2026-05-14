@@ -72,7 +72,7 @@ def _format_bytes(num_bytes: int) -> str:
 
 @dataclass(frozen=True, kw_only=True)
 class OpenWrtSensorDescription(SensorEntityDescription):
-    """Describe an OpenWrt sensor."""
+    """OpenWrt sensor description."""
 
     value_fn: Callable[[OpenWrtData], StateType | datetime]
     attrs_fn: Callable[[OpenWrtData], dict[str, Any]] | None = None
@@ -81,7 +81,7 @@ class OpenWrtSensorDescription(SensorEntityDescription):
 
 @dataclass(frozen=True, kw_only=True)
 class OpenWrtStorageSensorDescription(SensorEntityDescription):
-    """Describe an OpenWrt storage sensor."""
+    """OpenWrt storage sensor description."""
 
     value_fn: Callable[[StorageUsage], StateType | datetime]
 
@@ -98,7 +98,7 @@ class OpenWrtSensorEntity(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
         entry: ConfigEntry,
         description: OpenWrtSensorDescription,
     ) -> None:
-        """Initialize the sensor."""
+        """Initialize."""
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
@@ -108,21 +108,21 @@ class OpenWrtSensorEntity(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
 
     @property
     def native_value(self) -> StateType | datetime:
-        """Return the sensor value."""
+        """Return value."""
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return extra state attributes."""
+        """Return attributes."""
         if self.coordinator.data is None or not self.entity_description.attrs_fn:
             return None
         return self.entity_description.attrs_fn(self.coordinator.data)
 
     @property
     def available(self) -> bool:
-        """Return True if entity is available."""
+        """Return availability."""
         if not self.coordinator.last_update_success:
             return False
         if self.entity_description.available_fn and self.coordinator.data:
@@ -143,7 +143,7 @@ class OpenWrtWifiSensorEntity(OpenWrtSensorEntity):
         frequency: str = "",
         section_id: str | None = None,
     ) -> None:
-        """Initialize the WiFi sensor."""
+        """Initialize."""
         super().__init__(coordinator, entry, description)
 
         name_label = format_ap_name(ssid or iface_name, frequency)
@@ -192,7 +192,7 @@ class OpenWrtStorageSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEnti
         description: OpenWrtStorageSensorDescription,
         mount_point: str,
     ) -> None:
-        """Initialize the storage sensor."""
+        """Initialize."""
         super().__init__(coordinator)
         self.entity_description = description
         self._mount_point = mount_point
@@ -204,7 +204,7 @@ class OpenWrtStorageSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEnti
 
     @property
     def native_value(self) -> StateType | datetime:
-        """Return the sensor value."""
+        """Return value."""
         if (
             not self.coordinator.data
             or not self.coordinator.data.system_resources.storage
@@ -228,7 +228,7 @@ class OpenWrtQModemSensorEntity(OpenWrtSensorEntity):
         entry: ConfigEntry,
         description: OpenWrtSensorDescription,
     ) -> None:
-        """Initialize the QModem sensor."""
+        """Initialize."""
         super().__init__(coordinator, entry, description)
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
 
@@ -249,14 +249,14 @@ class OpenWrtQModemSensorEntity(OpenWrtSensorEntity):
 
     @property
     def native_value(self) -> StateType | datetime:
-        """Return the sensor value."""
+        """Return value."""
         if self.coordinator.data is None:
             return None
         return self.entity_description.value_fn(self.coordinator.data)
 
     @property
     def available(self) -> bool:
-        """Return True if entity is available."""
+        """Return availability."""
         if not self.coordinator.last_update_success:
             return False
         return not (
@@ -279,7 +279,7 @@ class OpenWrtDeviceSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
         available_fn: Callable[[OpenWrtData], bool] | None = None,
         device_name: str | None = None,
     ) -> None:
-        """Initialize the device sensor."""
+        """Initialize."""
         super().__init__(coordinator)
         self.entity_description = description
         self._mac = mac.lower()
@@ -301,7 +301,7 @@ class OpenWrtDeviceSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
+        """Return device info."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._mac)},
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
@@ -313,14 +313,14 @@ class OpenWrtDeviceSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
 
     @property
     def native_value(self) -> StateType | datetime:
-        """Return the value of the sensor."""
+        """Return value."""
         if self.coordinator.data is None:
             return None
         return self._value_fn(self.coordinator.data)
 
     @property
     def available(self) -> bool:
-        """Return True if entity is available."""
+        """Return availability."""
         if not self.coordinator.last_update_success:
             return False
         if self._available_fn and self.coordinator.data:
@@ -329,7 +329,7 @@ class OpenWrtDeviceSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra state attributes."""
+        """Return attributes."""
         if self.coordinator.data is None:
             return {}
 
@@ -360,12 +360,12 @@ class OpenWrtDeviceSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntit
 
 
 def _bytes_to_mb(value: int) -> float:
-    """Convert bytes to megabytes."""
+    """Convert bytes to MB."""
     return round(value / (1024 * 1024), 2)
 
 
 def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
-    """Get system sensors descriptions."""
+    """Get system sensors."""
     return (
         OpenWrtSensorDescription(
             key="cpu_usage",
@@ -671,7 +671,7 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
 
 
 def _get_upnp_sensors() -> tuple[OpenWrtSensorDescription, ...]:
-    """Get UPnP sensor descriptions."""
+    """Get UPnP sensors."""
     return (
         OpenWrtSensorDescription(
             key="upnp_mappings",
@@ -698,7 +698,7 @@ def _get_upnp_sensors() -> tuple[OpenWrtSensorDescription, ...]:
 
 
 def _get_qmodem_sensors() -> tuple[OpenWrtSensorDescription, ...]:
-    """Get QModem sensors descriptions."""
+    """Get QModem sensors."""
     return (
         OpenWrtSensorDescription(
             key="qmodem_manufacturer",
@@ -967,7 +967,7 @@ async def async_setup_entry(
             pkgs,
         )
 
-        # 1. System & Storage Sensors
+        # System & Storage Sensors
         _async_setup_system_sensors(
             coordinator,
             entry,
@@ -978,7 +978,7 @@ async def async_setup_entry(
         )
         _async_setup_storage_sensors(coordinator, entry, new_entities, tracked_keys)
 
-        # 2. VPN Sensors
+        # VPN Sensors
         if (
             perms.read_vpn
             and pkgs.wireguard is not False
@@ -988,21 +988,21 @@ async def async_setup_entry(
                 coordinator, entry, new_entities, tracked_keys
             )
 
-        # 3. Wireless Sensors
+        # Wireless Sensors
         if perms.read_wireless and pkgs.iwinfo is not False:
             _async_setup_wireless_sensors(
                 coordinator, entry, new_entities, tracked_keys
             )
 
-        # 4. Network Sensors
+        # Network Sensors
         _async_setup_network_sensors(coordinator, entry, new_entities, tracked_keys)
 
-        # 5. Specialized Sensors
+        # Specialized Sensors
         _async_setup_specialized_sensors(
             coordinator, entry, new_entities, perms, pkgs, tracked_keys
         )
 
-        # 6. Device-specific sensors (Dynamic)
+        # Device-specific sensors (Dynamic)
         track_devices = entry.options.get(
             CONF_TRACK_DEVICES,
             entry.data.get(CONF_TRACK_DEVICES, DEFAULT_TRACK_DEVICES),
@@ -1074,7 +1074,7 @@ async def async_setup_entry(
 
             unique_id = ent.unique_id
 
-            # 1. Cleanup by settings
+            # Cleanup by settings
             if "_device_" in unique_id:
                 if not track_devices:
                     ent_reg.async_remove(ent.entity_id)
@@ -1798,12 +1798,12 @@ def _create_wifi_sensors(
     """Create sensors for a wireless interface."""
     sensors: list[OpenWrtWifiSensorEntity] = []
 
-    # 1. Base configuration sensors
+    # Base configuration sensors
     _create_wifi_base_sensors(
         coordinator, entry, iface_name, ssid, frequency, section_id, ifname, sensors
     )
 
-    # 2. Station-specific quality sensors (STA/Mesh/etc)
+    # Station-specific quality sensors (STA/Mesh/etc)
     if mode.lower() not in ("ap", "master", "access point"):
         _create_wifi_station_sensors(
             coordinator, entry, iface_name, ssid, frequency, section_id, sensors
@@ -2068,16 +2068,16 @@ def _create_net_sensors(
     """Create sensors for a network interface."""
     sensors: list[OpenWrtSensorEntity] = []
 
-    # 1. Traffic sensors (RX/TX)
+    # Traffic sensors (RX/TX)
     _create_net_traffic_sensors(coordinator, entry, iface_name, sensors)
 
-    # 2. Address sensors (IPv4/IPv6)
+    # Address sensors (IPv4/IPv6)
     _create_net_address_sensors(coordinator, entry, iface_name, sensors)
 
-    # 3. Status sensors (Speed/Uptime)
+    # Status sensors (Speed/Uptime)
     _create_net_status_sensors(coordinator, entry, iface_name, sensors)
 
-    # 4. Rate sensors (RX/TX rate)
+    # Rate sensors (RX/TX rate)
     _create_net_rate_sensors(coordinator, entry, iface_name, sensors)
 
     return sensors

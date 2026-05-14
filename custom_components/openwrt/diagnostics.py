@@ -32,7 +32,7 @@ REDACT_KEYS = {
 
 
 def _to_json_safe(obj: Any) -> Any:
-    """Convert an object to a JSON-serializable format."""
+    """Convert to JSON safe."""
     if isinstance(obj, bool) or obj is None:
         return obj
     if isinstance(obj, (int, str)):
@@ -54,7 +54,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
-    """Return diagnostics for a config entry."""
+    """Return diagnostics."""
     try:
         coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
             DATA_COORDINATOR

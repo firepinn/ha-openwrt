@@ -41,7 +41,7 @@ async def async_deploy_mqtt_presence(
     session = async_get_clientsession(hass)
 
     try:
-        # 1. Ensure directory exists
+        # Ensure directory exists
         await client.execute_command("mkdir -p /etc/presence")
 
         # Discover active wireless interfaces to configure presence.conf
@@ -57,7 +57,7 @@ async def async_deploy_mqtt_presence(
 
         ifaces_str = " ".join(valid_ifaces) if valid_ifaces else "wl0-ap0 wl1-ap0"
 
-        # 2. Download and write each file
+        # Download and write each file
         for file_path in FILES_TO_DEPLOY:
             url = f"{REPO_URL}/{file_path}"
             async with session.get(url) as resp:
@@ -115,17 +115,17 @@ async def async_deploy_mqtt_presence(
 
             await client.execute_command(cmd)
 
-        # 3. Set permissions
+        # Set permissions
         await client.execute_command(
             "chmod +x /etc/presence/*.sh /etc/init.d/presence_hostapd"
         )
         await client.execute_command("chmod 600 /etc/presence/presence_mqtt.conf")
 
-        # 4. Run install script
+        # Run install script
         install_output = await client.execute_command("sh /etc/presence/install.sh")
         _LOGGER.debug("MQTT Presence install output: %s", install_output)
 
-        # 5. Verify healthcheck
+        # Verify healthcheck
         health_output = await client.execute_command("sh /etc/presence/healthcheck.sh")
         if "HEALTHCHECK SUCCESS" not in health_output and "OK" not in health_output:
             _LOGGER.error("MQTT Presence healthcheck failed: %s", health_output)
@@ -149,7 +149,7 @@ async def async_remove_mqtt_presence(
 ) -> tuple[bool, str | None]:
     """Stop service and remove MQTT presence scripts from the router."""
     try:
-        # 1. Stop and disable service
+        # Stop and disable service
         await client.execute_command(
             "/etc/init.d/presence_hostapd stop 2>/dev/null || true"
         )
@@ -159,7 +159,7 @@ async def async_remove_mqtt_presence(
         # Ensure any background hostapd_cli processes are killed
         await client.execute_command("killall -9 hostapd_cli 2>/dev/null || true")
 
-        # 2. Remove files
+        # Remove files
         await client.execute_command("rm -rf /etc/presence 2>/dev/null || true")
         await client.execute_command(
             "rm -f /etc/init.d/presence_hostapd 2>/dev/null || true"

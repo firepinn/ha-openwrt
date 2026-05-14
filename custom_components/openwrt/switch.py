@@ -45,7 +45,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OpenWrt switches."""
+    """Set up switches."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
@@ -54,7 +54,7 @@ async def async_setup_entry(
     tracked_keys: set[str] = set()
 
     def _async_add_new_entities() -> None:
-        """Add new entities when devices are discovered."""
+        """Add new entities."""
         if not coordinator.data:
             return
 
@@ -110,7 +110,7 @@ async def async_setup_entry(
 
     @callback
     def _async_cleanup_entities() -> None:
-        """Clean up orphaned or incorrect entities."""
+        """Clean up entities."""
         ent_reg = er.async_get(hass)
         entries = er.async_entries_for_config_entry(ent_reg, entry.entry_id)
 
@@ -160,7 +160,7 @@ def _add_vpn_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add VPN related switches."""
+    """Add VPN switches."""
     if not coordinator.data:
         return
 
@@ -207,7 +207,7 @@ class OpenWrtWireGuardSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEn
         client: OpenWrtClient,
         iface_name: str,
     ) -> None:
-        """Initialize the WireGuard switch."""
+        """Initialize."""
         super().__init__(coordinator)
         self._client = client
         self._iface_name = iface_name
@@ -219,7 +219,7 @@ class OpenWrtWireGuardSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEn
 
     @property
     def is_on(self) -> bool | None:
-        """Return WireGuard interface status."""
+        """Return status."""
         if not self.coordinator.data:
             return None
         for wg in self.coordinator.data.wireguard_interfaces:
@@ -228,7 +228,7 @@ class OpenWrtWireGuardSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEn
         return None
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Enable the WireGuard interface."""
+        """Enable."""
         try:
             # We use ifup to bring up the interface
             await self._client.execute_command(f"ifup {self._iface_name}")
@@ -246,7 +246,7 @@ class OpenWrtWireGuardSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEn
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Disable the WireGuard interface."""
+        """Disable."""
         try:
             # We use ifdown to bring down the interface
             await self._client.execute_command(f"ifdown {self._iface_name}")
@@ -271,7 +271,7 @@ def _add_wireless_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add wireless-related switches."""
+    """Add wireless switches."""
     if "wps" not in tracked_keys:
         tracked_keys.add("wps")
         entities.append(OpenWrtWpsSwitch(coordinator, entry, client))
@@ -312,7 +312,7 @@ def _add_service_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add switches for system services."""
+    """Add service switches."""
     for service in coordinator.data.services:
         if service.name:
             key = f"service_{service.name}"
@@ -333,7 +333,7 @@ def _add_firewall_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add firewall-related switches (redirects and rules)."""
+    """Add firewall switches."""
     for redirect in coordinator.data.firewall_redirects:
         if redirect.section_id:
             key = f"firewall_{redirect.section_id}"
@@ -371,7 +371,7 @@ def _add_access_control_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add access control (blocking) switches for devices."""
+    """Add access control switches."""
     router_hostname = (
         coordinator.data.device_info.hostname if coordinator.data.device_info else ""
     )
@@ -435,7 +435,7 @@ def _add_sqm_switches(
     entities: list[SwitchEntity],
     tracked_keys: set[str],
 ) -> None:
-    """Add SQM QoS switches."""
+    """Add SQM switches."""
     for sqm in coordinator.data.sqm:
         if sqm.section_id:
             key = f"sqm_{sqm.section_id}"
@@ -456,7 +456,7 @@ def _add_package_switches(
     tracked_keys: set[str],
     pkgs: Any,
 ) -> None:
-    """Add package-specific toggle switches."""
+    """Add package switches."""
     if pkgs.adblock and "adblock" not in tracked_keys:
         tracked_keys.add("adblock")
         entities.append(OpenWrtAdBlockSwitch(coordinator, entry, client))
@@ -483,7 +483,7 @@ class OpenWrtAdBlockSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEnti
         entry: ConfigEntry,
         client: OpenWrtClient,
     ) -> None:
-        """Initialize the adblock switch."""
+        """Initialize."""
         super().__init__(coordinator)
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_adblock"
@@ -493,13 +493,13 @@ class OpenWrtAdBlockSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEnti
 
     @property
     def is_on(self) -> bool | None:
-        """Return adblock status."""
+        """Return status."""
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.adblock.enabled
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Enable AdBlock."""
+        """Enable."""
         try:
             await self._client.set_adblock_enabled(True)
             # Optimistic update
@@ -514,7 +514,7 @@ class OpenWrtAdBlockSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEnti
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Disable AdBlock."""
+        """Disable."""
         try:
             await self._client.set_adblock_enabled(False)
             # Optimistic update

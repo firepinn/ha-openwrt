@@ -350,7 +350,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle the initial step - Welcome Screen."""
+        """Handle the initial step."""
         if user_input is not None:
             if user_input.get("flow_type") == "manual":
                 return await self.async_step_manual_entry()
@@ -532,7 +532,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             "freenas",
         ]
 
-        # 1. Check hostname/name
+        # Check hostname/name
         search_target = ""
         if hostname:
             search_target += hostname.lower()
@@ -560,7 +560,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         """Probe a host and return metadata if it's OpenWrt."""
         _LOGGER.debug("Probing router logic for %s (hint: %s)", host, hostname)
 
-        # 1. Definitive exclusions
+        # Definitive exclusions
         if self._is_excluded(host, hostname):
             return None
 
@@ -577,13 +577,13 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._is_excluded(host, effective_hostname):
             return None
 
-        # 2. Port accessibility check
+        # Port accessibility check
         if not await self._async_check_reachable(
             host, CONNECTION_TYPE_UBUS
         ) and not await self._async_check_reachable(host, CONNECTION_TYPE_SSH):
             return None
 
-        # 3. Deep probe for LuCI/metadata and capabilities
+        # Deep probe for LuCI/metadata and capabilities
         capabilities = []
         best_method = None
 

@@ -62,12 +62,12 @@ OpenWrtConfigEntry = ConfigEntry
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Set up the OpenWrt integration (YAML not supported, config flow only)."""
+    """Set up integration."""
     return True
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate old entry."""
+    """Migrate entry."""
     _LOGGER.debug("Migrating from version %s", entry.version)
 
     if entry.version == 1:
@@ -146,7 +146,7 @@ def _async_migrate_entity_units(hass: HomeAssistant, entry: ConfigEntry) -> None
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up OpenWrt from a config entry."""
+    """Set up from a config entry."""
     client = create_client(hass, {**entry.data, **entry.options})
 
     try:
@@ -220,7 +220,7 @@ async def _async_update_listener(
 
 
 def _register_services(hass: HomeAssistant) -> None:
-    """Register integration services."""
+    """Register services."""
 
     async def _handle_reboot(call: ServiceCall) -> None:
         """Handle reboot service call."""

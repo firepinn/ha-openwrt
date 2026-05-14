@@ -39,7 +39,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OpenWrt update entities."""
+    """Set up update entities."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
@@ -64,7 +64,7 @@ class OpenWrtUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntit
         coordinator: OpenWrtDataCoordinator,
         entry: ConfigEntry,
     ) -> None:
-        """Initialize the update entity."""
+        """Initialize."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_firmware_update"
         self._attr_device_info = {
@@ -163,19 +163,19 @@ class OpenWrtUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntit
         if not latest:
             return None
 
-        # 1. Header and Checksum
+        # Header and Checksum
         notes = self._get_release_notes_header(data, latest)
 
-        # 2. Device Info
+        # Device Info
         notes += (
             f"**Target:** `{data.device_info.target}`\n"
             f"**Board:** `{data.device_info.board_name}`\n\n"
         )
 
-        # 3. Backup info
+        # Backup info
         notes += self._get_release_notes_backup_info()
 
-        # 4. Installation info (if not possible)
+        # Installation info (if not possible)
         notes += self._get_release_notes_install_info(data, latest)
 
         return notes
@@ -396,13 +396,13 @@ class OpenWrtUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntit
         """Perform a backup and download it to HA."""
         _LOGGER.info("Performing automatic backup before firmware update...")
         try:
-            # 1. Create backup on router
+            # Create backup on router
             remote_path = await self.coordinator.client.create_backup()
             if not remote_path:
                 _LOGGER.error("Failed to create backup on router")
                 return
 
-            # 2. Prepare local path
+            # Prepare local path
             from pathlib import Path
 
             backup_dir = Path(self.hass.config.path("backups", "openwrt"))
@@ -412,7 +412,7 @@ class OpenWrtUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntit
             local_filename = Path(remote_path).name
             local_path = str(backup_dir / local_filename)
 
-            # 3. Download to HA
+            # Download to HA
             success = await self.coordinator.client.download_file(
                 remote_path,
                 local_path,

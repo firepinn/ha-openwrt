@@ -153,7 +153,7 @@ def get_via_device(
 
     if coordinator.data:
         mac_lower = mac.lower()
-        # 1. Check local wireless interfaces
+        # Check local wireless interfaces
         for device in coordinator.data.connected_devices:
             if (
                 device.mac
@@ -170,7 +170,7 @@ def get_via_device(
                         via_device = (DOMAIN, ap_id)
                 break
 
-        # 2. If not local wireless, check Batman-adv mesh for remote nodes
+        # If not local wireless, check Batman-adv mesh for remote nodes
         if (
             via_device == (DOMAIN, router_id)
             and mac_lower in coordinator.data.batman_translation_table

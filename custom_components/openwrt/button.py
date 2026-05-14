@@ -43,7 +43,7 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class OpenWrtButtonDescription(ButtonEntityDescription):
-    """Describe an OpenWrt button."""
+    """OpenWrt button description."""
 
     press_fn: Callable[[OpenWrtClient], Coroutine[Any, Any, Any]]
 
@@ -86,7 +86,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up OpenWrt buttons."""
+    """Set up buttons."""
     coordinator: OpenWrtDataCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
@@ -95,31 +95,31 @@ async def async_setup_entry(
     tracked_keys: set[str] = set()
 
     def _async_add_new_entities() -> None:
-        """Add new entities when devices are discovered."""
+        """Add new entities."""
         if not coordinator.data:
             return
 
         new_entities: list[ButtonEntity] = []
 
-        # 1. Static buttons
+        # Static buttons
         _add_static_buttons(coordinator, entry, client, tracked_keys, new_entities)
 
-        # 2. Service buttons
+        # Service buttons
         if coordinator.data.permissions.read_services:
             _add_service_buttons(coordinator, entry, client, tracked_keys, new_entities)
 
-        # 3. Interface buttons
+        # Interface buttons
         _add_interface_buttons(coordinator, entry, client, tracked_keys, new_entities)
 
-        # 4. Wireless buttons (WPS Push)
+        # Wireless buttons (WPS Push)
         _add_wireless_buttons(coordinator, entry, client, tracked_keys, new_entities)
 
-        # 5. Extra service buttons (AdBlock, etc.)
+        # Extra service buttons (AdBlock, etc.)
         _add_extra_service_buttons(
             coordinator, entry, client, tracked_keys, new_entities
         )
 
-        # 6. Device-specific buttons (WoL, Kick)
+        # Device-specific buttons (WoL, Kick)
         _add_device_buttons(coordinator, entry, client, tracked_keys, new_entities)
 
         if new_entities:
@@ -216,7 +216,7 @@ def _add_static_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add static buttons based on permissions."""
+    """Add static buttons."""
     perms = coordinator.data.permissions
     for description in BUTTONS:
         if description.key in tracked_keys:
@@ -241,7 +241,7 @@ def _add_service_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add buttons for managing services."""
+    """Add service buttons."""
     for service in coordinator.data.services:
         if not service.name:
             continue
@@ -278,7 +278,7 @@ def _add_interface_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add buttons for managing network interfaces."""
+    """Add interface buttons."""
     for iface in coordinator.data.network_interfaces:
         if iface.name in ("wan", "wan6"):
             key = f"reconnect_{iface.name}"
@@ -312,7 +312,7 @@ def _add_wireless_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add buttons for wireless interfaces (WPS Push)."""
+    """Add wireless buttons (WPS Push)."""
     if not coordinator.data or not coordinator.data.permissions.write_wireless:
         return
 
@@ -350,7 +350,7 @@ def _add_extra_service_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add specialized buttons for common services."""
+    """Add extra service buttons."""
     if not coordinator.data or not coordinator.data.permissions.write_services:
         return
 
@@ -451,7 +451,7 @@ def _add_device_buttons(
     tracked_keys: set[str],
     new_entities: list[ButtonEntity],
 ) -> None:
-    """Add buttons for individual devices (WoL, Kick)."""
+    """Add device buttons (WoL, Kick)."""
     unique_devices = _get_unique_devices(coordinator)
     perms = coordinator.data.permissions
     pkgs = coordinator.data.packages
@@ -525,7 +525,7 @@ def _add_device_buttons(
 def _get_unique_devices(
     coordinator: OpenWrtDataCoordinator,
 ) -> dict[str, dict[str, Any]]:
-    """Aggregate unique devices from connected devices and DHCP leases."""
+    """Aggregate unique devices."""
     unique: dict[str, dict[str, Any]] = {}
 
     for device in coordinator.data.connected_devices:
@@ -582,7 +582,7 @@ class OpenWrtButtonEntity(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEntit
         description: OpenWrtButtonDescription,
         client: OpenWrtClient,
     ) -> None:
-        """Initialize the button."""
+        """Initialize."""
         super().__init__(coordinator)
         self.entity_description = description
         self._client = client
@@ -592,7 +592,7 @@ class OpenWrtButtonEntity(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEntit
         )
 
     async def async_press(self) -> None:
-        """Handle the button press."""
+        """Handle press."""
         try:
             await self.entity_description.press_fn(self._client)
         except Exception as err:
@@ -619,7 +619,7 @@ class OpenWrtWakeOnLanButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEn
         name: str,
         interface: str | None = None,
     ) -> None:
-        """Initialize the button."""
+        """Initialize."""
         super().__init__(coordinator)
         self._client = client
         self._mac = mac.lower()
@@ -633,7 +633,7 @@ class OpenWrtWakeOnLanButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEn
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
+        """Return device info."""
         return DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
             name=self._initial_name,
@@ -643,7 +643,7 @@ class OpenWrtWakeOnLanButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEn
         )
 
     async def async_press(self) -> None:
-        """Press the button."""
+        """Press button."""
         # Use ether-wake with optional interface
         # We try both names as some distros use one or the other
         command = f"ether-wake {self._mac}"
@@ -685,7 +685,7 @@ class OpenWrtKickButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEntity)
         interface: str,
         hostname: str,
     ) -> None:
-        """Initialize the button."""
+        """Initialize."""
         super().__init__(coordinator)
         self._client = client
         self._mac = mac.lower()
@@ -699,7 +699,7 @@ class OpenWrtKickButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEntity)
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device information."""
+        """Return device info."""
         return DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
             name=self._initial_name,
@@ -709,7 +709,7 @@ class OpenWrtKickButton(CoordinatorEntity[OpenWrtDataCoordinator], ButtonEntity)
         )
 
     async def async_press(self) -> None:
-        """Press the button to disconnect the device."""
+        """Disconnect device."""
         try:
             success = await self._client.kick_device(self._mac, self._interface)
             if not success:
