@@ -1432,8 +1432,9 @@ class SshClient(OpenWrtClient):
             for wifi_iface in wireless_ifaces:
                 iface_name = wifi_iface.name
                 # Use ubus call for JSON output over SSH
+                safe_arg = shlex.quote(json.dumps({"device": iface_name}))
                 assoc_str = await self._exec(
-                    f'ubus call iwinfo assoclist \'{{"device":"{iface_name}"}}\' 2>/dev/null'
+                    f"ubus call iwinfo assoclist {safe_arg} 2>/dev/null"
                 )
                 if assoc_str and assoc_str.strip().startswith("{"):
                     assoc = json.loads(assoc_str).get("results", [])
