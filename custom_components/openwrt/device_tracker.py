@@ -164,10 +164,10 @@ async def async_setup_entry(
             # Determine if it's a known wireless device from history
             domain_data = hass.data.setdefault(DOMAIN, {})
             wireless_history = domain_data.setdefault("wireless_history", {})
-            
-            was_ever_wireless = wireless_history.get(mac, False) or coordinator._device_history.get(mac, {}).get(
-                "is_wireless", False
-            )
+
+            was_ever_wireless = wireless_history.get(
+                mac, False
+            ) or coordinator._device_history.get(mac, {}).get("is_wireless", False)
 
             # A device is considered wireless for entity classification if it is
             # currently wireless OR was ever known to be wireless.
@@ -246,7 +246,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         super().__init__(coordinator)
         self._mac = mac.lower()
         self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_tracker_{self._mac}"
+        self._attr_unique_id = f"openwrt_tracker_{self._mac}"
 
         if is_random_mac(self._mac):
             self._attr_entity_registry_enabled_default = False
@@ -281,7 +281,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
         return DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
-            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._mac}")},
+            identifiers={(DOMAIN, self._mac)},
             name=self.name or self._initial_name,
             manufacturer=manufacturer,
             model=model,
@@ -298,67 +298,38 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        device = self._raw_get_device_data()
-        domain_data = self.coordinator.hass.data.setdefault(DOMAIN, {})
-        wireless_states = domain_data.setdefault("tracker_wireless_state", {})
-        state_info = wireless_states.get(self._mac) or {}
-
-        now = datetime.now()
-        is_wireless = device.is_wireless if device else False
-        connected = device.connected if device else False
-
-        # Authority-based writing & Last-wireless-writer wins rule:
-        # Only the instance that sees the device via active wireless association takes ownership.
-        if device and is_wireless and connected:
-            # We use the config entry title as the AP name, falling back to host
-            ap_name = self.coordinator.config_entry.title or self._entry.data.get(
-                CONF_HOST
-            )
-            state_info = {
-                "owner_entry_id": self._entry.entry_id,
-                "last_seen": now,
-                "connected": True,
-                "connected_ap": ap_name,
-                "connected_ap_entry_id": self._entry.entry_id,
-                "interface": device.interface,
-                "signal_strength": device.signal,
-                "connection_type": device.connection_type,
-            }
-            wireless_states[self._mac] = state_info
-        elif state_info.get("owner_entry_id") == self._entry.entry_id:
-            # If this instance was the wireless owner but no longer sees it connected wirelessly,
-            # update the global state to away.
-            state_info["connected"] = False
-            wireless_states[self._mac] = state_info
-
-        self.async_write_ha_state()
-
-        # Notify all peer instances so the registered entity updates immediately in HA
-        trackers = domain_data.get("all_trackers", {}).get(self._mac, [])
-        for peer in trackers:
-            if peer is not self and peer.hass is not None:
-                peer.async_write_ha_state()
+        # The global state is already updated by the coordinator.
+        # We just need to trigger a write if we are the active entity.
+        if getattr(self, "hass", None):
+            self.async_write_ha_state()
 
     @property
     def is_connected(self) -> bool:
         """Return connection status."""
+        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        wireless_states = domain_data.get("tracker_wireless_state", {})
+        state_info = wireless_states.get(self._mac)
+
+        # Authority-based connection state:
+        # If any AP has confirmed a wireless association, respect its global state.
+        if state_info and "connected" in state_info:
+            return self._check_consider_home(state_info["connected"])
+
+        # Fallback for pure wired devices or when no wireless owner has claimed the device yet
         device = self._raw_get_device_data()
         if not device:
             return self._check_consider_home(False)
 
-        # Multi-AP Independence: We only care about the connection state on THIS node.
-        # To avoid stale ARP entries from keep-alive or bridge aging, we only trust
-        # the connection if it's wireless (for historically wireless devices) or
-        # if wired tracking is enabled.
-        
-        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        # Handle historically wireless devices to prevent stale ARP/FDB records from keeping them 'home'
         wireless_history = domain_data.get("wireless_history", {})
-        was_ever_wireless = wireless_history.get(self._mac) or self.coordinator._device_history.get(self._mac, {}).get("is_wireless", False)
+        was_ever_wireless = wireless_history.get(
+            self._mac
+        ) or self.coordinator._device_history.get(self._mac, {}).get(
+            "is_wireless", False
+        )
 
         if was_ever_wireless and not device.is_wireless:
-             # Device is historically wireless but currently only seen via ARP/DHCP on this node.
-             # We ignore this as it's likely a stale entry or seeing the device on a bridge port.
-             return self._check_consider_home(False)
+            return self._check_consider_home(False)
 
         track_wired = self._entry.options.get(
             CONF_TRACK_WIRED,
@@ -456,20 +427,24 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
             )
 
         # Add attribution attributes
-        if device:
+        if state_info and state_info.get("connected"):
+            attrs.update(
+                {
+                    "connected_ap": state_info.get("connected_ap"),
+                    "connected_ap_entry_id": state_info.get("connected_ap_entry_id"),
+                    "interface": state_info.get("interface"),
+                    "signal_strength": state_info.get("signal_strength"),
+                    "connection_type": state_info.get("connection_type"),
+                }
+            )
+        elif device:
             attrs.update(
                 {
                     "interface": device.interface,
                     "signal_strength": device.signal,
+                    "connected_ap": None,
                 }
             )
-            if device.is_wireless and device.connected:
-                ap_name = self.coordinator.config_entry.title or self._entry.data.get(
-                    CONF_HOST
-                )
-                attrs["connected_ap"] = ap_name
-            else:
-                attrs["connected_ap"] = None
         else:
             attrs["connected_ap"] = None
 

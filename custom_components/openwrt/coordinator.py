@@ -261,7 +261,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     len(self._device_history),
                     self._last_version,
                 )
-                
+
                 # Populate shared wireless history
                 domain_data = self.hass.data.setdefault(DOMAIN, {})
                 wireless_history = domain_data.setdefault("wireless_history", {})
@@ -389,6 +389,9 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             _LOGGER.warning("Could not save persistent history: %s", err)
 
         self._async_check_stale_permissions(data)
+
+        # Update global wireless state for device trackers
+        self._async_update_global_wireless_state(data)
 
         if self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
             try:
@@ -1946,6 +1949,64 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             AttributeError,
         ):
             return current != latest
+
+    @callback
+    def _async_update_global_wireless_state(self, data: OpenWrtData) -> None:
+        """Update global wireless state for device trackers."""
+        domain_data = self.hass.data.setdefault(DOMAIN, {})
+        wireless_states = domain_data.setdefault("tracker_wireless_state", {})
+        all_trackers = domain_data.get("all_trackers", {})
+
+        affected_macs: set[str] = set()
+
+        for device in data.connected_devices:
+            if not device.mac:
+                continue
+            mac = device.mac.lower()
+
+            # Authority: Only wireless connected devices update the state
+            if device.is_wireless and device.connected:
+                ap_name = self.config_entry.title or self.config_entry.data.get(
+                    CONF_HOST
+                )
+                wireless_states[mac] = {
+                    "owner_entry_id": self.config_entry.entry_id,
+                    "last_seen": datetime.now(),
+                    "connected": True,
+                    "connected_ap": ap_name,
+                    "connected_ap_entry_id": self.config_entry.entry_id,
+                    "interface": device.interface,
+                    "signal_strength": device.signal,
+                    "connection_type": device.connection_type,
+                }
+                affected_macs.add(mac)
+            elif (
+                wireless_states.get(mac, {}).get("owner_entry_id")
+                == self.config_entry.entry_id
+            ):
+                # If we were the owner but no longer see it wireless/connected, mark as away
+                if wireless_states[mac].get("connected"):
+                    wireless_states[mac]["connected"] = False
+                    affected_macs.add(mac)
+
+        # Also check for devices that were owned by us but are no longer in connected_devices at all
+        for mac, state in wireless_states.items():
+            if state.get("owner_entry_id") == self.config_entry.entry_id and state.get(
+                "connected"
+            ):
+                if not any(
+                    d.mac and d.mac.lower() == mac and d.is_wireless and d.connected
+                    for d in data.connected_devices
+                ):
+                    state["connected"] = False
+                    affected_macs.add(mac)
+
+        # Notify all trackers for the affected MACs
+        for mac in affected_macs:
+            trackers = all_trackers.get(mac, [])
+            for tracker in trackers:
+                if tracker.hass:
+                    tracker.async_write_ha_state()
 
     async def async_shutdown(self) -> None:
         """Shut down the coordinator and disconnect."""

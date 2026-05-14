@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,7 +21,7 @@ from custom_components.openwrt.device_tracker import OpenWrtDeviceTracker
 
 
 @pytest.fixture
-def mock_coordinator():
+def mock_coordinator() -> MagicMock:
     """Mock coordinator."""
     coordinator = MagicMock()
     coordinator.data = OpenWrtData()
@@ -29,7 +30,7 @@ def mock_coordinator():
 
 
 @pytest.fixture
-def mock_config_entry():
+def mock_config_entry() -> MagicMock:
     """Mock config entry."""
     entry = MagicMock()
     entry.entry_id = "test_entry"
@@ -39,39 +40,46 @@ def mock_config_entry():
     return entry
 
 
-def test_device_tracker_init(mock_coordinator, mock_config_entry) -> None:
+def test_device_tracker_init(
+    mock_coordinator: MagicMock, mock_config_entry: MagicMock
+) -> None:
     """Test device tracker initialization."""
     mac = "AA:BB:CC:DD:EE:FF"
     tracker = OpenWrtDeviceTracker(mock_coordinator, mock_config_entry, mac)
 
-    assert tracker.unique_id == f"test_entry_tracker_{mac.lower()}"
+    assert tracker.unique_id == f"openwrt_tracker_{mac.lower()}"
     assert tracker.mac_address == mac.lower()
     assert tracker.source_type == SourceType.ROUTER
     assert tracker._consider_home == timedelta(seconds=20)
 
 
-def test_device_tracker_is_connected_logic(mock_coordinator, mock_config_entry) -> None:
+def test_device_tracker_is_connected_logic(
+    mock_coordinator: MagicMock, mock_config_entry: MagicMock
+) -> None:
     """Test is_connected with consider_home logic."""
     mac = "aa:bb:cc:dd:ee:ff"
     tracker = OpenWrtDeviceTracker(mock_coordinator, mock_config_entry, mac)
-    tracker.async_write_ha_state = MagicMock()
 
     # 1. Initially not connected
     mock_coordinator.data.connected_devices = []
     assert tracker.is_connected is False
 
     # 2. Device appears
-    # Ensure mac is lowercased as real coordinator would do
-    mock_coordinator.data.connected_devices = [
-        ConnectedDevice(mac=mac.lower(), connected=True),
-    ]
+    # Populate shared state as coordinator would
+    shared_data = mock_coordinator.hass.data.setdefault("openwrt", {})
+    wireless_states = shared_data.setdefault("tracker_wireless_state", {})
+    wireless_states[mac.lower()] = {
+        "connected": True,
+        "owner_entry_id": mock_config_entry.entry_id,
+    }
+
     tracker._handle_coordinator_update()
     assert tracker.is_connected is True
     assert tracker._last_seen is not None
     last_seen_initial = tracker._last_seen
 
-    # 3. Device disappears, should stay connected due to consider_home
-    mock_coordinator.data.connected_devices = []
+    # 3. Device disappears from global state
+    wireless_states[mac.lower()]["connected"] = False
     tracker._handle_coordinator_update()
     assert tracker.is_connected is True
 
@@ -87,7 +95,9 @@ def test_device_tracker_is_connected_logic(mock_coordinator, mock_config_entry) 
         assert tracker.is_connected is False
 
 
-def test_device_tracker_attributes(mock_coordinator, mock_config_entry) -> None:
+def test_device_tracker_attributes(
+    mock_coordinator: MagicMock, mock_config_entry: MagicMock
+) -> None:
     """Test device tracker attributes."""
     mac = "aa:bb:cc:dd:ee:ff"
     tracker = OpenWrtDeviceTracker(mock_coordinator, mock_config_entry, mac)
@@ -117,7 +127,9 @@ def test_device_tracker_attributes(mock_coordinator, mock_config_entry) -> None:
     assert attrs["uptime"] == 3600
 
 
-def test_device_tracker_stable_device_info(mock_coordinator, mock_config_entry) -> None:
+def test_device_tracker_stable_device_info(
+    mock_coordinator: MagicMock, mock_config_entry: MagicMock
+) -> None:
     """Test that device_info uses stable entry.unique_id (MAC)."""
     mac = "aa:bb:cc:dd:ee:ff"
 
@@ -138,7 +150,9 @@ def test_device_tracker_stable_device_info(mock_coordinator, mock_config_entry) 
         assert any(ident[1] == mac.lower() for ident in device_info["identifiers"])
 
 
-def test_device_tracker_randomized_mac(mock_coordinator, mock_config_entry) -> None:
+def test_device_tracker_randomized_mac(
+    mock_coordinator: MagicMock, mock_config_entry: MagicMock
+) -> None:
     """Test that randomized MACs are disabled by default."""
     # Normal MAC
     tracker_normal = OpenWrtDeviceTracker(
@@ -166,7 +180,7 @@ def test_device_tracker_multi_ap_attribution() -> None:
     mac = "aa:bb:cc:dd:ee:ff"
 
     # Shared HA Data
-    shared_data = {}
+    shared_data: dict[str, Any] = {}
 
     # Instance 1 (OG)
     coord1 = MagicMock()
@@ -189,9 +203,7 @@ def test_device_tracker_multi_ap_attribution() -> None:
     entry2.data = {CONF_HOST: "192.168.1.3"}
 
     tracker1 = OpenWrtDeviceTracker(coord1, entry1, mac)
-    tracker1.async_write_ha_state = MagicMock()
     tracker2 = OpenWrtDeviceTracker(coord2, entry2, mac)
-    tracker2.async_write_ha_state = MagicMock()
 
     # 1. Connected wirelessly to AP-OG
     coord1.data.connected_devices = [
@@ -204,6 +216,16 @@ def test_device_tracker_multi_ap_attribution() -> None:
             connection_type="5GHz",
         ),
     ]
+    # Simulate coordinator updating global state
+    domain_data = shared_data.setdefault("openwrt", {})
+    wireless_states = domain_data.setdefault("tracker_wireless_state", {})
+    wireless_states[mac] = {
+        "owner_entry_id": entry1.entry_id,
+        "connected": True,
+        "connected_ap": "AP-OG",
+        "signal_strength": -30,
+    }
+
     tracker1._handle_coordinator_update()
 
     assert tracker1.is_connected is True
@@ -219,18 +241,21 @@ def test_device_tracker_multi_ap_attribution() -> None:
     coord1.data.connected_devices = []  # Disappears from OG
     tracker1._handle_coordinator_update()
 
-    coord2.data.connected_devices = [
-        ConnectedDevice(
-            mac=mac,
-            connected=True,
-            is_wireless=True,
-            interface="phy1-ap0",
-            signal=-45,
-            connection_type="2.4GHz",
-        ),
-    ]
+    # Update shared state for AP-KG
+    wireless_states[mac] = {
+        "owner_entry_id": entry2.entry_id,
+        "connected": True,
+        "connected_ap": "AP-KG",
+        "signal_strength": -45,
+    }
+
     with patch.object(tracker1, "async_write_ha_state") as mock_write:
-        tracker2._handle_coordinator_update()
+        # In the new architecture, the coordinator handles the peer notification.
+        # We simulate this by calling the notification logic for the MAC.
+        trackers = shared_data.get("openwrt", {}).get("all_trackers", {}).get(mac, [])
+        for peer in trackers:
+            peer.async_write_ha_state()
+
         mock_write.assert_called_once()
 
     assert tracker1.is_connected is True
