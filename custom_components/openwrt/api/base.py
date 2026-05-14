@@ -757,6 +757,7 @@ class OpenWrtData:
     wireguard_interfaces: list[WireGuardInterface] = field(default_factory=list)
     upnp_mappings: list[UpnpMapping] = field(default_factory=list)
     nlbwmon_traffic: dict[str, NlbwmonTraffic] = field(default_factory=dict)
+    nlbwmon_top_hosts: dict[str, Any] = field(default_factory=dict)
     wifi_credentials: list[WifiCredentials] = field(default_factory=list)
     sqm: list[SqmStatus] = field(default_factory=list)
     packages: OpenWrtPackages = field(default_factory=OpenWrtPackages)
@@ -1145,6 +1146,10 @@ class OpenWrtClient(abc.ABC):
     async def execute_command(self, command: str) -> str:
         """Execute a command on the device."""
         raise NotImplementedError
+
+    async def file_exec(self, command: str, params: list[str] | None = None) -> dict[str, Any]:
+        """Execute a binary via rpcd file.exec. Returns {} if unsupported by this client."""
+        return {}
 
     async def kick_device(self, mac_address: str, interface: str) -> bool:
         """Kick a wireless device from the network using hostapd."""

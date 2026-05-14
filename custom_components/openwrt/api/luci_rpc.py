@@ -258,6 +258,39 @@ class LuciRpcClient(OpenWrtClient):
 
         return ""
 
+    async def file_exec(self, command: str, params: list[str] | None = None) -> dict[str, Any]:
+        """Execute a binary via the existing sys.exec/shell path on LuCI RPC.
+
+        Calling file.exec directly with an arbitrary binary fails unless that binary
+        is explicitly listed in the rpcd file ACL. Routing through execute_command()
+        uses /bin/sh (which IS in the ACL) and avoids that restriction.
+        """
+        import shlex
+        parts = [command] + (params or [])
+        cmd = " ".join(shlex.quote(p) for p in parts)
+        output = await self.execute_command(f"{cmd}; echo __HA_RC__$?")
+        if not output:
+            return {}
+        # Use partition() rather than splitlines() so the sentinel is found even when
+        # the command output does not end with a newline (e.g. nlbw outputs compact
+        # JSON without a trailing \n, causing the sentinel to land on the same line).
+        rc = 0
+        if "__HA_RC__" in output:
+            body, _, rc_part = output.partition("__HA_RC__")
+            try:
+                rc = int(rc_part.strip())
+            except ValueError:
+                rc = 1
+            stdout = body.rstrip("\n")
+        else:
+            stdout = output.strip()
+        # execute_command merges stdout+stderr; classify permission errors as stderr
+        # so callers can distinguish them from normal (possibly empty-stdout) output.
+        lower = stdout.lower()
+        if "permission denied" in lower or "access denied" in lower:
+            return {"code": rc or 1, "stdout": "", "stderr": stdout}
+        return {"code": rc, "stdout": stdout, "stderr": ""}
+
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
         # 1. Try via LuCI RPC (often more restricted than ubus, but let's try reading passwd)
@@ -2143,7 +2176,7 @@ class LuciRpcClient(OpenWrtClient):
 
                 try:
                     enabled = bool(int(val.get("enabled", "1")))
-                except ValueError, TypeError:
+                except (ValueError, TypeError):
                     enabled = True
                 rules.append(
                     FirewallRule(
@@ -2306,7 +2339,7 @@ class LuciRpcClient(OpenWrtClient):
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status

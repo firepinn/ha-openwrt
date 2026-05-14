@@ -42,6 +42,7 @@ from homeassistant.util import dt as dt_util
 from .api.base import OpenWrtData, StorageUsage
 from .const import (
     CONF_ENABLE_LOAD,
+    CONF_ENABLE_NLBWMON_SENSORS,
     CONF_ENABLE_SQM,
     CONF_ENABLE_VPN,
     CONF_MQTT_PRESENCE,
@@ -58,6 +59,15 @@ from .coordinator import OpenWrtDataCoordinator
 from .helpers import format_ap_device_id, format_ap_name, get_via_device, is_random_mac
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _format_bytes(num_bytes: int) -> str:
+    value = float(num_bytes)
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if value < 1024 or unit == "TB":
+            return f"{int(value)} {unit}" if unit == "B" else f"{value:.2f} {unit}"
+        value /= 1024
+    return f"{num_bytes} B"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -880,6 +890,54 @@ def _get_banip_sensors() -> tuple[OpenWrtSensorDescription, ...]:
     )
 
 
+class OpenWrtNlbwmonTopHostsSensor(
+    CoordinatorEntity[OpenWrtDataCoordinator], SensorEntity
+):
+    """Sensor showing count and ranked list of top bandwidth hosts via nlbwmon."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:network-outline"
+    _attr_name = "Top Bandwidth Hosts"
+
+    def __init__(
+        self,
+        coordinator: OpenWrtDataCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_top_bandwidth_hosts"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.router_id)},
+        )
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        hosts = self.coordinator.data.nlbwmon_top_hosts
+        if not hosts:
+            return None
+        return hosts.get("host_count", 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        hosts = self.coordinator.data.nlbwmon_top_hosts
+        if not hosts:
+            return {}
+        return {
+            "host_count": hosts.get("host_count", 0),
+            "total_download": _format_bytes(hosts.get("total_rx_bytes", 0)),
+            "total_upload": _format_bytes(hosts.get("total_tx_bytes", 0)),
+            "top_hosts": hosts.get("top_hosts", []),
+        }
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -1037,6 +1095,14 @@ async def async_setup_entry(
                             ent_reg.async_remove(ent.entity_id)
                             continue
 
+            # Cleanup top bandwidth hosts sensor when option is disabled
+            if unique_id == f"{entry.entry_id}_top_bandwidth_hosts" and not entry.options.get(
+                CONF_ENABLE_NLBWMON_SENSORS,
+                entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
+            ):
+                ent_reg.async_remove(ent.entity_id)
+                continue
+
             # Cleanup Batman neighbors
             if "batman_neighbor_" in unique_id:
                 current_keys = {
@@ -1062,6 +1128,12 @@ async def async_setup_entry(
                     continue
 
     hass.add_job(_async_cleanup_entities)
+
+    if entry.options.get(
+        CONF_ENABLE_NLBWMON_SENSORS,
+        entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
+    ):
+        async_add_entities([OpenWrtNlbwmonTopHostsSensor(coordinator, entry)])
 
 
 def _create_nlbwmon_sensors(

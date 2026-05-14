@@ -160,6 +160,30 @@ class SshClient(OpenWrtClient):
         """Execute a command via SSH."""
         return await self._exec(command)
 
+    async def file_exec(self, command: str, params: list[str] | None = None) -> dict[str, Any]:
+        """Execute a binary directly via SSH, returning a file.exec-compatible dict."""
+        import shlex
+        parts = [command] + (params or [])
+        cmd = " ".join(shlex.quote(p) for p in parts)
+        output = await self._exec(f"{cmd} 2>&1; echo __HA_RC__$?")
+        if not output:
+            return {}
+        # Use partition() rather than splitlines() so the sentinel is found even when
+        # the command output does not end with a newline.
+        rc = 0
+        if "__HA_RC__" in output:
+            body, _, rc_part = output.partition("__HA_RC__")
+            try:
+                rc = int(rc_part.strip())
+            except ValueError:
+                rc = 1
+            stdout = body.rstrip("\n")
+        else:
+            stdout = output.strip()
+        if rc != 0:
+            return {"code": rc, "stdout": "", "stderr": stdout}
+        return {"code": rc, "stdout": stdout, "stderr": ""}
+
     async def provision_user(
         self,
         username: str,
@@ -662,7 +686,7 @@ class SshClient(OpenWrtClient):
                 try:
                     dev_idx = parts.index("dev")
                     wan_iface = parts[dev_idx + 1]
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
 
             # 2. Get interface dump
@@ -1290,7 +1314,7 @@ class SshClient(OpenWrtClient):
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
 
             if len(resources.top_processes) >= 10:
@@ -1437,7 +1461,7 @@ class SshClient(OpenWrtClient):
                                     else "wireless"
                                 )
                             )
-                except json.JSONDecodeError, KeyError:
+                except (json.JSONDecodeError, KeyError):
                     continue
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("ubus hostapd discovery failed (SSH): %s", err)
@@ -2180,7 +2204,7 @@ class SshClient(OpenWrtClient):
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status
