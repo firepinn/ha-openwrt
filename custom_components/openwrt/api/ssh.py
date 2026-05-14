@@ -2827,7 +2827,8 @@ class SshClient(OpenWrtClient):
         """Trigger WPS push button via SSH."""
         try:
             # hostapd_cli -i wlan0 wps_push
-            await self.execute_command(f"hostapd_cli -i {interface} wps_push")
+            safe_iface = shlex.quote(interface)
+            await self.execute_command(f"hostapd_cli -i {safe_iface} wps_push")
             return True
         except Exception as err:
             _LOGGER.debug(
