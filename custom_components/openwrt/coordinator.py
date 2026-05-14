@@ -449,7 +449,12 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         result = await self.client.file_exec(
             "/usr/sbin/nlbw", ["-c", "json", "-g", "ip,mac", "-o", "-rx_bytes,-tx_bytes"]
         )
+        _LOGGER.debug("nlbwmon file_exec result keys: %s", list(result.keys()) if result else None)
         if not result:
+            _LOGGER.info(
+                "nlbwmon top hosts: file_exec returned empty — "
+                "check that nlbwmon is installed and rpcd file ACL allows execution"
+            )
             data.nlbwmon_top_hosts = empty
             return
 
@@ -465,26 +470,49 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             return
 
         if not stdout:
+            _LOGGER.info(
+                "nlbwmon top hosts: empty stdout (code=%s, stderr=%r) — "
+                "nlbw binary may not be installed or failed to run",
+                result.get("code"),
+                stderr[:200] if stderr else "",
+            )
             data.nlbwmon_top_hosts = empty
             return
+
+        _LOGGER.debug("nlbwmon raw stdout (first 500 chars): %.500s", stdout)
 
         try:
             raw = json.loads(stdout)
         except (json.JSONDecodeError, ValueError) as err:
-            _LOGGER.error("Failed to parse nlbwmon output: %s", err)
+            _LOGGER.error(
+                "Failed to parse nlbwmon output: %s — stdout was: %.300s",
+                err,
+                stdout,
+            )
             data.nlbwmon_top_hosts = empty
             return
 
         columns = raw.get("columns", [])
         rows = raw.get("data", [])
+        _LOGGER.debug("nlbwmon columns=%s rows=%d", columns, len(rows))
         if not columns or not rows:
+            _LOGGER.info(
+                "nlbwmon returned no data rows (columns=%s, rows=%d) — "
+                "nlbwmon may not have collected any traffic yet",
+                columns,
+                len(rows),
+            )
             data.nlbwmon_top_hosts = empty
             return
 
         col = {name: idx for idx, name in enumerate(columns)}
-        required = {"ip", "mac", "rx_bytes", "tx_bytes", "conns"}
+        required = {"ip", "mac", "rx_bytes", "tx_bytes"}
         if not required.issubset(col.keys()):
-            _LOGGER.error("nlbwmon output missing required columns: %s", columns)
+            _LOGGER.error(
+                "nlbwmon output missing required columns %s — got: %s",
+                required - col.keys(),
+                columns,
+            )
             data.nlbwmon_top_hosts = empty
             return
 
@@ -499,7 +527,8 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 aggregated[key] = {"mac": mac, "ip": ip, "rx_bytes": 0, "tx_bytes": 0, "conns": 0}
             aggregated[key]["rx_bytes"] += row[col["rx_bytes"]]
             aggregated[key]["tx_bytes"] += row[col["tx_bytes"]]
-            aggregated[key]["conns"] += row[col["conns"]]
+            if "conns" in col:
+                aggregated[key]["conns"] += row[col["conns"]]
             current_ip = aggregated[key]["ip"]
             if ":" in current_ip and ":" not in ip and ip:
                 aggregated[key]["ip"] = ip

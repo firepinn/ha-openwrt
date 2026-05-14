@@ -271,15 +271,19 @@ class LuciRpcClient(OpenWrtClient):
         output = await self.execute_command(f"{cmd}; echo __HA_RC__$?")
         if not output:
             return {}
-        lines = output.splitlines()
+        # Use partition() rather than splitlines() so the sentinel is found even when
+        # the command output does not end with a newline (e.g. nlbw outputs compact
+        # JSON without a trailing \n, causing the sentinel to land on the same line).
         rc = 0
-        if lines and lines[-1].startswith("__HA_RC__"):
+        if "__HA_RC__" in output:
+            body, _, rc_part = output.partition("__HA_RC__")
             try:
-                rc = int(lines[-1][9:].strip())
+                rc = int(rc_part.strip())
             except ValueError:
                 rc = 1
-            lines = lines[:-1]
-        stdout = "\n".join(lines).strip()
+            stdout = body.rstrip("\n")
+        else:
+            stdout = output.strip()
         # execute_command merges stdout+stderr; classify permission errors as stderr
         # so callers can distinguish them from normal (possibly empty-stdout) output.
         lower = stdout.lower()

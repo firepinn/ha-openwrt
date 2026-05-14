@@ -168,18 +168,21 @@ class SshClient(OpenWrtClient):
         output = await self._exec(f"{cmd} 2>&1; echo __HA_RC__$?")
         if not output:
             return {}
-        lines = output.splitlines()
+        # Use partition() rather than splitlines() so the sentinel is found even when
+        # the command output does not end with a newline.
         rc = 0
-        if lines and lines[-1].startswith("__HA_RC__"):
+        if "__HA_RC__" in output:
+            body, _, rc_part = output.partition("__HA_RC__")
             try:
-                rc = int(lines[-1][9:].strip())
+                rc = int(rc_part.strip())
             except ValueError:
                 rc = 1
-            lines = lines[:-1]
-        body = "\n".join(lines).strip()
+            stdout = body.rstrip("\n")
+        else:
+            stdout = output.strip()
         if rc != 0:
-            return {"code": rc, "stdout": "", "stderr": body}
-        return {"code": rc, "stdout": body, "stderr": ""}
+            return {"code": rc, "stdout": "", "stderr": stdout}
+        return {"code": rc, "stdout": stdout, "stderr": ""}
 
     async def provision_user(
         self,
