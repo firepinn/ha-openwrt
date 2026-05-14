@@ -162,7 +162,10 @@ async def async_setup_entry(
                     break
 
             # Determine if it's a known wireless device from history
-            was_ever_wireless = coordinator._device_history.get(mac, {}).get(
+            domain_data = hass.data.setdefault(DOMAIN, {})
+            wireless_history = domain_data.setdefault("wireless_history", {})
+            
+            was_ever_wireless = wireless_history.get(mac, False) or coordinator._device_history.get(mac, {}).get(
                 "is_wireless", False
             )
 
@@ -278,7 +281,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
         return DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
-            identifiers={(DOMAIN, self._mac)},
+            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._mac}")},
             name=self.name or self._initial_name,
             manufacturer=manufacturer,
             model=model,
@@ -333,24 +336,29 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         # Notify all peer instances so the registered entity updates immediately in HA
         trackers = domain_data.get("all_trackers", {}).get(self._mac, [])
         for peer in trackers:
-            if peer is not self:
+            if peer is not self and peer.hass is not None:
                 peer.async_write_ha_state()
 
     @property
     def is_connected(self) -> bool:
         """Return connection status."""
-        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
-        wireless_states = domain_data.get("tracker_wireless_state", {})
-        state_info = wireless_states.get(self._mac)
-
-        # If a wireless owner has claimed this device, respect its connection state
-        if state_info and "connected" in state_info:
-            return self._check_consider_home(state_info["connected"])
-
-        # Fallback for pure wired devices that are never seen wirelessly on any AP
         device = self._raw_get_device_data()
         if not device:
             return self._check_consider_home(False)
+
+        # Multi-AP Independence: We only care about the connection state on THIS node.
+        # To avoid stale ARP entries from keep-alive or bridge aging, we only trust
+        # the connection if it's wireless (for historically wireless devices) or
+        # if wired tracking is enabled.
+        
+        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        wireless_history = domain_data.get("wireless_history", {})
+        was_ever_wireless = wireless_history.get(self._mac) or self.coordinator._device_history.get(self._mac, {}).get("is_wireless", False)
+
+        if was_ever_wireless and not device.is_wireless:
+             # Device is historically wireless but currently only seen via ARP/DHCP on this node.
+             # We ignore this as it's likely a stale entry or seeing the device on a bridge port.
+             return self._check_consider_home(False)
 
         track_wired = self._entry.options.get(
             CONF_TRACK_WIRED,
@@ -447,23 +455,23 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
                 }
             )
 
-        # Add AP attribution attributes from global wireless state
-        if state_info and state_info.get("connected"):
+        # Add attribution attributes
+        if device:
             attrs.update(
                 {
-                    "connected_ap": state_info.get("connected_ap"),
-                    "connected_ap_entry_id": state_info.get("connected_ap_entry_id"),
-                    "interface": state_info.get("interface"),
-                    "signal_strength": state_info.get("signal_strength"),
+                    "interface": device.interface,
+                    "signal_strength": device.signal,
                 }
             )
+            if device.is_wireless and device.connected:
+                ap_name = self.coordinator.config_entry.title or self._entry.data.get(
+                    CONF_HOST
+                )
+                attrs["connected_ap"] = ap_name
+            else:
+                attrs["connected_ap"] = None
         else:
-            attrs.update(
-                {
-                    "connected_ap": None,
-                    "interface": device.interface if device else None,
-                }
-            )
+            attrs["connected_ap"] = None
 
         # Add historical seen data
         if self._mac in self.coordinator._device_history:

@@ -261,6 +261,13 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     len(self._device_history),
                     self._last_version,
                 )
+                
+                # Populate shared wireless history
+                domain_data = self.hass.data.setdefault(DOMAIN, {})
+                wireless_history = domain_data.setdefault("wireless_history", {})
+                for mac, hist in self._device_history.items():
+                    if hist.get("is_wireless"):
+                        wireless_history[mac.lower()] = True
         except Exception as err:
             _LOGGER.warning("Could not load persistent history: %s", err)
 
@@ -882,6 +889,12 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 if device.is_wireless and not hist.get("is_wireless"):
                     hist["is_wireless"] = True
                 history_updated = True
+
+            # Sync with shared wireless history for multi-AP coordination
+            if self._device_history[mac].get("is_wireless"):
+                domain_data = self.hass.data.setdefault(DOMAIN, {})
+                wireless_history = domain_data.setdefault("wireless_history", {})
+                wireless_history[mac] = True
 
         data.all_connected_devices = all_devices
         data.connected_devices = filtered_devices
