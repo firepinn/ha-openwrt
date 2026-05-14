@@ -258,6 +258,13 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         )
         self._last_seen: datetime | None = None
 
+        # Track all created entity instances globally to enable cross-entry peer notification
+        domain_data = coordinator.hass.data.setdefault(DOMAIN, {})
+        all_trackers = domain_data.setdefault("all_trackers", {})
+        trackers = all_trackers.setdefault(self._mac, [])
+        if self not in trackers:
+            trackers.append(self)
+
     @property
     def device_info(self) -> DeviceInfo:
         """Return device info."""
@@ -271,7 +278,7 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
 
         return DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
-            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._mac}")},
+            identifiers={(DOMAIN, self._mac)},
             name=self.name or self._initial_name,
             manufacturer=manufacturer,
             model=model,
@@ -285,30 +292,75 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         """Return source type."""
         return SourceType.ROUTER
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        device = self._raw_get_device_data()
+        domain_data = self.coordinator.hass.data.setdefault(DOMAIN, {})
+        wireless_states = domain_data.setdefault("tracker_wireless_state", {})
+        state_info = wireless_states.get(self._mac) or {}
+
+        now = datetime.now()
+        is_wireless = device.is_wireless if device else False
+        connected = device.connected if device else False
+
+        # Authority-based writing & Last-wireless-writer wins rule:
+        # Only the instance that sees the device via active wireless association takes ownership.
+        if is_wireless and connected:
+            # We use the config entry title as the AP name, falling back to host
+            ap_name = self.coordinator.config_entry.title or self._entry.data.get(CONF_HOST)
+            state_info = {
+                "owner_entry_id": self._entry.entry_id,
+                "last_seen": now,
+                "connected": True,
+                "connected_ap": ap_name,
+                "connected_ap_entry_id": self._entry.entry_id,
+                "interface": device.interface,
+                "signal_strength": device.signal,
+                "connection_type": device.connection_type,
+            }
+            wireless_states[self._mac] = state_info
+        elif state_info.get("owner_entry_id") == self._entry.entry_id:
+            # If this instance was the wireless owner but no longer sees it connected wirelessly,
+            # update the global state to away.
+            state_info["connected"] = False
+            wireless_states[self._mac] = state_info
+
+        self.async_write_ha_state()
+
+        # Notify all peer instances so the registered entity updates immediately in HA
+        trackers = domain_data.get("all_trackers", {}).get(self._mac, [])
+        for peer in trackers:
+            if peer is not self:
+                peer.async_write_ha_state()
+
     @property
     def is_connected(self) -> bool:
         """Return connection status."""
-        device = self._get_device_data()
+        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        wireless_states = domain_data.get("tracker_wireless_state", {})
+        state_info = wireless_states.get(self._mac)
+
+        # If a wireless owner has claimed this device, respect its connection state
+        if state_info and "connected" in state_info:
+            return self._check_consider_home(state_info["connected"])
+
+        # Fallback for pure wired devices that are never seen wirelessly on any AP
+        device = self._raw_get_device_data()
         if not device:
             return self._check_consider_home(False)
 
-        connected = device.connected
-
-        # In multi-AP setups with track_wired=False, we must ignore devices
-        # that are only seen via ARP/neighbors (is_wireless=False) on this node.
-        # Otherwise, a device connected to AP1 would also show as connected on AP2
-        # because it appears in AP2's ARP table.
         track_wired = self._entry.options.get(
             CONF_TRACK_WIRED,
             self._entry.data.get(CONF_TRACK_WIRED, DEFAULT_TRACK_WIRED),
         )
         if not track_wired and not device.is_wireless:
-            connected = False
+            return self._check_consider_home(False)
 
-        return self._check_consider_home(connected)
+        return self._check_consider_home(device.connected)
 
-    def _get_device_data(self) -> Any | None:
-        """Get device data."""
+    def _raw_get_device_data(self) -> Any | None:
+        """Get raw device data from own coordinator."""
         if not self.coordinator.data:
             return None
         return next(
@@ -319,6 +371,9 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
             ),
             None,
         )
+
+    # Maintain backward compatibility with existing internal callers if any
+    _get_device_data = _raw_get_device_data
 
     def _check_consider_home(self, connected: bool) -> bool:
         """Apply consider_home logic."""
@@ -333,18 +388,19 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
     @property
     def mac_address(self) -> str:
         """Return MAC."""
-        return f"{self._entry.entry_id}_{self._mac}"
+        # Intentionally return bare MAC so HA deduplicates and registers exactly 1 entity per device
+        return self._mac
 
     @property
     def hostname(self) -> str | None:
         """Return hostname."""
-        device = self._get_device_data()
+        device = self._raw_get_device_data()
         return device.hostname if device else None
 
     @property
     def ip_address(self) -> str | None:
         """Return IP."""
-        device = self._get_device_data()
+        device = self._raw_get_device_data()
         return device.ip if device else None
 
     @property
@@ -365,19 +421,43 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return attributes."""
-        device = self._get_device_data()
-        if not device:
-            return {}
+        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        wireless_states = domain_data.get("tracker_wireless_state", {})
+        state_info = wireless_states.get(self._mac)
 
-        attrs = {
-            "mac": device.mac,
-            "is_wireless": device.is_wireless,
-            "connection_type": device.connection_type,
+        device = self._raw_get_device_data()
+        attrs: dict[str, Any] = {
+            "mac": self._mac,
         }
 
+        if device:
+            attrs.update({
+                "is_wireless": device.is_wireless,
+                "connection_type": device.connection_type,
+            })
+        elif state_info:
+            attrs.update({
+                "is_wireless": True,
+                "connection_type": state_info.get("connection_type"),
+            })
+
+        # Add AP attribution attributes from global wireless state
+        if state_info and state_info.get("connected"):
+            attrs.update({
+                "connected_ap": state_info.get("connected_ap"),
+                "connected_ap_entry_id": state_info.get("connected_ap_entry_id"),
+                "interface": state_info.get("interface"),
+                "signal_strength": state_info.get("signal_strength"),
+            })
+        else:
+            attrs.update({
+                "connected_ap": None,
+                "interface": device.interface if device else None,
+            })
+
         # Add historical seen data
-        if device.mac.lower() in self.coordinator._device_history:
-            history = self.coordinator._device_history[device.mac.lower()]
+        if self._mac in self.coordinator._device_history:
+            history = self.coordinator._device_history[self._mac]
             attrs.update(
                 {
                     "initially_seen": datetime.fromtimestamp(
@@ -390,26 +470,29 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
             )
 
         # Add optional metrics
-        optional_metrics = {
-            "interface": device.interface,
-            "port": device.port,
-            "fdb_age": device.fdb_age,
-            "rx_bytes": device.rx_bytes,
-            "tx_bytes": device.tx_bytes,
-            "uptime": device.uptime,
-            "neighbor_state": device.neighbor_state,
-            "connection_info": device.connection_info,
-        }
-        if device.is_wireless:
-            optional_metrics.update(
-                {
-                    "signal_strength": device.signal,
-                    "rx_rate": device.rx_rate,
-                    "tx_rate": device.tx_rate,
-                }
-            )
+        optional_metrics = {}
+        if device:
+            optional_metrics.update({
+                "port": device.port,
+                "fdb_age": device.fdb_age,
+                "rx_bytes": device.rx_bytes,
+                "tx_bytes": device.tx_bytes,
+                "uptime": device.uptime,
+                "neighbor_state": device.neighbor_state,
+                "connection_info": device.connection_info,
+            })
+            if device.is_wireless:
+                optional_metrics.update(
+                    {
+                        "signal_strength": device.signal,
+                        "rx_rate": device.rx_rate,
+                        "tx_rate": device.tx_rate,
+                    }
+                )
+        elif state_info and state_info.get("connected"):
+            optional_metrics["signal_strength"] = state_info.get("signal_strength")
 
-        attrs.update({k: v for k, v in optional_metrics.items() if v})
+        attrs.update({k: v for k, v in optional_metrics.items() if v is not None and v != ""})
 
         # Add Mesh info
         if (

@@ -54,7 +54,7 @@ def test_nlbwmon_top_hosts_sensor() -> None:
 
 
 def test_nlbwmon_client_sensor_device_info() -> None:
-    """Test that nlbwmon per-client sensor device_info is instance-scoped."""
+    """Test that nlbwmon per-client sensor device_info aligns with global device mapping."""
     coordinator = MagicMock()
     entry = MagicMock()
     entry.entry_id = "test_entry"
@@ -68,6 +68,6 @@ def test_nlbwmon_client_sensor_device_info() -> None:
 
         device_info = sensor.device_info
         assert any(
-            ident[1] == f"test_entry_{mac.lower()}"
+            ident[1] == mac.lower()
             for ident in device_info["identifiers"]
         )

@@ -24,6 +24,7 @@ def mock_coordinator():
     """Mock coordinator."""
     coordinator = MagicMock()
     coordinator.data = OpenWrtData()
+    coordinator.hass.data = {}
     return coordinator
 
 
@@ -44,7 +45,7 @@ def test_device_tracker_init(mock_coordinator, mock_config_entry) -> None:
     tracker = OpenWrtDeviceTracker(mock_coordinator, mock_config_entry, mac)
 
     assert tracker.unique_id == f"test_entry_tracker_{mac.lower()}"
-    assert tracker.mac_address == f"test_entry_{mac.lower()}"
+    assert tracker.mac_address == mac.lower()
     assert tracker.source_type == SourceType.ROUTER
     assert tracker._consider_home == timedelta(seconds=20)
 
@@ -53,6 +54,7 @@ def test_device_tracker_is_connected_logic(mock_coordinator, mock_config_entry) 
     """Test is_connected with consider_home logic."""
     mac = "aa:bb:cc:dd:ee:ff"
     tracker = OpenWrtDeviceTracker(mock_coordinator, mock_config_entry, mac)
+    tracker.async_write_ha_state = MagicMock()
 
     # 1. Initially not connected
     mock_coordinator.data.connected_devices = []
@@ -63,12 +65,14 @@ def test_device_tracker_is_connected_logic(mock_coordinator, mock_config_entry) 
     mock_coordinator.data.connected_devices = [
         ConnectedDevice(mac=mac.lower(), connected=True),
     ]
+    tracker._handle_coordinator_update()
     assert tracker.is_connected is True
     assert tracker._last_seen is not None
     last_seen_initial = tracker._last_seen
 
     # 3. Device disappears, should stay connected due to consider_home
     mock_coordinator.data.connected_devices = []
+    tracker._handle_coordinator_update()
     assert tracker.is_connected is True
 
     # 4. Advance time but stay within 20s window
@@ -132,7 +136,7 @@ def test_device_tracker_stable_device_info(mock_coordinator, mock_config_entry) 
         assert device_info["via_device"][1] == "11:22:33:44:55:66"
         assert (dr.CONNECTION_NETWORK_MAC, mac.lower()) in device_info["connections"]
         assert any(
-            ident[1] == f"test_entry_{mac.lower()}"
+            ident[1] == mac.lower()
             for ident in device_info["identifiers"]
         )
 
@@ -158,3 +162,80 @@ def test_device_tracker_randomized_mac(mock_coordinator, mock_config_entry) -> N
         mock_coordinator, mock_config_entry, "ae:11:22:33:44:55"
     )
     assert tracker_random2._attr_entity_registry_enabled_default is False
+
+
+def test_device_tracker_multi_ap_attribution() -> None:
+    """Test multi-AP last-wireless-writer wins attribution logic."""
+    mac = "aa:bb:cc:dd:ee:ff"
+
+    # Shared HA Data
+    shared_data = {}
+
+    # Instance 1 (OG)
+    coord1 = MagicMock()
+    coord1.hass.data = shared_data
+    coord1.config_entry.title = "AP-OG"
+    coord1.data = OpenWrtData()
+    entry1 = MagicMock()
+    entry1.entry_id = "entry_og"
+    entry1.options = {}
+    entry1.data = {CONF_HOST: "192.168.1.2"}
+
+    # Instance 2 (KG)
+    coord2 = MagicMock()
+    coord2.hass.data = shared_data
+    coord2.config_entry.title = "AP-KG"
+    coord2.data = OpenWrtData()
+    entry2 = MagicMock()
+    entry2.entry_id = "entry_kg"
+    entry2.options = {}
+    entry2.data = {CONF_HOST: "192.168.1.3"}
+
+    tracker1 = OpenWrtDeviceTracker(coord1, entry1, mac)
+    tracker1.async_write_ha_state = MagicMock()
+    tracker2 = OpenWrtDeviceTracker(coord2, entry2, mac)
+    tracker2.async_write_ha_state = MagicMock()
+
+    # 1. Connected wirelessly to AP-OG
+    coord1.data.connected_devices = [
+        ConnectedDevice(
+            mac=mac,
+            connected=True,
+            is_wireless=True,
+            interface="phy0-ap0",
+            signal=-30,
+            connection_type="5GHz",
+        ),
+    ]
+    tracker1._handle_coordinator_update()
+
+    assert tracker1.is_connected is True
+    attrs1 = tracker1.extra_state_attributes
+    assert attrs1["connected_ap"] == "AP-OG"
+    assert attrs1["signal_strength"] == -30
+
+    # Since tracker1 is the registered entity, check its state when queried by peers
+    assert tracker2.is_connected is True
+    assert tracker2.extra_state_attributes["connected_ap"] == "AP-OG"
+
+    # 2. Roam to AP-KG
+    coord1.data.connected_devices = []  # Disappears from OG
+    tracker1._handle_coordinator_update()
+
+    coord2.data.connected_devices = [
+        ConnectedDevice(
+            mac=mac,
+            connected=True,
+            is_wireless=True,
+            interface="phy1-ap0",
+            signal=-45,
+            connection_type="2.4GHz",
+        ),
+    ]
+    with patch.object(tracker1, "async_write_ha_state") as mock_write:
+        tracker2._handle_coordinator_update()
+        mock_write.assert_called_once()
+
+    assert tracker1.is_connected is True
+    assert tracker1.extra_state_attributes["connected_ap"] == "AP-KG"
+    assert tracker1.extra_state_attributes["signal_strength"] == -45
