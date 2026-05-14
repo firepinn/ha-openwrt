@@ -1554,12 +1554,13 @@ class SshClient(OpenWrtClient):
             enabled = False
             running = False
             try:
+                safe_svc = shlex.quote(f"/etc/init.d/{svc_name}")
                 enabled_check = await self._exec(
-                    f"/etc/init.d/{svc_name} enabled && echo yes || echo no",
+                    f"{safe_svc} enabled && echo yes || echo no",
                 )
                 enabled = "yes" in enabled_check
                 running_check = await self._exec(
-                    f"/etc/init.d/{svc_name} running && echo yes || echo no",
+                    f"{safe_svc} running && echo yes || echo no",
                 )
                 running = "yes" in running_check
 
@@ -1594,7 +1595,8 @@ class SshClient(OpenWrtClient):
         """Enable/disable a wireless interface."""
         try:
             action = "0" if enabled else "1"
-            await self._exec(f"uci set wireless.{interface}.disabled='{action}'")
+            safe_val = shlex.quote(f"wireless.{interface}.disabled={action}")
+            await self._exec(f"uci set {safe_val}")
             await self._exec("uci commit wireless")
             await self._exec("wifi reload")
             self._last_full_poll = 0
