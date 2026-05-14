@@ -38,6 +38,7 @@ class OpenWrtBinarySensorDescription(BinarySensorEntityDescription):
 BINARY_SENSORS: tuple[OpenWrtBinarySensorDescription, ...] = (
     OpenWrtBinarySensorDescription(
         key="device_connected",
+        name="Connected",
         translation_key="device_connected",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -45,6 +46,7 @@ BINARY_SENSORS: tuple[OpenWrtBinarySensorDescription, ...] = (
     ),
     OpenWrtBinarySensorDescription(
         key="reboot_required",
+        name="Reboot Required",
         translation_key="reboot_required",
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -111,6 +113,7 @@ async def async_setup_entry(
                     entry,
                     OpenWrtBinarySensorDescription(
                         key=key,
+                        name="WPS Active",
                         translation_key="wps_active",
                         icon="mdi:wifi-sync",
                         entity_category=EntityCategory.DIAGNOSTIC,
@@ -136,6 +139,7 @@ async def async_setup_entry(
                         entry,
                         OpenWrtBinarySensorDescription(
                             key=key,
+                            name="Batman Mesh Active",
                             translation_key="batman_mesh_active",
                             icon="mdi:transit-connection-variant",
                             entity_category=EntityCategory.DIAGNOSTIC,
@@ -173,6 +177,7 @@ def _async_setup_mwan_binary_sensors(
                     entry,
                     OpenWrtBinarySensorDescription(
                         key=key,
+                        name=f"MWAN {mwan.interface_name} Online",
                         translation_key="mwan_online",
                         translation_placeholders={"interface": mwan.interface_name},
                         device_class=BinarySensorDeviceClass.CONNECTIVITY,
@@ -207,6 +212,7 @@ def _async_setup_interface_binary_sensors(
                         entry,
                         OpenWrtBinarySensorDescription(
                             key=key,
+                            name=f"{iface.name.upper()} Connected",
                             translation_key="interface_up",
                             translation_placeholders={
                                 "interface": iface.name.upper(),
@@ -244,6 +250,7 @@ def _async_setup_vpn_binary_sensors(
                     entry,
                     OpenWrtBinarySensorDescription(
                         key=key,
+                        name=f"VPN {vpn.name} Connected",
                         translation_key="vpn_up",
                         translation_placeholders={"interface": vpn.name},
                         device_class=BinarySensorDeviceClass.CONNECTIVITY,
@@ -280,6 +287,7 @@ def _async_setup_wireguard_peer_binary_sensors(
                         entry,
                         OpenWrtBinarySensorDescription(
                             key=key,
+                            name=f"WireGuard {wg.name} Peer {peer.public_key[:8]} Active",
                             translation_key="wireguard_peer_active",
                             translation_placeholders={
                                 "interface": wg.name,
