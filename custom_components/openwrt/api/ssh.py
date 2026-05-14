@@ -2301,9 +2301,8 @@ class SshClient(OpenWrtClient):
         """Enable/disable adblock-fast service via SSH."""
         val = "1" if enabled else "0"
         try:
-            await self._exec(
-                f"uci set adblock-fast.config.enabled='{val}' && uci commit adblock-fast",
-            )
+            safe_val = shlex.quote(f"adblock-fast.config.enabled={val}")
+            await self._exec(f"uci set {safe_val} && uci commit adblock-fast")
             action = "start" if enabled else "stop"
             await self._exec(f"/etc/init.d/adblock-fast {action}")
             self._last_full_poll = 0
@@ -2314,7 +2313,9 @@ class SshClient(OpenWrtClient):
     async def manage_service(self, name: str, action: str) -> bool:
         """Manage a system service (start/stop/restart/enable/disable) via SSH."""
         try:
-            await self._exec(f"/etc/init.d/{name} {action}")
+            safe_svc = shlex.quote(f"/etc/init.d/{name}")
+            safe_action = shlex.quote(action)
+            await self._exec(f"{safe_svc} {safe_action}")
             self._last_full_poll = 0
             return True
         except Exception as err:
@@ -2330,9 +2331,8 @@ class SshClient(OpenWrtClient):
         """Enable/disable adblock service via SSH."""
         val = "1" if enabled else "0"
         try:
-            await self._exec(
-                f"uci set adblock.global.enabled='{val}' && uci commit adblock",
-            )
+            safe_val = shlex.quote(f"adblock.global.enabled={val}")
+            await self._exec(f"uci set {safe_val} && uci commit adblock")
             action = "start" if enabled else "stop"
             await self._exec(f"/etc/init.d/adblock {action}")
             self._last_full_poll = 0
@@ -2360,9 +2360,8 @@ class SshClient(OpenWrtClient):
         """Enable/disable simple-adblock service via SSH."""
         val = "1" if enabled else "0"
         try:
-            await self._exec(
-                f"uci set simple-adblock.config.enabled='{val}' && uci commit simple-adblock",
-            )
+            safe_val = shlex.quote(f"simple-adblock.config.enabled={val}")
+            await self._exec(f"uci set {safe_val} && uci commit simple-adblock")
             action = "start" if enabled else "stop"
             await self._exec(f"/etc/init.d/simple-adblock {action}")
             self._last_full_poll = 0
@@ -2387,9 +2386,8 @@ class SshClient(OpenWrtClient):
         """Enable/disable ban-ip service via SSH."""
         val = "1" if enabled else "0"
         try:
-            await self._exec(
-                f"uci set ban-ip.config.enabled='{val}' && uci commit ban-ip",
-            )
+            safe_val = shlex.quote(f"ban-ip.config.enabled={val}")
+            await self._exec(f"uci set {safe_val} && uci commit ban-ip")
             action = "start" if enabled else "stop"
             await self._exec(f"/etc/init.d/ban-ip {action}")
             self._last_full_poll = 0
@@ -2444,7 +2442,8 @@ class SshClient(OpenWrtClient):
                 val_str = (
                     "1" if value is True else "0" if value is False else str(value)
                 )
-                await self._exec(f"uci set sqm.{section_id}.{key}='{val_str}'")
+                safe_val = shlex.quote(f"sqm.{section_id}.{key}={val_str}")
+                await self._exec(f"uci set {safe_val}")
             await self._exec("uci commit sqm")
             await self._exec("/etc/init.d/sqm reload")
             self._last_full_poll = 0
