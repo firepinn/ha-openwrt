@@ -1915,7 +1915,8 @@ class SshClient(OpenWrtClient):
         """Enable or disable a firewall rule via UCI over SSH."""
         try:
             val = "1" if enabled else "0"
-            await self._exec(f"uci set firewall.{section_id}.enabled='{val}'")
+            safe_val = shlex.quote(f"firewall.{section_id}.enabled={val}")
+            await self._exec(f"uci set {safe_val}")
             await self._exec("uci commit firewall")
             await self._exec("/etc/init.d/firewall reload")
             self._last_full_poll = 0
@@ -1968,7 +1969,8 @@ class SshClient(OpenWrtClient):
         """Enable or disable a firewall redirect via UCI over SSH."""
         try:
             val = "1" if enabled else "0"
-            await self._exec(f"uci set firewall.{section_id}.enabled='{val}'")
+            safe_val = shlex.quote(f"firewall.{section_id}.enabled={val}")
+            await self._exec(f"uci set {safe_val}")
             await self._exec("uci commit firewall")
             await self._exec("/etc/init.d/firewall reload")
             self._last_full_poll = 0
@@ -2026,21 +2028,25 @@ class SshClient(OpenWrtClient):
             if blocked:
                 if not section_id:
                     await self._exec("uci add firewall rule")
-                    await self._exec(f"uci set firewall.{rule_name}=rule")
+                    safe_rn = shlex.quote(f"firewall.{rule_name}=rule")
+                    await self._exec(f"uci set {safe_rn}")
                     section_id = rule_name
-                    await self._exec(
-                        f"uci set firewall.{section_id}.name='{rule_name}'",
-                    )
-                    await self._exec(f"uci set firewall.{section_id}.src='lan'")
-                    await self._exec(f"uci set firewall.{section_id}.dest='wan'")
-                    await self._exec(
-                        f"uci set firewall.{section_id}.src_mac='{mac_upper}'",
-                    )
-                    await self._exec(f"uci set firewall.{section_id}.target='REJECT'")
+                    safe_name = shlex.quote(f"firewall.{section_id}.name={rule_name}")
+                    await self._exec(f"uci set {safe_name}")
+                    safe_src = shlex.quote(f"firewall.{section_id}.src=lan")
+                    await self._exec(f"uci set {safe_src}")
+                    safe_dest = shlex.quote(f"firewall.{section_id}.dest=wan")
+                    await self._exec(f"uci set {safe_dest}")
+                    safe_mac = shlex.quote(f"firewall.{section_id}.src_mac={mac_upper}")
+                    await self._exec(f"uci set {safe_mac}")
+                    safe_target = shlex.quote(f"firewall.{section_id}.target=REJECT")
+                    await self._exec(f"uci set {safe_target}")
 
-                await self._exec(f"uci set firewall.{section_id}.enabled='1'")
+                safe_en = shlex.quote(f"firewall.{section_id}.enabled=1")
+                await self._exec(f"uci set {safe_en}")
             elif section_id:
-                await self._exec(f"uci set firewall.{section_id}.enabled='0'")
+                safe_dis = shlex.quote(f"firewall.{section_id}.enabled=0")
+                await self._exec(f"uci set {safe_dis}")
 
             await self._exec("uci commit firewall")
             await self._exec("/etc/init.d/firewall reload")
@@ -2053,12 +2059,13 @@ class SshClient(OpenWrtClient):
     async def manage_interface(self, name: str, action: str) -> bool:
         """Manage a network interface (up/down/reconnect) via SSH."""
         try:
+            safe_name = shlex.quote(name)
             if action == "reconnect":
-                await self._exec(f"ifdown {name} && ifup {name}")
+                await self._exec(f"ifdown {safe_name} && ifup {safe_name}")
             elif action == "up":
-                await self._exec(f"ifup {name}")
+                await self._exec(f"ifup {safe_name}")
             elif action == "down":
-                await self._exec(f"ifdown {name}")
+                await self._exec(f"ifdown {safe_name}")
             return True
         except Exception as err:
             _LOGGER.exception("Failed to manage interface %s: %s", name, err)
@@ -2069,8 +2076,9 @@ class SshClient(OpenWrtClient):
         # Use sysupgrade for installation
         # Download to /tmp and then run sysupgrade
         keep = "" if keep_settings else "-n"
+        safe_url = shlex.quote(url)
         cmd = (
-            f"wget -O /tmp/firmware.bin '{url}' && sysupgrade {keep} /tmp/firmware.bin"
+            f"wget -O /tmp/firmware.bin {safe_url} && sysupgrade {keep} /tmp/firmware.bin"
         )
         try:
             _LOGGER.info("Initiating firmware installation via SSH from: %s", url)
@@ -2097,12 +2105,13 @@ class SshClient(OpenWrtClient):
         try:
             # Using cat and reading back the result. For larger files this might be slow,
             # but for backups (~some KB) it should be fine.
-            content = await self._exec(f"cat {remote_path}")
+            safe_path = shlex.quote(remote_path)
+            content = await self._exec(f"cat {safe_path}")
             if content:
                 # We need to be careful with binary data over SSH exec
                 # If the file is a .tar.gz, it's binary.
                 # Let's try base64 to be safe if it's binary.
-                b64_content = await self._exec(f"base64 {remote_path}")
+                b64_content = await self._exec(f"base64 {safe_path}")
                 import base64
 
                 with open(local_path, "wb") as f:
