@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 import paramiko
+from homeassistant.helpers import storage
 
 from .base import (
     PROVISION_SCRIPT_TEMPLATE,
@@ -283,16 +284,50 @@ class SshClient(OpenWrtClient):
         """Connect via SSH."""
         loop = asyncio.get_event_loop()
 
+        pinned_data: dict[str, Any] = {}
+        store: storage.Store | None = None
+        if self.hass:
+            store = storage.Store(self.hass, version=1, key="openwrt_ssh_host_keys")
+            try:
+                loaded = await store.async_load()
+                if isinstance(loaded, dict):
+                    pinned_data = loaded
+            except Exception:
+                pass
+
+        new_keys: dict[str, str] = {}
+        host_id = f"{self.host}:{self.port}"
+        expected_keys = pinned_data.get(host_id, {})
+
         def _connect() -> None:
             import io
 
             client = paramiko.SSHClient()
             client.load_system_host_keys()
 
-            if self.verify_ssl:
-                client.set_missing_host_key_policy(paramiko.RejectPolicy())
-            else:
-                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            class PinningHostKeyPolicy(paramiko.MissingHostKeyPolicy):
+                def missing_host_key(self, client_: Any, hostname: str, key: Any) -> None:
+                    key_type = key.get_name()
+                    key_b64 = key.get_base64()
+
+                    if not expected_keys:
+                        new_keys[key_type] = key_b64
+                        client_.get_host_keys().add(hostname, key_type, key)
+                        return
+
+                    if key_type in expected_keys:
+                        if expected_keys[key_type] == key_b64:
+                            client_.get_host_keys().add(hostname, key_type, key)
+                            return
+                        raise paramiko.SSHException(
+                            f"SSH host key mismatch for {hostname}! Expected pinned key for {key_type}, but received a different key. Possible security intercept."
+                        )
+
+                    raise paramiko.SSHException(
+                        f"SSH host key mismatch for {hostname}! Host key algorithm {key_type} not in pinned keys."
+                    )
+
+            client.set_missing_host_key_policy(PinningHostKeyPolicy())
 
             connect_kwargs: dict[str, Any] = {
                 "hostname": self.host,
@@ -358,6 +393,12 @@ class SshClient(OpenWrtClient):
             await loop.run_in_executor(None, _connect)
             self._connected = True
             _LOGGER.debug("SSH connected to %s", self.host)
+            if new_keys and store:
+                pinned_data[host_id] = new_keys
+                try:
+                    await store.async_save(pinned_data)
+                except Exception as err:
+                    _LOGGER.debug("Failed to save pinned SSH host key: %s", err)
             return True
         except (
             SshError,
