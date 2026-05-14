@@ -721,6 +721,7 @@ class OpenWrtData:
     wireless_interfaces: list[WirelessInterface] = field(default_factory=list)
     network_interfaces: list[NetworkInterface] = field(default_factory=list)
     connected_devices: list[ConnectedDevice] = field(default_factory=list)
+    all_connected_devices: list[ConnectedDevice] = field(default_factory=list)
     dhcp_leases: list[DhcpLease] = field(default_factory=list)
     reboot_required: bool = False
     system_logs: list[str] = field(default_factory=list)

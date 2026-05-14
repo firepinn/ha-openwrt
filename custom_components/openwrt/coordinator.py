@@ -626,6 +626,12 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             whitelist = self._async_get_tracked_devices_whitelist()
 
         # 4. Filter connected devices
+        # all_devices: passes internal filters but ignores the tracking whitelist.
+        # Used by the Connected Clients / Wireless Clients count sensors so they
+        # always reflect total router occupancy, not just the selected tracked set.
+        # filtered_devices: additionally requires whitelist membership; used for
+        # device_tracker entities and history.
+        all_devices: list = []
         filtered_devices = []
         for device in data.connected_devices:
             if not device.mac:
@@ -668,6 +674,9 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             ):
                 continue
 
+            # Device passes internal filters — count it in the totals regardless of whitelist
+            all_devices.append(device)
+
             # 5. Handle MQTT Discovery if enabled
             if self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
                 await self._async_discovery_mqtt_device(mac, device.hostname or mac)
@@ -706,6 +715,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     hist["is_wireless"] = True
                 history_updated = True
 
+        data.all_connected_devices = all_devices
         data.connected_devices = filtered_devices
         # 5. Filter DHCP leases by whitelist
         if whitelist:
