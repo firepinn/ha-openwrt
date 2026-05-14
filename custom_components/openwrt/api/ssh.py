@@ -1191,8 +1191,9 @@ class SshClient(OpenWrtClient):
                     continue
 
                 try:
+                    safe_arg = shlex.quote(json.dumps({"name": dev_name}))
                     fdb_str = await self._exec(
-                        f'ubus call network.device fdb \'{{"name":"{dev_name}"}}\' 2>/dev/null'
+                        f"ubus call network.device fdb {safe_arg} 2>/dev/null"
                     )
                     if fdb_str and fdb_str.strip().startswith("["):
                         fdb = json.loads(fdb_str)
