@@ -216,6 +216,7 @@ You can control how the integration handles network clients (PCs, phones, IoT de
 |:--- |:--- |:--- |
 | **Track network clients** | Creates individual `device_tracker` entities, signal sensors, and control switches (WoL, Internet Access) for every device. | **No individual device entities** are created. Recommended for large networks to prevent Home Assistant database bloat. |
 | **Include wired devices** | Tracks every device in the ARP/Neighbor table, including wired PCs and servers. | **Only WiFi clients** are tracked. Ideal if you only care about mobile presence detection. |
+| **Force Wireless MACs** | Manually flags specific MAC addresses as **wireless**. | Use this if your devices are behind a **third-party Access Point (e.g. UniFi)**. These devices often appear as "wired" to the main router, which causes them to stay "home" indefinitely due to stale ARP entries. Flagging them as wireless ensures they are correctly marked "away" when they roam off the network. |
 
 > [!CAUTION]
 > **Random MAC Limitation**: The "Ignore devices with randomized MAC addresses" option only works for the native device tracking platform. If you enable **MQTT Presence Detection**, the third-party scripts on the router will continue to report all clients, including those with randomized MACs.

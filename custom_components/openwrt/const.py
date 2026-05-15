@@ -35,6 +35,7 @@ CONF_MQTT_PASSWORD: Final = "mqtt_password"
 CONF_REDEPLOY_MQTT: Final = "redeploy_mqtt"
 CONF_TRUST_STALE_ARP: Final = "trust_stale_arp"
 CONF_TRUST_BRIDGE_FDB: Final = "trust_bridge_fdb"
+CONF_FORCE_WIRELESS_MACS: Final = "force_wireless_macs"
 CONF_REDEPLOY_USER: Final = "redeploy_user"
 
 CONF_ENABLE_FIREWALL: Final = "enable_firewall"

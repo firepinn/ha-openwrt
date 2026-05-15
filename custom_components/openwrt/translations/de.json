@@ -208,7 +208,8 @@
           "redeploy_mqtt": "MQTT-Präsenz-Skripte erneut übertragen",
           "redeploy_user": "Home Assistant Benutzer & ACLs neu übertragen",
           "trust_stale_arp": "ARP-Status 'STALE' als anwesend werten",
-          "trust_bridge_fdb": "Bridge-FDB für Anwesenheit nutzen (Kabel)"
+          "trust_bridge_fdb": "Bridge-FDB für Anwesenheit nutzen (Kabel)",
+          "force_wireless_macs": "Drahtlose MACs erzwingen (Eine pro Zeile)"
         },
         "description": "Konfiguriere die Optionen der OpenWrt-Integration."
       },
@@ -283,7 +284,8 @@
         "description": "Wählen Sie die Geräte aus, die in Home Assistant verfolgt werden sollen. Wenn keine ausgewählt sind, werden alle erkannten Geräte verfolgt.",
         "data": {
           "tracked_devices": "Verfolgte Geräte",
-          "manual_tracked_devices": "Manuelle MAC-Adress-Whitelist (Eine pro Zeile)"
+          "manual_tracked_devices": "Manuelle MAC-Adress-Whitelist (Eine pro Zeile)",
+          "force_wireless_macs": "Drahtlose MACs erzwingen (Eine pro Zeile)"
         }
       }
     }

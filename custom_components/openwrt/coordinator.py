@@ -56,6 +56,7 @@ from .const import (
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
     CONF_ENABLE_NLBWMON_SENSORS,
+    CONF_FORCE_WIRELESS_MACS,
     CONF_MANUAL_TRACKED_DEVICES,
     CONF_MQTT_PRESENCE,
     CONF_PASSWORD,
@@ -804,6 +805,17 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         ) or self.config_entry.options.get(CONF_MQTT_PRESENCE, False):
             whitelist = self._async_get_tracked_devices_whitelist()
 
+        # Load forced wireless MACs
+        forced_wireless = set()
+        forced_wireless_raw = self.config_entry.options.get(
+            CONF_FORCE_WIRELESS_MACS, ""
+        )
+        if forced_wireless_raw:
+            for line in forced_wireless_raw.splitlines():
+                mac_f = line.strip().lower()
+                if mac_f:
+                    forced_wireless.add(mac_f)
+
         # all_devices: passes internal filters but ignores the tracking whitelist.
         # Used by the Connected Clients / Wireless Clients count sensors so they
         # always reflect total router occupancy, not just the selected tracked set.
@@ -869,12 +881,18 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             filtered_devices.append(device)
 
             _LOGGER.debug(
-                "Processing connected device: %s (hostname: %s, interface: %s, wireless: %s)",
+                "Processing connected device: %s (hostname: %s, interface: %s, wireless: %s, connected: %s, state: %s)",
                 mac,
                 device.hostname,
                 device.interface,
-                device.is_wireless,
+                device.is_wireless or mac in forced_wireless,
+                device.connected,
+                device.neighbor_state,
             )
+
+            # Apply forced wireless flag
+            if mac in forced_wireless:
+                device.is_wireless = True
 
             if mac not in self._device_history:
                 self._device_history[mac] = {
@@ -1989,15 +2007,17 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                     wireless_states[mac]["connected"] = False
                     affected_macs.add(mac)
 
-        # Also check for devices that were owned by us but are no longer in connected_devices at all
-        for mac, state in wireless_states.items():
-            if state.get("owner_entry_id") == self.config_entry.entry_id and state.get(
-                "connected"
-            ):
-                if not any(
-                    d.mac and d.mac.lower() == mac and d.is_wireless and d.connected
-                    for d in data.connected_devices
-                ):
+        # 4. Global cleanup for stale entries (safety timeout)
+        # If an AP goes offline or is removed, its owned devices might stay 'home' forever.
+        # We clear any entry that hasn't been updated by ANYONE for more than 10 minutes.
+        stale_threshold = datetime.now() - timedelta(minutes=10)
+        for mac, state in list(wireless_states.items()):
+            if state.get("last_seen", datetime.min) < stale_threshold:
+                if state.get("connected"):
+                    _LOGGER.debug(
+                        "Clearing stale global wireless state for %s (no update for 10m)",
+                        mac,
+                    )
                     state["connected"] = False
                     affected_macs.add(mac)
 

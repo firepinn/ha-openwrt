@@ -208,7 +208,8 @@
           "redeploy_mqtt": "Re-deploy MQTT Presence Scripts",
           "redeploy_user": "Re-deploy Home Assistant User & ACLs",
           "trust_stale_arp": "Trust ARP 'STALE' state for presence",
-          "trust_bridge_fdb": "Trust Bridge FDB for presence (Wired)"
+          "trust_bridge_fdb": "Trust Bridge FDB for presence (Wired)",
+          "force_wireless_macs": "Force Wireless MACs (One per line)"
         },
         "description": "Configure OpenWrt integration options."
       },
@@ -283,7 +284,8 @@
         "description": "Select the devices you want to track in Home Assistant. If none are selected, all discovered devices will be tracked.",
         "data": {
           "tracked_devices": "Tracked Devices",
-          "manual_tracked_devices": "Manual MAC Address Whitelist (One per line)"
+          "manual_tracked_devices": "Manual MAC Address Whitelist (One per line)",
+          "force_wireless_macs": "Force Wireless MACs (One per line)"
         }
       }
     }

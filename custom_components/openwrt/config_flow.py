@@ -75,6 +75,7 @@ from .const import (
     CONF_ENABLE_SERVICES,
     CONF_ENABLE_SQM,
     CONF_ENABLE_VPN,
+    CONF_FORCE_WIRELESS_MACS,
     CONF_MANUAL_TRACKED_DEVICES,
     CONF_MQTT_BROKER,
     CONF_MQTT_PASSWORD,
@@ -2028,6 +2029,15 @@ class OpenWrtOptionsFlow(OptionsFlow):
                         CONF_TRUST_BRIDGE_FDB, DEFAULT_TRUST_BRIDGE_FDB
                     ),
                 ): bool,
+                vol.Optional(
+                    CONF_FORCE_WIRELESS_MACS,
+                    default=current.get(CONF_FORCE_WIRELESS_MACS, ""),
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        multiline=True,
+                        type=selector.TextSelectorType.TEXT,
+                    )
+                ),
                 vol.Optional(
                     CONF_REDEPLOY_USER,
                     default=False,

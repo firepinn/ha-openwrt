@@ -1407,12 +1407,14 @@ class SshClient(OpenWrtClient):
 
                 if mac in devices:
                     dev = devices[mac]
-                    if is_active:
-                        dev.connected = True
                     if not dev.neighbor_state:
                         dev.neighbor_state = neigh.state
                     if not dev.interface:
                         dev.interface = neigh.interface
+                    # Only mark as connected via ARP if not already confirmed as wireless
+                    # to prevent stale ARP entries from keeping wireless devices 'home'.
+                    if not dev.is_wireless and is_active:
+                        dev.connected = True
                     continue
 
                 devices[mac] = ConnectedDevice(

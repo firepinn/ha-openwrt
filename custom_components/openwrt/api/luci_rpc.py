@@ -1743,8 +1743,13 @@ class LuciRpcClient(OpenWrtClient):
                 mac = neigh.mac.lower()
                 if mac in devices:
                     dev = devices[mac]
-                    if neigh.state.upper() in active_states:
+
+                    # Neighbors alone might be stale.
+                    # For wireless devices, we only trust wireless association (Step 3/4).
+                    # For wired devices (or unknown), we trust the neighbor state if enabled.
+                    if not dev.is_wireless and neigh.state.upper() in active_states:
                         dev.connected = True
+
                     if not dev.neighbor_state:
                         dev.neighbor_state = neigh.state
                     if not dev.interface:
