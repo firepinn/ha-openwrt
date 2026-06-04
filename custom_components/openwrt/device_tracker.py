@@ -158,12 +158,14 @@ async def async_setup_entry(
             is_currently_wireless = False
             for device in coordinator.data.connected_devices:
                 if device.mac and device.mac.lower() == mac:
-                    is_currently_wireless = device.is_wireless
-                    break
+                    if device.is_wireless:
+                        is_currently_wireless = True
+                        break
 
             # Determine if it's a known wireless device from history
             domain_data = hass.data.setdefault(DOMAIN, {})
             wireless_history = domain_data.setdefault("wireless_history", {})
+            registered_macs = domain_data.setdefault("registered_macs", set())
 
             was_ever_wireless = wireless_history.get(
                 mac, False
@@ -206,6 +208,12 @@ async def async_setup_entry(
                 )
                 continue
 
+            # Check if this MAC has already been registered by ANY integration instance
+            if mac in registered_macs:
+                # Add to local tracked_macs so we don't evaluate it again on this instance
+                tracked_macs.add(mac)
+                continue
+
             _LOGGER.debug(
                 "Adding/updating device tracker for %s (hostname: %s, wireless: %s, random: %s)",
                 mac,
@@ -215,6 +223,7 @@ async def async_setup_entry(
             )
 
             tracked_macs.add(mac)
+            registered_macs.add(mac)
             new_entities.append(OpenWrtDeviceTracker(coordinator, entry, mac, hostname))
 
         if new_entities:
