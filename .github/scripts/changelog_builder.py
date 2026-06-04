@@ -26,7 +26,14 @@ def build_changelog(commits, url):
         fh, sh, sub = line.split("|", 2)
         sl = sub.lower()
         if any(
-            x in sl for x in ["chore: release", "chore: bump", "merge ", "[skip ci]"]
+            x in sl
+            for x in [
+                "chore: release",
+                "chore: bump",
+                "chore(release)",
+                "chore(dev)",
+                "merge ",
+            ]
         ):
             continue
         sub = re.sub(r"\(#(\d+)\)", rf"([#\1]({url}/pull/\1))", sub)
