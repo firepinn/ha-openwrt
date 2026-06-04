@@ -155,8 +155,13 @@ class SshClient(OpenWrtClient):
                         "SSH reconnection failed during retry: %s",
                         reconnect_err,
                     )
+                    if isinstance(reconnect_err, SshError):
+                        raise
+                    raise SshConnectionError(f"SSH connection failed: {reconnect_err}") from reconnect_err
 
-            return ""
+            if isinstance(err, SshError):
+                raise
+            raise SshConnectionError(f"SSH command failed: {err}") from err
 
     async def execute_command(self, command: str) -> str:
         """Execute a command via SSH."""
@@ -1218,8 +1223,12 @@ class SshClient(OpenWrtClient):
                                     )
                                 if not dev.is_wireless and not dev.interface:
                                     dev.interface = dev_name
+                except SshError:
+                    raise
                 except Exception:
                     continue
+        except SshError:
+            raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB via SSH: %s", err)
 
@@ -1386,6 +1395,8 @@ class SshClient(OpenWrtClient):
                     is_wireless=False,
                     connection_type="wired",
                 )
+        except SshError:
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("DHCP device discovery failed (SSH): %s", err)
 
@@ -1426,6 +1437,8 @@ class SshClient(OpenWrtClient):
                     connection_type="wired",
                     neighbor_state=neigh.state,
                 )
+        except SshError:
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Neighbor device discovery failed (SSH): %s", err)
 
@@ -1475,6 +1488,8 @@ class SshClient(OpenWrtClient):
                             dev.connection_type = "2.4GHz"
                         else:
                             dev.connection_type = "wireless"
+        except SshError:
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("iwinfo wireless discovery failed (SSH): %s", err)
 
@@ -1518,6 +1533,8 @@ class SshClient(OpenWrtClient):
                             )
                 except json.JSONDecodeError, KeyError:
                     continue
+        except SshError:
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("ubus hostapd discovery failed (SSH): %s", err)
 

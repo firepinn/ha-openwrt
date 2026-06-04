@@ -1382,8 +1382,12 @@ class UbusClient(OpenWrtClient):
         # 2. Get wireless status for iwinfo and hostapd processing
         wireless_data: dict[str, Any] = {}
         if self.packages.wireless is not False:
-            with contextlib.suppress(UbusError):
+            try:
                 wireless_data = await self._call("network.wireless", "status")
+            except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                raise
+            except UbusError:
+                pass
 
         # 3. Process wireless associations (iwinfo)
         if wireless_data:
@@ -1417,7 +1421,7 @@ class UbusClient(OpenWrtClient):
 
     async def _get_devices_from_dhcp(self, devices: dict[str, ConnectedDevice]) -> None:
         """Populate initial device list from DHCP leases."""
-        with contextlib.suppress(Exception):
+        try:
             leases = await self.get_dhcp_leases()
             for lease in leases:
                 mac = lease.mac.lower()
@@ -1428,6 +1432,10 @@ class UbusClient(OpenWrtClient):
                     is_wireless=False,
                     connected=False,
                 )
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
+        except Exception:
+            pass
 
     async def _process_iwinfo_assoc(
         self, devices: dict[str, ConnectedDevice], wireless_data: dict[str, Any]
@@ -1440,7 +1448,7 @@ class UbusClient(OpenWrtClient):
                 ifname = iface.get("ifname") or iface.get("device", "")
                 if not ifname:
                     continue
-                with contextlib.suppress(UbusError):
+                try:
                     assoc = await self._call("iwinfo", "assoclist", {"device": ifname})
                     for client in assoc.get("results", []):
                         mac = client.get("mac", "").lower()
@@ -1455,6 +1463,10 @@ class UbusClient(OpenWrtClient):
                         dev.noise = client.get("noise", 0)
                         dev.rx_rate = self._get_assoc_rate(client, "rx")
                         dev.tx_rate = self._get_assoc_rate(client, "tx")
+                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                    raise
+                except UbusError:
+                    pass
 
     def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
         """Helper to safely extract wireless rate from assoclist data."""
@@ -1465,7 +1477,7 @@ class UbusClient(OpenWrtClient):
 
     async def _merge_neighbor_data(self, devices: dict[str, ConnectedDevice]) -> None:
         """Update devices with ARP/neighbor information."""
-        with contextlib.suppress(Exception):
+        try:
             neighbors = await self.get_ip_neighbors()
             # STALE is intentionally included: Linux kernels age ARP entries to
             # STALE very quickly (30-60 s).  A STALE entry means the device WAS
@@ -1498,6 +1510,10 @@ class UbusClient(OpenWrtClient):
                         connection_type="wired",
                         neighbor_state=neigh.state,
                     )
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
+        except Exception:
+            pass
 
     async def _process_hostapd_clients(
         self, devices: dict[str, ConnectedDevice], wireless_data: dict[str, Any]
@@ -1510,11 +1526,15 @@ class UbusClient(OpenWrtClient):
                 ifname = iface.get("ifname", "")
                 if not ifname:
                     continue
-                with contextlib.suppress(UbusError):
+                try:
                     hostapd_data = await self._call(f"hostapd.{ifname}", "get_clients")
                     self._merge_hostapd_clients(
                         devices, hostapd_data.get("clients", {}), ifname
                     )
+                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                    raise
+                except UbusError:
+                    pass
 
     async def _get_devices_from_static_leases(
         self, devices: dict[str, ConnectedDevice]
@@ -1547,6 +1567,8 @@ class UbusClient(OpenWrtClient):
                                 is_wireless=False,
                                 connected=False,
                             )
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
         except Exception:
             pass
 
@@ -1584,8 +1606,12 @@ class UbusClient(OpenWrtClient):
                                 # If it's a wired device, we can improve its interface info
                                 if not dev.is_wireless and not dev.interface:
                                     dev.interface = dev_name
+                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                    raise
                 except Exception:
                     continue
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB: %s", err)
 
@@ -1593,7 +1619,7 @@ class UbusClient(OpenWrtClient):
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
         """Discover wireless interfaces from ubus object list and poll iwinfo."""
-        with contextlib.suppress(Exception):
+        try:
             objects = await self._list_objects()
             # On some devices, interfaces are named wlan0, wlan1, etc.
             # or have hostapd.wlan0 objects.
@@ -1605,12 +1631,16 @@ class UbusClient(OpenWrtClient):
                     continue
 
             # Also try to discover candidates via iwinfo devices
-            with contextlib.suppress(UbusError):
+            try:
                 iw_devs = await self._call("iwinfo", "devices")
                 if isinstance(iw_devs, list):
                     candidates.update(iw_devs)
                 elif isinstance(iw_devs, dict) and "devices" in iw_devs:
                     candidates.update(iw_devs["devices"])
+            except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                raise
+            except UbusError:
+                pass
 
             # Additional common names if nothing found
             if not candidates:
@@ -1626,7 +1656,7 @@ class UbusClient(OpenWrtClient):
                 }
 
             for ifname in candidates:
-                with contextlib.suppress(UbusError):
+                try:
                     assoc = await self._call("iwinfo", "assoclist", {"device": ifname})
                     if not assoc:
                         continue
@@ -1641,21 +1671,37 @@ class UbusClient(OpenWrtClient):
                         self._set_wireless_connection_type(dev, ifname)
                         dev.signal = client.get("signal", 0)
                         dev.noise = client.get("noise", 0)
+                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                    raise
+                except UbusError:
+                    continue
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
+        except Exception:
+            pass
 
     async def _process_hostapd_fallback(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
         """Fallback: Discover and poll hostapd objects directly."""
-        with contextlib.suppress(Exception):
+        try:
             ubus_objects = await self._list_objects()
             for obj_name in ubus_objects:
                 if obj_name.startswith("hostapd."):
                     ifname = obj_name.split(".", 1)[1]
-                    with contextlib.suppress(UbusError):
+                    try:
                         hostapd_data = await self._call(obj_name, "get_clients")
                         self._merge_hostapd_clients(
                             devices, hostapd_data.get("clients", {}), ifname
                         )
+                    except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                        raise
+                    except UbusError:
+                        pass
+        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            raise
+        except Exception:
+            pass
 
     def _merge_hostapd_clients(
         self, devices: dict[str, ConnectedDevice], clients: dict[str, Any], ifname: str
