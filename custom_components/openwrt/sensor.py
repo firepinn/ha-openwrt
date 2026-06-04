@@ -1030,15 +1030,13 @@ async def async_setup_entry(
                 if not track_wired and not device.is_wireless and not is_random:
                     continue
 
-                # Bandwidth sensors (RX/TX)
-                for direction in ("rx", "tx"):
-                    key = f"device_{mac.replace(':', '_')}_{direction}"
-                    if key not in tracked_keys:
-                        tracked_keys.add(key)
-                        new_entities.extend(
-                            _create_device_sensors(coordinator, entry, device)
-                        )
-                        break
+                # Device diagnostic sensors (Signal, Rates, Noise)
+                key = f"device_{mac.replace(':', '_')}_sensors"
+                if key not in tracked_keys:
+                    tracked_keys.add(key)
+                    new_entities.extend(
+                        _create_device_sensors(coordinator, entry, device)
+                    )
 
                 # NLBWmon sensors
                 if pkgs.nlbwmon:
