@@ -118,6 +118,7 @@ class UbusClient(OpenWrtClient):
         )
         self._ubus_path = ubus_path
         self._session_id: str = "00000000000000000000000000000000"
+        self._reauth_lock = asyncio.Lock()
 
         self._semaphore = asyncio.Semaphore(
             5
@@ -155,9 +156,10 @@ class UbusClient(OpenWrtClient):
             raise UbusError("Session not initialized")
         session = self.session
 
+        failed_session = self._session_id
         payload = self._build_request(
             "call",
-            [self._session_id, ubus_object, ubus_method, params or {}],
+            [failed_session, ubus_object, ubus_method, params or {}],
         )
 
         reauth_needed = False
@@ -183,9 +185,11 @@ class UbusClient(OpenWrtClient):
                         reauth_needed = True
 
             if reauth_needed and not reauthenticated:
-                _LOGGER.debug("Ubus session expired, re-authenticating...")
-                self._session_id = "00000000000000000000000000000000"
-                await self.connect()
+                async with self._reauth_lock:
+                    if self._session_id == failed_session:
+                        _LOGGER.debug("Ubus session expired, re-authenticating...")
+                        self._session_id = "00000000000000000000000000000000"
+                        await self.connect()
                 return await self._call(
                     ubus_object,
                     ubus_method,

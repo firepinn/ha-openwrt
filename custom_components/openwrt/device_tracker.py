@@ -312,6 +312,16 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         if getattr(self, "hass", None):
             self.async_write_ha_state()
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Call when entity is being removed from hass."""
+        await super().async_will_remove_from_hass()
+        domain_data = self.coordinator.hass.data.get(DOMAIN, {})
+        if "registered_macs" in domain_data:
+            domain_data["registered_macs"].discard(self._mac)
+        if "all_trackers" in domain_data and self._mac in domain_data["all_trackers"]:
+            if self in domain_data["all_trackers"][self._mac]:
+                domain_data["all_trackers"][self._mac].remove(self)
+
     @property
     def is_connected(self) -> bool:
         """Return connection status."""
