@@ -331,6 +331,18 @@ class OpenWrtDeviceTracker(CoordinatorEntity[OpenWrtDataCoordinator], ScannerEnt
         if was_ever_wireless and not device.is_wireless:
             return self._check_consider_home(False)
 
+        # Handle wireless/forced-wireless devices tracked via ARP/FDB (external APs)
+        # to prevent stale ARP (STALE) or stale FDB entries from keeping them 'home'.
+        if device.is_wireless or was_ever_wireless:
+            active_arp = device.neighbor_state and device.neighbor_state.upper() in (
+                "REACHABLE",
+                "DELAY",
+                "PROBE",
+                "PERMANENT",
+            )
+            if not active_arp:
+                return self._check_consider_home(False)
+
         track_wired = self._entry.options.get(
             CONF_TRACK_WIRED,
             self._entry.data.get(CONF_TRACK_WIRED, DEFAULT_TRACK_WIRED),
