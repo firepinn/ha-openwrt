@@ -3138,16 +3138,22 @@ class UbusClient(OpenWrtClient):
                     "closed",
                     "eof",
                     "timeout",
+                    "cannot connect",
+                    "could not connect",
+                    "connection lost",
+                    "connection failed",
+                    "connection error",
+                    "unreachable",
+                    "host",
                 ]
             ):
                 _LOGGER.info(
                     "Ubus connection lost during sysupgrade - device is rebooting",
                 )
                 return
-            _LOGGER.warning(
-                "Sysupgrade command might have failed or disconnected: %s",
-                err,
-            )
+            _LOGGER.exception("Failed to execute sysupgrade via ubus: %s", err)
+            msg = f"sysupgrade execution failed: {err}"
+            raise UbusError(msg) from err
 
     async def download_file(self, remote_path: str, local_path: str) -> bool:
         """Download a file from the router via ubus file.read."""

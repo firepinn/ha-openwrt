@@ -2119,16 +2119,28 @@ class SshClient(OpenWrtClient):
             err_msg = str(err).lower()
             if any(
                 msg in err_msg
-                for msg in ["connection reset", "broken pipe", "closed", "eof"]
+                for msg in [
+                    "connection reset",
+                    "broken pipe",
+                    "closed",
+                    "eof",
+                    "timeout",
+                    "cannot connect",
+                    "could not connect",
+                    "connection lost",
+                    "connection failed",
+                    "connection error",
+                    "unreachable",
+                    "host",
+                ]
             ):
                 _LOGGER.info(
                     "SSH connection lost during sysupgrade - device is likely rebooting",
                 )
                 return
-            _LOGGER.warning(
-                "Sysupgrade command might have failed or disconnected: %s",
-                err,
-            )
+            _LOGGER.exception("Failed to execute sysupgrade via SSH: %s", err)
+            msg = f"sysupgrade execution failed: {err}"
+            raise SshError(msg) from err
 
     async def download_file(self, remote_path: str, local_path: str) -> bool:
         """Download a file from the router via SSH using cat (fallback for SCP)."""

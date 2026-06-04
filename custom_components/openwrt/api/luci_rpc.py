@@ -2140,6 +2140,13 @@ class LuciRpcClient(OpenWrtClient):
                     "closed",
                     "eof",
                     "timeout",
+                    "cannot connect",
+                    "could not connect",
+                    "connection lost",
+                    "connection failed",
+                    "connection error",
+                    "unreachable",
+                    "host",
                 ]
             ):
                 _LOGGER.info(
@@ -2162,7 +2169,14 @@ class LuciRpcClient(OpenWrtClient):
                     with open(local_path, "wb") as f:
                         f.write(base64.b64decode(res))
                     return True
-            except LuciRpcPackageMissingError:
+            except (
+                LuciRpcTimeoutError,
+                LuciRpcConnectionError,
+                LuciRpcSslError,
+                LuciRpcAuthError,
+            ):
+                raise
+            except LuciRpcError:
                 # Fallback to sys.exec if file read is not available
                 # Fabian's AX3600 has openssl but no standalone base64 command
                 cmd = f"openssl base64 -in {remote_path} || base64 {remote_path} || cat {remote_path} | base64"
@@ -2173,6 +2187,13 @@ class LuciRpcClient(OpenWrtClient):
                             base64.b64decode(output.replace("\n", "").replace("\r", ""))
                         )
                     return True
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
+            raise
         except Exception as err:
             _LOGGER.exception("Failed to download file via LuCI RPC: %s", err)
         return False
