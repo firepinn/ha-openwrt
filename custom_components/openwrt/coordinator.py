@@ -250,12 +250,18 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         try:
             stored_data = await self._store.async_load()
             if stored_data:
+                loaded_devices = {}
                 if isinstance(stored_data, dict) and "devices" in stored_data:
-                    self._device_history.update(stored_data.get("devices", {}))
+                    loaded_devices = stored_data.get("devices", {})
                     self._last_version = stored_data.get("last_version")
-                else:
+                elif isinstance(stored_data, dict):
                     # Legacy structure (direct dict of devices)
-                    self._device_history.update(stored_data)
+                    loaded_devices = stored_data
+
+                if isinstance(loaded_devices, dict):
+                    for mac, hist in loaded_devices.items():
+                        if isinstance(hist, dict):
+                            self._device_history[mac] = hist
 
                 _LOGGER.debug(
                     "Loaded %s devices from persistent history (last_version: %s)",

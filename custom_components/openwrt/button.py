@@ -370,9 +370,11 @@ def _add_extra_service_buttons(
                     OpenWrtButtonDescription(
                         key=key,
                         name=f"AdBlock {action.capitalize()}",
-                        icon="mdi:shield-refresh"
-                        if action == "reload"
-                        else "mdi:shield-off",
+                        icon=(
+                            "mdi:shield-refresh"
+                            if action == "reload"
+                            else "mdi:shield-off"
+                        ),
                         entity_category=EntityCategory.CONFIG,
                         entity_registry_enabled_default=False,
                         press_fn=lambda c, a=action: c.manage_service("adblock", a),

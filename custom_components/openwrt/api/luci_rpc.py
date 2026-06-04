@@ -229,7 +229,12 @@ class LuciRpcClient(OpenWrtClient):
             )
             if out and out.strip():
                 return out
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except Exception as err:
             _LOGGER.debug(
@@ -253,7 +258,12 @@ class LuciRpcClient(OpenWrtClient):
                 if stderr and not stdout:
                     _LOGGER.debug("LuCI RPC file.exec stderr: %s", stderr)
                 return stdout or stderr
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except Exception as err:
             _LOGGER.debug(
@@ -1477,9 +1487,11 @@ class LuciRpcClient(OpenWrtClient):
                         latest_handshake=int(parts[5]) if parts[5].isdigit() else 0,
                         transfer_rx=int(parts[6]) if parts[6].isdigit() else 0,
                         transfer_tx=int(parts[7]) if parts[7].isdigit() else 0,
-                        persistent_keepalive=int(parts[8])
-                        if len(parts) > 8 and parts[8].isdigit()
-                        else 0,
+                        persistent_keepalive=(
+                            int(parts[8])
+                            if len(parts) > 8 and parts[8].isdigit()
+                            else 0
+                        ),
                     )
                     iface_map[ifname].peers.append(peer)
         return interfaces
@@ -1605,7 +1617,12 @@ class LuciRpcClient(OpenWrtClient):
                             is_wireless=False,
                             connection_type="wired",
                         )
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except LuciRpcError:
             pass
@@ -1630,7 +1647,12 @@ class LuciRpcClient(OpenWrtClient):
                                     is_wireless=False,
                                     connection_type="wired",
                                 )
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except LuciRpcError:
             pass
@@ -1691,7 +1713,12 @@ class LuciRpcClient(OpenWrtClient):
                                     dev.connection_type = "2.4GHz"
                                 else:
                                     dev.connection_type = "wireless"
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except LuciRpcError:
             pass
@@ -1775,7 +1802,12 @@ class LuciRpcClient(OpenWrtClient):
                         connection_type="wired",
                         neighbor_state=neigh.state,
                     )
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except Exception:
             pass
@@ -1821,11 +1853,21 @@ class LuciRpcClient(OpenWrtClient):
                                 dev.connected = True  # Seen on a physical port recently
                                 if not dev.is_wireless and not dev.interface:
                                     dev.interface = dev_name
-                except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+                except (
+                    LuciRpcTimeoutError,
+                    LuciRpcConnectionError,
+                    LuciRpcSslError,
+                    LuciRpcAuthError,
+                ):
                     raise
                 except Exception:
                     continue
-        except (LuciRpcTimeoutError, LuciRpcConnectionError, LuciRpcSslError, LuciRpcAuthError):
+        except (
+            LuciRpcTimeoutError,
+            LuciRpcConnectionError,
+            LuciRpcSslError,
+            LuciRpcAuthError,
+        ):
             raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB via LuCI RPC: %s", err)

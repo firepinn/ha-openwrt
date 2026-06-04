@@ -300,11 +300,9 @@ def _generate_diagnostic_report(
         icon = (
             "✅"
             if res.status == "PASS"
-            else "❌"
-            if res.status == "FAIL"
-            else "⚠️"
-            if res.status == "WARN"
-            else "ℹ️"
+            else (
+                "❌" if res.status == "FAIL" else "⚠️" if res.status == "WARN" else "ℹ️"
+            )
         )
         report.append(f"#### {icon} {res.name}")
         report.append(f"**{t('diagnostics_label_result', 'Result')}:** {res.message}")
@@ -2063,6 +2061,8 @@ class OpenWrtOptionsFlow(OptionsFlow):
 
         device_options = {}
         for mac, info in devices.items():
+            if not isinstance(info, dict):
+                continue
             name = info.get("hostname") or info.get("name") or mac
             device_options[mac] = f"{name} ({mac})"
 

@@ -157,7 +157,9 @@ class SshClient(OpenWrtClient):
                     )
                     if isinstance(reconnect_err, SshError):
                         raise
-                    raise SshConnectionError(f"SSH connection failed: {reconnect_err}") from reconnect_err
+                    raise SshConnectionError(
+                        f"SSH connection failed: {reconnect_err}"
+                    ) from reconnect_err
 
             if isinstance(err, SshError):
                 raise
@@ -1052,15 +1054,17 @@ class SshClient(OpenWrtClient):
                         peer = WireGuardPeer(
                             public_key=parts[1],
                             endpoint=parts[3] if parts[3] != "(none)" else "",
-                            allowed_ips=parts[4].split(",")
-                            if parts[4] != "(none)"
-                            else [],
+                            allowed_ips=(
+                                parts[4].split(",") if parts[4] != "(none)" else []
+                            ),
                             latest_handshake=int(parts[5]) if parts[5].isdigit() else 0,
                             transfer_rx=int(parts[6]) if parts[6].isdigit() else 0,
                             transfer_tx=int(parts[7]) if parts[7].isdigit() else 0,
-                            persistent_keepalive=int(parts[8])
-                            if len(parts) > 8 and parts[8].isdigit()
-                            else 0,
+                            persistent_keepalive=(
+                                int(parts[8])
+                                if len(parts) > 8 and parts[8].isdigit()
+                                else 0
+                            ),
                         )
                         iface_map[ifname].peers.append(peer)
         except Exception as err:
@@ -1368,9 +1372,11 @@ class SshClient(OpenWrtClient):
                     ProcessInfo(
                         pid=int(parts[pid_idx]),
                         user=parts[user_idx],
-                        vsz=int(parts[vsz_idx].rstrip("mGk"))
-                        if parts[vsz_idx].rstrip("mGk").isdigit()
-                        else 0,
+                        vsz=(
+                            int(parts[vsz_idx].rstrip("mGk"))
+                            if parts[vsz_idx].rstrip("mGk").isdigit()
+                            else 0
+                        ),
                         cpu_usage=float(parts[cpu_idx].rstrip("%")),
                         command=" ".join(parts[cmd_idx:]),
                     )
@@ -2569,9 +2575,11 @@ class SshClient(OpenWrtClient):
                 DiagnosticResult(
                     name="Package Manager",
                     status="PASS" if msg else "WARN",
-                    message=", ".join(msg)
-                    if msg
-                    else "No package manager (apk/opkg) detected. Firmware may be restricted or custom.",
+                    message=(
+                        ", ".join(msg)
+                        if msg
+                        else "No package manager (apk/opkg) detected. Firmware may be restricted or custom."
+                    ),
                 )
             )
         except Exception as err:

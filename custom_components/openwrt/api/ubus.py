@@ -868,9 +868,11 @@ class UbusClient(OpenWrtClient):
                     ProcessInfo(
                         pid=int(parts[pid_idx]),
                         user=parts[user_idx],
-                        vsz=int(parts[vsz_idx].rstrip("mGk"))
-                        if parts[vsz_idx].rstrip("mGk").isdigit()
-                        else 0,
+                        vsz=(
+                            int(parts[vsz_idx].rstrip("mGk"))
+                            if parts[vsz_idx].rstrip("mGk").isdigit()
+                            else 0
+                        ),
                         cpu_usage=float(parts[cpu_idx].rstrip("%")),
                         command=" ".join(parts[cmd_idx:]),
                     )
@@ -1249,15 +1251,17 @@ class UbusClient(OpenWrtClient):
                         peer = WireGuardPeer(
                             public_key=parts[1],
                             endpoint=parts[3] if parts[3] != "(none)" else "",
-                            allowed_ips=parts[4].split(",")
-                            if parts[4] != "(none)"
-                            else [],
+                            allowed_ips=(
+                                parts[4].split(",") if parts[4] != "(none)" else []
+                            ),
                             latest_handshake=int(parts[5]) if parts[5].isdigit() else 0,
                             transfer_rx=int(parts[6]) if parts[6].isdigit() else 0,
                             transfer_tx=int(parts[7]) if parts[7].isdigit() else 0,
-                            persistent_keepalive=int(parts[8])
-                            if len(parts) > 8 and parts[8].isdigit()
-                            else 0,
+                            persistent_keepalive=(
+                                int(parts[8])
+                                if len(parts) > 8 and parts[8].isdigit()
+                                else 0
+                            ),
                         )
                         iface_map[ifname].peers.append(peer)
         except Exception as err:
@@ -1384,7 +1388,13 @@ class UbusClient(OpenWrtClient):
         if self.packages.wireless is not False:
             try:
                 wireless_data = await self._call("network.wireless", "status")
-            except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            except (
+                UbusTimeoutError,
+                UbusConnectionError,
+                UbusSslError,
+                UbusPermissionError,
+                UbusAuthError,
+            ):
                 raise
             except UbusError:
                 pass
@@ -1432,7 +1442,13 @@ class UbusClient(OpenWrtClient):
                     is_wireless=False,
                     connected=False,
                 )
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception:
             pass
@@ -1463,7 +1479,13 @@ class UbusClient(OpenWrtClient):
                         dev.noise = client.get("noise", 0)
                         dev.rx_rate = self._get_assoc_rate(client, "rx")
                         dev.tx_rate = self._get_assoc_rate(client, "tx")
-                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
                     raise
                 except UbusError:
                     pass
@@ -1510,7 +1532,13 @@ class UbusClient(OpenWrtClient):
                         connection_type="wired",
                         neighbor_state=neigh.state,
                     )
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception:
             pass
@@ -1531,7 +1559,13 @@ class UbusClient(OpenWrtClient):
                     self._merge_hostapd_clients(
                         devices, hostapd_data.get("clients", {}), ifname
                     )
-                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
                     raise
                 except UbusError:
                     pass
@@ -1567,7 +1601,13 @@ class UbusClient(OpenWrtClient):
                                 is_wireless=False,
                                 connected=False,
                             )
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception:
             pass
@@ -1606,11 +1646,23 @@ class UbusClient(OpenWrtClient):
                                 # If it's a wired device, we can improve its interface info
                                 if not dev.is_wireless and not dev.interface:
                                     dev.interface = dev_name
-                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
                     raise
                 except Exception:
                     continue
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB: %s", err)
@@ -1637,7 +1689,13 @@ class UbusClient(OpenWrtClient):
                     candidates.update(iw_devs)
                 elif isinstance(iw_devs, dict) and "devices" in iw_devs:
                     candidates.update(iw_devs["devices"])
-            except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+            except (
+                UbusTimeoutError,
+                UbusConnectionError,
+                UbusSslError,
+                UbusPermissionError,
+                UbusAuthError,
+            ):
                 raise
             except UbusError:
                 pass
@@ -1671,11 +1729,23 @@ class UbusClient(OpenWrtClient):
                         self._set_wireless_connection_type(dev, ifname)
                         dev.signal = client.get("signal", 0)
                         dev.noise = client.get("noise", 0)
-                except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
                     raise
                 except UbusError:
                     continue
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception:
             pass
@@ -1694,11 +1764,23 @@ class UbusClient(OpenWrtClient):
                         self._merge_hostapd_clients(
                             devices, hostapd_data.get("clients", {}), ifname
                         )
-                    except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+                    except (
+                        UbusTimeoutError,
+                        UbusConnectionError,
+                        UbusSslError,
+                        UbusPermissionError,
+                        UbusAuthError,
+                    ):
                         raise
                     except UbusError:
                         pass
-        except (UbusTimeoutError, UbusConnectionError, UbusSslError, UbusPermissionError, UbusAuthError):
+        except (
+            UbusTimeoutError,
+            UbusConnectionError,
+            UbusSslError,
+            UbusPermissionError,
+            UbusAuthError,
+        ):
             raise
         except Exception:
             pass

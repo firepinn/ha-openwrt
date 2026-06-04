@@ -483,9 +483,11 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             attrs_fn=lambda data: {
                 "days": data.system_resources.uptime // 86400,
                 "hours": (data.system_resources.uptime % 86400) // 3600,
-                "minutes": (data.system_resources.uptime % 3600) // 60
-                if data.system_resources.uptime < 3600
-                else None,
+                "minutes": (
+                    (data.system_resources.uptime % 3600) // 60
+                    if data.system_resources.uptime < 3600
+                    else None
+                ),
             },
         ),
         OpenWrtSensorDescription(

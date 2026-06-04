@@ -1357,9 +1357,11 @@ class OpenWrtClient(abc.ABC):
                         data["gateways"].append(
                             BatmanGateway(
                                 mac=parts[0].upper(),
-                                tq=int(parts[1].strip("()"))
-                                if "(" in parts[1]
-                                else (int(parts[1]) if parts[1].isdigit() else 0),
+                                tq=(
+                                    int(parts[1].strip("()"))
+                                    if "(" in parts[1]
+                                    else (int(parts[1]) if parts[1].isdigit() else 0)
+                                ),
                                 next_hop=parts[2].upper(),
                                 outgoing_iface=parts[3].strip("[]"),
                                 is_selected=is_selected,
