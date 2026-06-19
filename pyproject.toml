@@ -25,6 +25,8 @@ select = [
 ignore = [
     "E501",  # line too long, handled by black
     "C901",  # too complex
+    "F403",  # star imports used
+    "F405",  # undefined names from star imports
 ]
 
 [tool.mypy]
