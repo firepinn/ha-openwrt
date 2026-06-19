@@ -1,46 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
+
 import contextlib
 import json
 import logging
-import re
 import shlex
 from typing import Any
-import paramiko
-from homeassistant.helpers import storage
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
     LldpNeighbor,
     MwanStatus,
     NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
     UpnpMapping,
-    UsbDevice,
     WifiCredentials,
     WireGuardInterface,
     WireGuardPeer,
     WirelessInterface,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SshNetworkMixin:
     """Network methods for SshClient."""
@@ -112,6 +92,7 @@ class SshNetworkMixin:
             return fallback_ip if "fallback_ip" in locals() else None
         except Exception:  # noqa: BLE001
             return None
+
     async def get_wireless_interfaces(self) -> list[WirelessInterface]:
         """Get wireless interfaces via ubus iwinfo."""
         interfaces: list[WirelessInterface] = []
@@ -293,6 +274,7 @@ class SshNetworkMixin:
                 )
 
         return interfaces
+
     async def get_upnp_mappings(self) -> list[UpnpMapping]:
         """Get active UPnP/NAT-PMP port mappings via SSH."""
         mappings: list[UpnpMapping] = []
@@ -320,6 +302,7 @@ class SshNetworkMixin:
             _LOGGER.debug("Failed to fetch UPnP mappings via SSH: %s", err)
 
         return mappings
+
     async def get_wireguard_interfaces(self) -> list[WireGuardInterface]:
         """Get WireGuard VPN interface and peer information via SSH."""
         interfaces: list[WireGuardInterface] = []
@@ -384,6 +367,7 @@ class SshNetworkMixin:
             _LOGGER.debug("Failed to fetch WireGuard interfaces via SSH: %s", err)
 
         return interfaces
+
     async def get_network_interfaces(self) -> list[NetworkInterface]:
         """Get network interfaces."""
         interfaces: list[NetworkInterface] = []
@@ -475,6 +459,7 @@ class SshNetworkMixin:
             _LOGGER.debug("Failed to get network interfaces via SSH: %s", err)
 
         return interfaces
+
     async def set_wireless_enabled(self, interface: str, enabled: bool) -> bool:
         """Enable/disable a wireless interface."""
         try:
@@ -488,6 +473,7 @@ class SshNetworkMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set wireless %s: %s", interface, err)
             return False
+
     async def manage_interface(self, name: str, action: str) -> bool:
         """Manage a network interface (up/down/reconnect) via SSH."""
         try:
@@ -502,6 +488,7 @@ class SshNetworkMixin:
         except Exception as err:
             _LOGGER.exception("Failed to manage interface %s: %s", name, err)
             return False
+
     async def get_lldp_neighbors(self) -> list[LldpNeighbor]:
         """Get LLDP neighbor information via SSH."""
         neighbors: list[LldpNeighbor] = []
@@ -518,6 +505,7 @@ class SshNetworkMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get LLDP neighbors via SSH: %s", err)
         return neighbors
+
     async def _get_lldp_from_ubus(self, neighbors: list[LldpNeighbor]) -> None:
         """Fetch LLDP neighbors from 'lldp show' ubus call via SSH."""
         if self.packages.lldp is False:
@@ -534,6 +522,7 @@ class SshNetworkMixin:
                             neighbors.append(
                                 self._parse_ubus_lldp_neigh(name or "", neigh)
                             )
+
     def _parse_ubus_lldp_neigh(
         self, local_iface: str, neigh: dict[str, Any]
     ) -> LldpNeighbor:
@@ -556,6 +545,7 @@ class SshNetworkMixin:
             neighbor_description=neigh.get("description", ""),
             neighbor_system_name=neigh.get("sysname", ""),
         )
+
     async def _get_lldp_from_lldpcli(self, neighbors: list[LldpNeighbor]) -> None:
         """Fetch LLDP neighbors using 'lldpcli show neighbors' via SSH."""
         with contextlib.suppress(Exception):
@@ -572,6 +562,7 @@ class SshNetworkMixin:
                             neighbors.append(
                                 self._parse_lldpcli_neigh(iface_name, neigh)
                             )
+
     def _parse_lldpcli_neigh(
         self, local_iface: str, neigh: dict[str, Any]
     ) -> LldpNeighbor:
@@ -594,6 +585,7 @@ class SshNetworkMixin:
             neighbor_description=neigh.get("description", ""),
             neighbor_system_name=neigh.get("sysname", ""),
         )
+
     async def get_wifi_credentials(self) -> list[WifiCredentials]:
         """Get wifi credentials via SSH."""
         try:
@@ -682,6 +674,7 @@ class SshNetworkMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get wifi credentials via ssh: %s", err)
             return []
+
     async def get_mwan_status(self) -> list[MwanStatus]:
         """Get multi-wan status via SSH."""
         try:
@@ -707,6 +700,7 @@ class SshNetworkMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get mwan3 status via ssh: %s", err)
             return []
+
     async def trigger_wps_push(self, interface: str) -> bool:
         """Trigger WPS push button via SSH."""
         try:

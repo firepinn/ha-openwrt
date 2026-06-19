@@ -1,45 +1,22 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
+
 import asyncio
 import contextlib
 import json
 import logging
 import re
-from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
     DeviceInfo,
-    DhcpLease,
     DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LedInfo,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
     StorageUsage,
     SystemResources,
-    UpnpMapping,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class LuciRpcSystemMixin:
     """System methods for LuciRpcClient."""
@@ -141,6 +118,7 @@ class LuciRpcSystemMixin:
                 pass
 
         return info
+
     async def get_system_resources(self) -> SystemResources:
         """Get system resource usage."""
         resources = SystemResources()
@@ -356,6 +334,7 @@ class LuciRpcSystemMixin:
             pass
 
         return resources
+
     async def reboot(self) -> bool:
         """Reboot the device via LuCI RPC."""
         try:
@@ -367,6 +346,7 @@ class LuciRpcSystemMixin:
                 return True
             except Exception:
                 return False
+
     async def get_installed_packages(self) -> list[str]:
         """Get a list of installed packages via apk or opkg.
 
@@ -407,6 +387,7 @@ class LuciRpcSystemMixin:
         except Exception as err:
             _LOGGER.debug("Unexpected error listing installed packages: %s", err)
             return []
+
     async def get_system_logs(self, count: int = 10) -> list[str]:
         """Get recent system log entries via execute_command (logread)."""
         try:
@@ -419,6 +400,7 @@ class LuciRpcSystemMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get system logs via LuCI RPC: %s", err)
         return []
+
     async def perform_diagnostics(self) -> list[DiagnosticResult]:
         """Perform LuCI RPC-specific diagnostic checks."""
         results: list[DiagnosticResult] = []
@@ -426,7 +408,12 @@ class LuciRpcSystemMixin:
         # Check connection error
         if self._last_connect_error:
             err_str = str(self._last_connect_error)
-            if "ConnectionRefusedError" in err_str or "connection refused" in err_str.lower() or "connect call failed" in err_str.lower() or "1225" in err_str:
+            if (
+                "ConnectionRefusedError" in err_str
+                or "connection refused" in err_str.lower()
+                or "connect call failed" in err_str.lower()
+                or "1225" in err_str
+            ):
                 results.append(
                     DiagnosticResult(
                         name="Router Web Server",
@@ -436,7 +423,7 @@ class LuciRpcSystemMixin:
                             "The router's web server (uhttpd) is not running or is blocking the connection on port 80/443. "
                             "Please check that uhttpd/nginx is enabled and running on the router (e.g. run "
                             "'/etc/init.d/uhttpd start' over SSH)."
-                        )
+                        ),
                     )
                 )
             elif "404" in err_str or "not found" in err_str.lower():
@@ -449,7 +436,7 @@ class LuciRpcSystemMixin:
                             "The router returned HTTP 404 (Not Found) for the API endpoint. "
                             "This indicates that the required RPC package is not installed on the router. "
                             "Please ensure that the 'luci-mod-rpc' package is installed."
-                        )
+                        ),
                     )
                 )
 
@@ -530,6 +517,7 @@ class LuciRpcSystemMixin:
             pass
 
         return results
+
     async def is_reboot_required(self) -> bool:
         """Check if reboot is required via LuCI RPC."""
         try:

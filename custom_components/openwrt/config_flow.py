@@ -47,6 +47,7 @@ from .api.luci_rpc import (
 )
 from .api.ssh import (
     SshAuthError,
+    SshClient,
     SshConnectionError,
     SshError,
     SshKeyError,
@@ -1092,7 +1093,11 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
         ):
             err_str = str(err).lower()
-            if "connection refused" in err_str or "connect call failed" in err_str or "1225" in err_str:
+            if (
+                "connection refused" in err_str
+                or "connect call failed" in err_str
+                or "1225" in err_str
+            ):
                 _LOGGER.error(
                     "Connection refused during setup for user %s. The router's service (uhttpd/nginx or SSH) may be offline/crashed, or firewall rules are blocking the connection.",
                     username,
@@ -1532,7 +1537,7 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_run_repair(self) -> ConfigFlowResult:
         """Connect via SSH and perform the repair."""
-        host = self._data.get(CONF_HOST)
+        host = self._data.get(CONF_HOST) or ""
         conn_type = self._data.get(CONF_CONNECTION_TYPE, CONNECTION_TYPE_UBUS)
 
         try:
@@ -1563,7 +1568,9 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             # Determine if we should install luci-mod-rpc or uhttpd-mod-ubus
             report_str = str(self._diagnostic_report or "").lower()
             needs_luci_rpc = conn_type == CONNECTION_TYPE_LUCI_RPC and (
-                "404" in report_str or "rpc endpoint" in report_str or "session" in report_str
+                "404" in report_str
+                or "rpc endpoint" in report_str
+                or "session" in report_str
             )
             needs_ubus = conn_type == CONNECTION_TYPE_UBUS and (
                 "404" in report_str or "rpc endpoint" in report_str
@@ -1573,12 +1580,16 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                 if pkg_mgr == "apk":
                     await ssh.execute_command("apk update && apk add luci-mod-rpc")
                 else:
-                    await ssh.execute_command("opkg update && opkg install luci-mod-rpc")
+                    await ssh.execute_command(
+                        "opkg update && opkg install luci-mod-rpc"
+                    )
             elif needs_ubus:
                 if pkg_mgr == "apk":
                     await ssh.execute_command("apk update && apk add uhttpd-mod-ubus")
                 else:
-                    await ssh.execute_command("opkg update && opkg install uhttpd-mod-ubus")
+                    await ssh.execute_command(
+                        "opkg update && opkg install uhttpd-mod-ubus"
+                    )
 
             # Restart web server to ensure changes are loaded
             await ssh.execute_command("/etc/init.d/uhttpd restart 2>/dev/null || true")
@@ -1617,7 +1628,11 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             if self._packages:
                 return await self.async_step_packages()
             return self.async_create_entry(
-                title=self._device_info.get("hostname", self._data.get(CONF_HOST)),
+                title=str(
+                    self._device_info.get("hostname")
+                    or self._data.get(CONF_HOST)
+                    or "OpenWrt"
+                ),
                 data=self._data,
             )
 
@@ -1799,12 +1814,21 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_ENABLE_LED, default=True): bool,
         }
 
-        if self._packages.sqm_scripts:
-            schema_dict[vol.Optional(CONF_ENABLE_SQM, default=True)] = bool
-        if self._packages.wireguard or self._packages.openvpn:
-            schema_dict[vol.Optional(CONF_ENABLE_VPN, default=True)] = bool
-        if self._packages.nlbwmon:
-            schema_dict[vol.Optional(CONF_ENABLE_NLBWMON_SENSORS, default=False)] = bool
+        schema_dict[
+            vol.Optional(CONF_ENABLE_SQM, default=bool(self._packages.sqm_scripts))
+        ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_VPN,
+                default=bool(self._packages.wireguard or self._packages.openvpn),
+            )
+        ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_NLBWMON_SENSORS,
+                default=bool(self._packages.nlbwmon),
+            )
+        ] = bool
 
         return self.async_show_form(
             step_id="packages",
@@ -1930,7 +1954,6 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "warning": "⚠️ This is a third-party feature. Support is not provided by this integration.",
                 "presence_repo_url": MQTT_PRESENCE_URL,
             },
         )
@@ -2415,30 +2438,39 @@ class OpenWrtOptionsFlow(OptionsFlow):
             ): bool,
         }
 
-        if self._packages.sqm_scripts:
-            schema_dict[
-                vol.Optional(
-                    CONF_ENABLE_SQM,
-                    default=current.get(CONF_ENABLE_SQM, True),
-                )
-            ] = bool
-        if self._packages.wireguard or self._packages.openvpn:
-            schema_dict[
-                vol.Optional(
-                    CONF_ENABLE_VPN,
-                    default=current.get(CONF_ENABLE_VPN, True),
-                )
-            ] = bool
-        if self._packages.nlbwmon:
-            schema_dict[
-                vol.Optional(
-                    CONF_ENABLE_NLBWMON_SENSORS,
-                    default=current.get(
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_SQM,
+                default=(
+                    current.get(CONF_ENABLE_SQM, True)
+                    if self._packages.sqm_scripts
+                    else False
+                ),
+            )
+        ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_VPN,
+                default=(
+                    current.get(CONF_ENABLE_VPN, True)
+                    if (self._packages.wireguard or self._packages.openvpn)
+                    else False
+                ),
+            )
+        ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_NLBWMON_SENSORS,
+                default=(
+                    current.get(
                         CONF_ENABLE_NLBWMON_SENSORS,
                         self._config_entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
-                    ),
-                )
-            ] = bool
+                    )
+                    if self._packages.nlbwmon
+                    else False
+                ),
+            )
+        ] = bool
 
         return self.async_show_form(
             step_id="options_packages",
@@ -2503,7 +2535,6 @@ class OpenWrtOptionsFlow(OptionsFlow):
             ),
             errors=errors,
             description_placeholders={
-                "warning": "⚠️ This is a third-party feature. Support is not provided by this integration.",
                 "presence_repo_url": MQTT_PRESENCE_URL,
             },
         )

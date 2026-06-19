@@ -1,45 +1,17 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
-import contextlib
+
 import json
 import logging
-import re
-from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
     ConnectedDevice,
-    DeviceInfo,
     DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LedInfo,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    StorageUsage,
-    SystemResources,
-    UpnpMapping,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class LuciRpcDevicesMixin:
     """Devices methods for LuciRpcClient."""
@@ -263,6 +235,7 @@ class LuciRpcDevicesMixin:
             await self._process_bridge_fdb(devices)
 
         return list(devices.values())
+
     async def _process_bridge_fdb(self, devices: dict[str, ConnectedDevice]) -> None:
         """Fetch and merge bridge FDB (forwarding database) information via LuCI RPC."""
         try:
@@ -320,6 +293,7 @@ class LuciRpcDevicesMixin:
             raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB via LuCI RPC: %s", err)
+
     async def kick_device(self, mac_address: str, interface: str) -> bool:
         """Kick a device, mapping UCI section back to system name if needed."""
         sys_iface = getattr(self, "_uci_to_sys", {}).get(interface, interface)
@@ -345,6 +319,7 @@ class LuciRpcDevicesMixin:
                 err,
             )
             return await super().kick_device(mac_address, sys_iface)
+
     async def get_dhcp_leases(self) -> list[DhcpLease]:
         """Get DHCP leases via LuCI RPC."""
         if self.dhcp_software == "none":
@@ -411,6 +386,7 @@ class LuciRpcDevicesMixin:
                     )
 
         return leases
+
     async def get_local_macs(self) -> set[str]:
         """Get all MAC addresses belonging to the router's physical and virtual interfaces."""
         macs = set()
@@ -431,6 +407,7 @@ class LuciRpcDevicesMixin:
         except Exception:  # noqa: BLE001
             pass
         return macs
+
     async def get_local_ips(self) -> set[str]:
         """Get all IP addresses belonging to the router."""
         ips = set()

@@ -1,48 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
-import contextlib
+
 import logging
-import re
 from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
     AccessControl,
     AdBlockStatus,
     BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
     FirewallRedirect,
     FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
     NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
     SimpleAdBlockStatus,
     SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusFeaturesMixin:
     """Features methods for UbusClient."""
@@ -66,6 +44,7 @@ class UbusFeaturesMixin:
             return True
         except UbusError:
             return False
+
     async def get_firewall_rules(self) -> list[FirewallRule]:
         """Get general firewall rules via UCI."""
         rules: list[FirewallRule] = []
@@ -96,6 +75,7 @@ class UbusFeaturesMixin:
                 ),
             )
         return rules
+
     async def get_firewall_redirects(self) -> list[FirewallRedirect]:
         """Get firewall port forwarding redirects via UCI."""
         redirects: list[FirewallRedirect] = []
@@ -132,6 +112,7 @@ class UbusFeaturesMixin:
                 )
             )
         return redirects
+
     async def set_firewall_redirect_enabled(
         self,
         section_id: str,
@@ -155,6 +136,7 @@ class UbusFeaturesMixin:
             return True
         except UbusError:
             return False
+
     async def get_access_control(self) -> list[AccessControl]:
         """Get list of access control rules via UCI firewall rules."""
         rules: list[AccessControl] = []
@@ -181,6 +163,7 @@ class UbusFeaturesMixin:
                     ),
                 )
         return rules
+
     async def set_access_control_blocked(self, mac: str, blocked: bool) -> bool:
         """Block or unblock a device's internet access via UCI firewall rule."""
         mac_upper = mac.upper()
@@ -245,6 +228,7 @@ class UbusFeaturesMixin:
             return True
         except UbusError:
             return False
+
     async def get_adblock_status(self) -> AdBlockStatus:
         """Get adblock status via ubus/uci."""
         from ..base import AdBlockStatus
@@ -279,6 +263,7 @@ class UbusFeaturesMixin:
             _LOGGER.debug("AdBlock UCI status failed: %s", err)
 
         return status
+
     async def set_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable adblock service."""
         val = "1" if enabled else "0"
@@ -292,6 +277,7 @@ class UbusFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_simple_adblock_status(self) -> SimpleAdBlockStatus:
         """Get simple-adblock status via uci."""
         from ..base import SimpleAdBlockStatus
@@ -310,6 +296,7 @@ class UbusFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_simple_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable simple-adblock service."""
         val = "1" if enabled else "0"
@@ -323,6 +310,7 @@ class UbusFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_banip_status(self) -> BanIpStatus:
         """Get ban-ip status."""
         from ..base import BanIpStatus
@@ -335,6 +323,7 @@ class UbusFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_banip_enabled(self, enabled: bool) -> bool:
         """Enable/disable ban-ip service."""
         val = "1" if enabled else "0"
@@ -348,6 +337,7 @@ class UbusFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_sqm_status(self) -> list[SqmStatus]:
         """Get SQM status via uci ubus."""
         from ..base import SqmStatus
@@ -382,6 +372,7 @@ class UbusFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("SQM status check failed: %s", err)
         return sqm_instances
+
     async def set_sqm_config(self, section_id: str, **kwargs: Any) -> bool:
         """Set SQM configuration via uci ubus."""
         try:
@@ -408,6 +399,7 @@ class UbusFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set SQM config: %s", err)
             return False
+
     async def get_nlbwmon_data(self) -> dict[str, NlbwmonTraffic]:
         """Get bandwidth usage per MAC from nlbwmon."""
         try:

@@ -1,48 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
+
 import asyncio
 import contextlib
 import logging
-import re
 from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
     MwanStatus,
     NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
     UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
     WireGuardInterface,
     WireGuardPeer,
     WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusNetworkMixin:
     """Network methods for UbusClient."""
@@ -57,6 +35,7 @@ class UbusNetworkMixin:
                 if ipv4_addrs:
                     return ipv4_addrs[0].get("address")
         return None
+
     async def get_wireless_interfaces(self) -> list[WirelessInterface]:
         """Get wireless interface information."""
         interfaces: list[WirelessInterface] = []
@@ -336,6 +315,7 @@ class UbusNetworkMixin:
                         break
 
         return unique_ifaces
+
     async def get_upnp_mappings(self) -> list[UpnpMapping]:
         """Get active UPnP/NAT-PMP port mappings via ubus."""
         mappings: list[UpnpMapping] = []
@@ -361,6 +341,7 @@ class UbusNetworkMixin:
             _LOGGER.debug("Failed to fetch UPnP mappings: %s", err)
 
         return mappings
+
     async def get_wireguard_interfaces(self) -> list[WireGuardInterface]:
         """Get WireGuard VPN interface and peer information via ubus/CLI."""
         interfaces: list[WireGuardInterface] = []
@@ -436,6 +417,7 @@ class UbusNetworkMixin:
             _LOGGER.debug("Failed to fetch WireGuard interfaces: %s", err)
 
         return interfaces
+
     async def get_network_interfaces(self) -> list[NetworkInterface]:
         """Get network interface information."""
         interfaces: list[NetworkInterface] = []
@@ -541,6 +523,7 @@ class UbusNetworkMixin:
             interfaces.append(iface)
 
         return interfaces
+
     async def get_mwan_status(self) -> list[MwanStatus]:
         """Get MWAN3 multi-wan status."""
         statuses: list[MwanStatus] = []
@@ -562,6 +545,7 @@ class UbusNetworkMixin:
             _LOGGER.debug("MWAN3 not available (not installed or no permissions)")
 
         return statuses
+
     async def manage_interface(self, name: str, action: str) -> bool:
         """Manage a network interface (up/down/reconnect) via ubus."""
         try:
@@ -572,6 +556,7 @@ class UbusNetworkMixin:
             return True
         except UbusError:
             return False
+
     async def get_gateway_mac(self) -> str | None:
         """Get the default gateway MAC address via ubus and triangulation."""
         try:
@@ -585,6 +570,7 @@ class UbusNetworkMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get gateway MAC via ubus: %s", err)
         return None
+
     async def _get_gateway_ip_from_ubus(self) -> str | None:
         """Find the default gateway IP from 'network.interface dump'."""
         status = await self._call("network.interface", "dump")
@@ -605,12 +591,14 @@ class UbusNetworkMixin:
                 return gw
 
         return None
+
     def _extract_gateway_from_iface(self, iface_data: dict[str, Any]) -> str | None:
         """Extract gateway IP from a single interface entry."""
         for addr in iface_data.get("ipv4-address", []):
             if addr.get("gateway"):
                 return addr.get("gateway")
         return None
+
     async def _get_mac_from_ip(self, ip: str) -> str | None:
         """Get the MAC address for a specific IP from the ARP/neighbor table."""
         neigh_out = await self.execute_command(f"ip neigh show {ip} 2>/dev/null")

@@ -1,50 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
-from .exceptions import *
-from .system import LuciRpcSystemMixin
-from .network import LuciRpcNetworkMixin
-from .devices import LuciRpcDevicesMixin
-from .features import LuciRpcFeaturesMixin
-
 import asyncio
-import contextlib
-import json
 import logging
-import re
 from typing import Any
+
 import aiohttp
+
 from ..base import (
     PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LedInfo,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
     OpenWrtClient,
     OpenWrtPackages,
     OpenWrtPermissions,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    StorageUsage,
-    SystemResources,
-    UpnpMapping,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .devices import LuciRpcDevicesMixin
+from .exceptions import *
+from .features import LuciRpcFeaturesMixin
+from .network import LuciRpcNetworkMixin
+from .system import LuciRpcSystemMixin
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class LuciRpcClient(
     LuciRpcSystemMixin,
@@ -86,14 +62,14 @@ class LuciRpcClient(
         self._auth_token: str = ""
 
         self._rpc_id: int = 0
-        self._semaphore = asyncio.Semaphore(
-            5
-        )
+        self._semaphore = asyncio.Semaphore(5)
+
     @property
     def _base_url(self) -> str:
         """Return base URL for LuCI."""
         scheme = "https" if self.use_ssl else "http"
         return f"{scheme}://{self.host}:{self.port}"
+
     async def _rpc_call(
         self,
         endpoint: str,
@@ -191,6 +167,7 @@ class LuciRpcClient(
             raise LuciRpcError(msg) from err
 
         return data.get("result")
+
     async def execute_command(self, command: str) -> str:
         """Execute a command via LuCI RPC sys.exec with fallback to ubus file.exec."""
         # 1. Try sys.exec
@@ -243,6 +220,7 @@ class LuciRpcClient(
             )
 
         return ""
+
     async def file_exec(
         self, command: str, params: list[str] | None = None
     ) -> dict[str, Any]:
@@ -278,6 +256,7 @@ class LuciRpcClient(
         if "permission denied" in lower or "access denied" in lower:
             return {"code": rc or 1, "stdout": "", "stderr": stdout}
         return {"code": rc, "stdout": stdout, "stderr": ""}
+
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
         # 1. Try via LuCI RPC (often more restricted than ubus, but let's try reading passwd)
@@ -292,6 +271,7 @@ class LuciRpcClient(
 
         # 2. Fallback to base method
         return await super().user_exists(username)
+
     async def provision_user(
         self,
         username: str,
@@ -356,6 +336,7 @@ class LuciRpcClient(
                 "Failed to provision user %s via LuCI RPC: %s", username, err
             )
             return False, str(err)
+
     async def connect(self) -> bool:
         """Authenticate with LuCI."""
         try:
@@ -442,10 +423,12 @@ class LuciRpcClient(
         self._connected = True
         _LOGGER.debug("Authenticated with LuCI on %s", self.host)
         return True
+
     async def disconnect(self) -> None:
         """Disconnect and cleanup."""
         # Shared session managed by HA, no need to close
         self._connected = False
+
     async def check_permissions(self) -> OpenWrtPermissions:
         """Check what permissions the current user has."""
         from ..base import OpenWrtPermissions
@@ -500,6 +483,7 @@ class LuciRpcClient(
         perms.write_access_control = perms.write_firewall
         perms.read_batman = perms.read_services
         return perms
+
     async def check_packages(self) -> OpenWrtPackages:
         """Check installed packages with multiple fallbacks."""
         packages = OpenWrtPackages()

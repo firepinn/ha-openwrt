@@ -1,46 +1,20 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
+
 import contextlib
 import json
 import logging
 import re
 import shlex
-from typing import Any
-import paramiko
-from homeassistant.helpers import storage
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
     ConnectedDevice,
-    DeviceInfo,
     DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SshDevicesMixin:
     """Devices methods for SshClient."""
@@ -67,6 +41,7 @@ class SshDevicesMixin:
             await self._process_bridge_fdb(devices)
 
         return list(devices.values())
+
     async def _process_bridge_fdb(self, devices: dict[str, ConnectedDevice]) -> None:
         """Fetch and merge bridge FDB (forwarding database) information via SSH."""
         try:
@@ -115,6 +90,7 @@ class SshDevicesMixin:
             raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB via SSH: %s", err)
+
     async def _add_dhcp_devices_ssh(self, devices: dict[str, ConnectedDevice]) -> None:
         """Add devices discovered via DHCP leases."""
         try:
@@ -133,6 +109,7 @@ class SshDevicesMixin:
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("DHCP device discovery failed (SSH): %s", err)
+
     async def _add_neighbor_devices_ssh(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -174,6 +151,7 @@ class SshDevicesMixin:
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Neighbor device discovery failed (SSH): %s", err)
+
     async def _add_wireless_devices_iwinfo_ssh(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -227,6 +205,7 @@ class SshDevicesMixin:
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("iwinfo wireless discovery failed (SSH): %s", err)
+
     async def _add_wireless_devices_ubus_ssh(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -285,6 +264,7 @@ class SshDevicesMixin:
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("ubus hostapd discovery failed (SSH): %s", err)
+
     async def get_dhcp_leases(self) -> list[DhcpLease]:
         """Get DHCP leases via SSH."""
         if self.dhcp_software == "none":
@@ -306,6 +286,7 @@ class SshDevicesMixin:
             await self._get_leases_dnsmasq(leases)
 
         return leases
+
     async def _get_leases_odhcpd(self, leases: list[DhcpLease]) -> None:
         """Fetch DHCP leases from odhcpd via ubus over SSH."""
         with contextlib.suppress(Exception):
@@ -351,6 +332,7 @@ class SshDevicesMixin:
                                 duid=lease.get("duid", ""),
                             ),
                         )
+
     async def _get_leases_dnsmasq(self, leases: list[DhcpLease]) -> None:
         """Fetch DHCP leases from dnsmasq lease file via SSH."""
         with contextlib.suppress(Exception):
@@ -366,6 +348,7 @@ class SshDevicesMixin:
                             hostname=parts[3] if parts[3] != "*" else "",
                         ),
                     )
+
     async def get_local_macs(self) -> set[str]:
         """Get all MAC addresses belonging to the router's physical and virtual interfaces."""
         macs = set()
@@ -380,6 +363,7 @@ class SshDevicesMixin:
         except Exception:  # noqa: BLE001
             pass
         return macs
+
     async def get_local_ips(self) -> set[str]:
         """Get all IP addresses belonging to the router."""
         ips = set()

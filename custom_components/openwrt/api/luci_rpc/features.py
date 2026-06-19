@@ -1,45 +1,28 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
-import contextlib
+
 import json
 import logging
-import re
 from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
     AccessControl,
     AdBlockStatus,
     BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
     FirewallRedirect,
     FirewallRule,
     LedInfo,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
     NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
     ServiceInfo,
     SimpleAdBlockStatus,
     SqmStatus,
-    StorageUsage,
-    SystemResources,
-    UpnpMapping,
     WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
     WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class LuciRpcFeaturesMixin:
     """Features methods for LuciRpcClient."""
@@ -75,6 +58,7 @@ class LuciRpcFeaturesMixin:
                         ),
                     )
         return leds
+
     async def install_firmware(self, url: str, keep_settings: bool = True) -> None:
         """Install firmware from the given URL via LuCI RPC."""
         keep = "" if keep_settings else "-n"
@@ -109,6 +93,7 @@ class LuciRpcFeaturesMixin:
                 _LOGGER.exception("Failed to execute sysupgrade via LuCI RPC: %s", err)
                 msg = f"sysupgrade execution failed: {err}"
                 raise LuciRpcError(msg) from err
+
     async def download_file(self, remote_path: str, local_path: str) -> bool:
         """Download a file from the router via LuCI RPC file.read."""
         try:
@@ -149,6 +134,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to download file via LuCI RPC: %s", err)
         return False
+
     async def get_firewall_rules(self) -> list[FirewallRule]:
         """Get firewall rules via LuCI RPC UCI."""
         rules: list[FirewallRule] = []
@@ -187,6 +173,7 @@ class LuciRpcFeaturesMixin:
                 )
         return rules
         return rules
+
     async def set_firewall_rule_enabled(self, section_id: str, enabled: bool) -> bool:
         """Enable or disable a firewall rule via UCI over LuCI RPC."""
         try:
@@ -198,6 +185,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set firewall rule via LuCI RPC: %s", err)
             return False
+
     async def get_firewall_redirects(self) -> list[FirewallRedirect]:
         """Get firewall port forwarding redirects via LuCI RPC UCI."""
         redirects: list[FirewallRedirect] = []
@@ -233,9 +221,11 @@ class LuciRpcFeaturesMixin:
                 )
         return redirects
         return redirects
+
     async def get_firewall_rules_uci_not_used(self) -> list[FirewallRule]:
         """Deprecated."""
         return []
+
     async def get_access_control(self) -> list[AccessControl]:
         """Get access control rules via LuCI RPC UCI."""
         rules: list[AccessControl] = []
@@ -260,6 +250,7 @@ class LuciRpcFeaturesMixin:
                 )
         return rules
         return rules
+
     async def get_wps_status(self) -> WpsStatus:
         """Get WPS status via LuCI RPC."""
         if self.packages.wireless is False:
@@ -285,6 +276,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get WPS status via luci_rpc: %s", err)
             return WpsStatus()
+
     async def set_firewall_redirect_enabled(
         self,
         section_id: str,
@@ -300,6 +292,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set firewall redirect via LuCI RPC: %s", err)
             return False
+
     async def get_adblock_status(self) -> AdBlockStatus:
         """Get adblock status via LuCI RPC."""
         from ..base import AdBlockStatus
@@ -351,6 +344,7 @@ class LuciRpcFeaturesMixin:
             _LOGGER.debug("AdBlock UCI status failed (LuCI RPC): %s", err)
 
         return status
+
     async def manage_service(self, name: str, action: str) -> bool:
         """Manage a system service (start/stop/restart/enable/disable) via LuCI RPC."""
         try:
@@ -365,6 +359,7 @@ class LuciRpcFeaturesMixin:
                 err,
             )
             return False
+
     async def set_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable adblock service via LuCI RPC."""
         val = "1" if enabled else "0"
@@ -380,6 +375,7 @@ class LuciRpcFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_simple_adblock_status(self) -> SimpleAdBlockStatus:
         """Get simple-adblock status via LuCI RPC."""
         from ..base import SimpleAdBlockStatus
@@ -403,6 +399,7 @@ class LuciRpcFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_simple_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable simple-adblock service via LuCI RPC."""
         val = "1" if enabled else "0"
@@ -424,6 +421,7 @@ class LuciRpcFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_banip_status(self) -> BanIpStatus:
         """Get ban-ip status via LuCI RPC."""
         from ..base import BanIpStatus
@@ -440,6 +438,7 @@ class LuciRpcFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_banip_enabled(self, enabled: bool) -> bool:
         """Enable/disable ban-ip service via LuCI RPC."""
         val = "1" if enabled else "0"
@@ -455,6 +454,7 @@ class LuciRpcFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_sqm_status(self) -> list[SqmStatus]:
         """Get SQM status via LuCI RPC."""
         from ..base import SqmStatus
@@ -509,6 +509,7 @@ class LuciRpcFeaturesMixin:
                     ),
                 )
         return sqm_instances
+
     async def set_sqm_config(self, section_id: str, **kwargs: Any) -> bool:
         """Set SQM configuration via LuCI RPC."""
         try:
@@ -524,6 +525,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set SQM config via LuCI RPC: %s", err)
             return False
+
     async def get_nlbwmon_data(self) -> dict[str, NlbwmonTraffic]:
         """Get bandwidth usage per MAC from nlbwmon via LuCI RPC."""
         # Try ubus first if available
@@ -570,6 +572,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get nlbwmon data via LuCI RPC: %s", err)
         return {}
+
     async def get_wifi_credentials(self) -> list[WifiCredentials]:
         """Get wifi credentials via LuCI RPC."""
         try:
@@ -598,6 +601,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get wifi credentials via luci_rpc: %s", err)
             return []
+
     async def set_led(self, name: str, brightness: int) -> bool:
         """Set LED brightness via LuCI RPC.
 
@@ -618,6 +622,7 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to set LED %s via luci_rpc: %s", name, err)
             return False
+
     async def get_services(self) -> list[ServiceInfo]:
         """Get list of system services via ubus rc list."""
         services: list[ServiceInfo] = []

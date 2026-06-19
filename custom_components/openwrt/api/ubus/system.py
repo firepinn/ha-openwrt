@@ -1,48 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
+
 import asyncio
 import contextlib
 import logging
 import re
 from typing import Any
-import aiohttp
+
 from ..base import (
     PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
     DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
     ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
     SystemResources,
-    UpnpMapping,
     UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusSystemMixin:
     """System methods for UbusClient."""
@@ -136,6 +114,7 @@ class UbusSystemMixin:
                 pass
 
         return info
+
     async def get_system_resources(self) -> SystemResources:
         """Get system resource usage."""
         resources = SystemResources()
@@ -174,6 +153,7 @@ class UbusSystemMixin:
         await self._fetch_top_processes(resources)
 
         return resources
+
     def _parse_system_info(
         self, resources: SystemResources, data: dict[str, Any]
     ) -> None:
@@ -260,6 +240,7 @@ class UbusSystemMixin:
                 f"{cpu.get('softirq', 0)} {cpu.get('steal', 0)}"
             )
             resources.cpu_usage = self._calculate_cpu_usage(stat_line)
+
     def _parse_disk_info_ubus(
         self, resources: SystemResources, data: dict[str, Any]
     ) -> None:
@@ -273,6 +254,7 @@ class UbusSystemMixin:
                 resources.filesystem_free = (
                     resources.filesystem_total - resources.filesystem_used
                 )
+
     async def _fetch_mount_points(self, resources: SystemResources) -> None:
         """Fallback to luci.getMountPoints for disk info."""
         with contextlib.suppress(Exception):
@@ -288,6 +270,7 @@ class UbusSystemMixin:
                             resources.filesystem_total - resources.filesystem_free
                         )
                         break
+
     def _fetch_cpu_usage(
         self, resources: SystemResources, cmd_res: Any, file_res: Any
     ) -> None:
@@ -307,6 +290,7 @@ class UbusSystemMixin:
             and cmd_res
         ):
             resources.cpu_usage = self._calculate_cpu_usage(cmd_res)
+
     async def _fetch_temperature(self, resources: SystemResources) -> None:
         """Fetch system temperature from known sysfs paths."""
         temp_paths = [
@@ -333,6 +317,7 @@ class UbusSystemMixin:
                     temp_raw = await self.execute_command(f"cat {path} 2>/dev/null")
                     if temp_raw:
                         self._parse_temp_raw(resources, temp_raw, path)
+
     def _parse_temp_raw(
         self, resources: SystemResources, raw: str, path: str = ""
     ) -> bool:
@@ -359,6 +344,7 @@ class UbusSystemMixin:
                 resources.temperatures[name] = temp
                 return True
         return False
+
     async def _fetch_detailed_storage(self, resources: SystemResources) -> None:
         """Fetch detailed storage usage via 'df' command."""
         with contextlib.suppress(Exception):
@@ -384,6 +370,7 @@ class UbusSystemMixin:
                                 self._update_legacy_fs_fields(resources, usage)
                             except ValueError, IndexError:
                                 continue
+
     def _update_legacy_fs_fields(self, resources: SystemResources, usage: Any) -> None:
         """Keep legacy filesystem fields updated for backward compatibility."""
         if resources.filesystem_total == 0 and usage.mount_point in ("/", "/overlay"):
@@ -395,6 +382,7 @@ class UbusSystemMixin:
             resources.filesystem_total = usage.total
             resources.filesystem_used = usage.used
             resources.filesystem_free = usage.free
+
     async def _fetch_usb_devices(self, resources: SystemResources) -> None:
         """Fetch connected USB devices using lsusb or sysfs."""
         try:
@@ -424,6 +412,7 @@ class UbusSystemMixin:
                         )
         except Exception:
             pass
+
     def _parse_lsusb_output(self, resources: SystemResources, stdout: str) -> None:
         """Parse verbose lsusb output."""
         current_dev = None
@@ -448,6 +437,7 @@ class UbusSystemMixin:
                     current_dev.serial = line.split(None, 2)[-1]
                 elif "bDeviceClass" in line:
                     current_dev.class_name = line.split(None, 2)[-1]
+
     async def _fetch_top_processes(self, resources: SystemResources) -> None:
         """Fetch top CPU-consuming processes."""
         try:
@@ -459,6 +449,7 @@ class UbusSystemMixin:
             self._parse_top_output(resources, stdout)
         except Exception:
             pass
+
     def _parse_top_output(self, resources: SystemResources, stdout: str) -> None:
         """Parse busybox top output."""
         lines = stdout.splitlines()
@@ -509,6 +500,7 @@ class UbusSystemMixin:
             # Only keep top 10
             if len(resources.top_processes) >= 10:
                 break
+
     async def get_system_logs(self, count: int = 10) -> list[str]:
         """Get recent system log entries via execute_command (logread)."""
         try:
@@ -521,6 +513,7 @@ class UbusSystemMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get system logs via ubus: %s", err)
         return []
+
     async def reboot(self) -> bool:
         """Reboot the device via ubus."""
         try:
@@ -533,6 +526,7 @@ class UbusSystemMixin:
                 return True
             except Exception:
                 return False
+
     async def execute_command(self, command: str) -> str:
         """Execute a shell command on the device via ubus."""
         try:
@@ -569,6 +563,7 @@ class UbusSystemMixin:
         except UbusError as err:
             _LOGGER.debug("Command failed via ubus file.exec: %s", err)
             return ""
+
     async def file_exec(
         self, command: str, params: list[str] | None = None
     ) -> dict[str, Any]:
@@ -579,6 +574,7 @@ class UbusSystemMixin:
             )
         except UbusError:
             raise
+
     async def user_exists(self, username: str) -> bool:
         """Check if a system user exists on the device."""
         # 1. Try via ubus file.read (more robust/standard than exec)
@@ -596,6 +592,7 @@ class UbusSystemMixin:
 
         # 2. Fallback to base method (which uses execute_command)
         return await super().user_exists(username)
+
     async def provision_user(
         self,
         username: str,
@@ -682,6 +679,7 @@ class UbusSystemMixin:
         except Exception as err:
             _LOGGER.exception("Failed to provision user %s via ubus: %s", username, err)
             return False, str(err)
+
     async def _provision_via_tmp_file(self, script: str, username: str) -> str:
         """Write provisioning script to /tmp and execute it.
 
@@ -716,6 +714,7 @@ class UbusSystemMixin:
         except Exception as err:
             _LOGGER.debug("file.write/exec provisioning fallback failed: %s", err)
             return ""
+
     async def install_firmware(self, url: str, keep_settings: bool = True) -> None:
         """Install firmware from the given URL via ubus."""
         keep = "" if keep_settings else "-n"
@@ -752,6 +751,7 @@ class UbusSystemMixin:
             _LOGGER.exception("Failed to execute sysupgrade via ubus: %s", err)
             msg = f"sysupgrade execution failed: {err}"
             raise UbusError(msg) from err
+
     async def download_file(self, remote_path: str, local_path: str) -> bool:
         """Download a file from the router via ubus file.read."""
         try:

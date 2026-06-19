@@ -1,45 +1,24 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
+
 import asyncio
 import contextlib
 import json
 import logging
-import re
-from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LedInfo,
     LldpNeighbor,
     MwanStatus,
     NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    StorageUsage,
-    SystemResources,
     UpnpMapping,
-    WifiCredentials,
     WireGuardInterface,
     WireGuardPeer,
     WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class LuciRpcNetworkMixin:
     """Network methods for LuciRpcClient."""
@@ -88,6 +67,7 @@ class LuciRpcNetworkMixin:
         except Exception:
             pass
         return neighbors
+
     async def get_external_ip(self) -> str | None:
         """Get public/external IP address."""
         try:
@@ -109,6 +89,7 @@ class LuciRpcNetworkMixin:
         ):
             pass
         return None
+
     async def get_wireless_interfaces(self) -> list[WirelessInterface]:
         """Get wireless interfaces via ubus iwinfo and UCI."""
         interfaces: list[WirelessInterface] = []
@@ -374,6 +355,7 @@ class LuciRpcNetworkMixin:
                     existing.ifname = wifi.ifname
 
         return unique_ifaces
+
     async def get_upnp_mappings(self) -> list[UpnpMapping]:
         """Get active UPnP/NAT-PMP port mappings via LuCI RPC."""
         mappings: list[UpnpMapping] = []
@@ -406,6 +388,7 @@ class LuciRpcNetworkMixin:
             _LOGGER.debug("Failed to fetch UPnP mappings via LuCI RPC: %s", err)
 
         return mappings
+
     async def get_wireguard_interfaces(self) -> list[WireGuardInterface]:
         """Get WireGuard VPN interface and peer information via LuCI RPC."""
         interfaces: list[WireGuardInterface] = []
@@ -464,6 +447,7 @@ class LuciRpcNetworkMixin:
                     )
                     iface_map[ifname].peers.append(peer)
         return interfaces
+
     async def get_network_interfaces(self) -> list[NetworkInterface]:
         """Get network interfaces."""
         interfaces: list[NetworkInterface] = []
@@ -562,6 +546,7 @@ class LuciRpcNetworkMixin:
             pass
 
         return interfaces
+
     async def _get_wireless_mapping(self) -> tuple[dict[str, str], dict[str, str]]:
         """Get mapping of UCI sections to system names and vice-versa."""
         uci_to_sys: dict[str, str] = {}
@@ -607,6 +592,7 @@ class LuciRpcNetworkMixin:
         self._uci_to_sys = uci_to_sys
         self._sys_to_uci = sys_to_uci
         return uci_to_sys, sys_to_uci
+
     async def set_wireless_enabled(self, interface: str, enabled: bool) -> bool:
         """Enable or disable a wireless radio via UCI."""
         try:
@@ -621,6 +607,7 @@ class LuciRpcNetworkMixin:
             return True
         except Exception:
             return False
+
     async def manage_interface(self, name: str, action: str) -> bool:
         """Manage a network interface via LuCI RPC."""
         try:
@@ -633,6 +620,7 @@ class LuciRpcNetworkMixin:
             return True
         except Exception:
             return False
+
     async def get_mwan_status(self) -> list[MwanStatus]:
         """Get multi-wan status via LuCI RPC."""
         try:
@@ -658,6 +646,7 @@ class LuciRpcNetworkMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get mwan3 status via luci_rpc: %s", err)
             return []
+
     async def trigger_wps_push(self, interface: str) -> bool:
         """Trigger WPS push button via LuCI RPC."""
         try:

@@ -93,21 +93,21 @@ async def test_coordinator_no_whitelist() -> None:
         system_resources=SystemResources(uptime=100),
         connected_devices=[
             ConnectedDevice(
-                mac="aa:bb:cc:dd:ee:01",
+                mac="00:bb:cc:dd:ee:01",
                 hostname="device1",
                 interface="br-lan",
                 is_wireless=True,
             ),
             ConnectedDevice(
-                mac="aa:bb:cc:dd:ee:02",
+                mac="00:bb:cc:dd:ee:02",
                 hostname="device2",
                 interface="br-lan",
                 is_wireless=True,
             ),
         ],
         dhcp_leases=[
-            DhcpLease(mac="aa:bb:cc:dd:ee:01", hostname="device1", ip="192.168.1.10"),
-            DhcpLease(mac="aa:bb:cc:dd:ee:02", hostname="device2", ip="192.168.1.11"),
+            DhcpLease(mac="00:bb:cc:dd:ee:01", hostname="device1", ip="192.168.1.10"),
+            DhcpLease(mac="00:bb:cc:dd:ee:02", hostname="device2", ip="192.168.1.11"),
         ],
         network_interfaces=[],
         wireless_interfaces=[],

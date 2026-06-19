@@ -1,55 +1,28 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
-from .exceptions import *
-from .system import UbusSystemMixin
-from .network import UbusNetworkMixin
-from .wireless import UbusWirelessMixin
-from .devices import UbusDevicesMixin
-from .features import UbusFeaturesMixin
-from .services import UbusServicesMixin
-
 import asyncio
-import contextlib
 import logging
-import re
 from typing import Any
+
 import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
     OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .devices import UbusDevicesMixin
+from .exceptions import *
+from .features import UbusFeaturesMixin
+from .network import UbusNetworkMixin
+from .services import UbusServicesMixin
+from .system import UbusSystemMixin
+from .wireless import UbusWirelessMixin
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusClient(
     UbusSystemMixin,
@@ -95,14 +68,14 @@ class UbusClient(
         self._session_id: str = "00000000000000000000000000000000"
         self._reauth_lock = asyncio.Lock()
 
-        self._semaphore = asyncio.Semaphore(
-            5
-        )
+        self._semaphore = asyncio.Semaphore(5)
+
     @property
     def _base_url(self) -> str:
         """Return base URL for ubus endpoint."""
         scheme = "https" if self.use_ssl else "http"
         return f"{scheme}://{self.host}:{self.port}{self._ubus_path}"
+
     def _build_request(
         self,
         method: str,
@@ -116,6 +89,7 @@ class UbusClient(
             "method": method,
             "params": params,
         }
+
     async def _call(
         self,
         ubus_object: str,
@@ -238,6 +212,7 @@ class UbusClient(
             raise UbusError(msg)
 
         return result
+
     async def _list_objects(self) -> list[str]:
         """List all available ubus objects."""
         if self.session is None:
@@ -274,6 +249,7 @@ class UbusClient(
 
         # On success, result is a list with one dict: [{"object1": {...}, "object2": {...}}]
         return list(result[0].keys())
+
     async def _get_object_methods(self, object_name: str) -> dict[str, Any]:
         """Get methods for a specific ubus object."""
         if self.session is None:
@@ -300,6 +276,7 @@ class UbusClient(
         except Exception:
             pass
         return {}
+
     async def connect(self) -> bool:
         """Authenticate with ubus."""
         try:
@@ -379,6 +356,7 @@ class UbusClient(
             self._session_id[:8],
         )
         return True
+
     async def disconnect(self) -> None:
         """Log out from ubus and cleanup."""
         # Shared session managed by HA

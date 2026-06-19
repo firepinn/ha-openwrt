@@ -22,7 +22,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 try:
     from custom_components.openwrt.api import LuciRpcClient, SshClient, UbusClient
 except ImportError:
-    print("Error: Could not import OpenWrt API clients. Ensure this script is run from the repository root.")
+    print(
+        "Error: Could not import OpenWrt API clients. Ensure this script is run from the repository root."
+    )
     sys.exit(1)
 
 # List of read-only methods to test
@@ -53,6 +55,7 @@ READ_METHODS = [
     "get_nlbwmon_data",
     "get_wifi_credentials",
 ]
+
 
 async def test_client(name: str, client: any) -> None:
     print(f"\n==================== Testing {name} Client ====================")
@@ -88,21 +91,48 @@ async def test_client(name: str, client: any) -> None:
         except Exception as e:
             print(f"  [FAILED]  {method_name:<30}: {e}")
 
+
 async def main() -> None:
-    parser = argparse.ArgumentParser(description="Test OpenWrt API clients against a live router.")
-    parser.add_argument("--host", default="192.168.1.1", help="Router IP address or hostname (default: 192.168.1.1)")
-    parser.add_argument("--username", default="homeassistant", help="Username for API communication (default: homeassistant)")
-    parser.add_argument("--password", help="Password for the API user (will prompt interactively if not provided)")
-    parser.add_argument("--port", type=int, default=80, help="HTTP/HTTPS port for Ubus and LuCI RPC (default: 80)")
-    parser.add_argument("--ssh-port", type=int, default=22, help="SSH port (default: 22)")
-    parser.add_argument("--use-ssl", action="store_true", help="Use HTTPS/SSL for Ubus and LuCI RPC")
-    parser.add_argument("--verify-ssl", action="store_true", help="Verify SSL certificate")
+    parser = argparse.ArgumentParser(
+        description="Test OpenWrt API clients against a live router."
+    )
+    parser.add_argument(
+        "--host",
+        default="192.168.1.1",
+        help="Router IP address or hostname (default: 192.168.1.1)",
+    )
+    parser.add_argument(
+        "--username",
+        default="homeassistant",
+        help="Username for API communication (default: homeassistant)",
+    )
+    parser.add_argument(
+        "--password",
+        help="Password for the API user (will prompt interactively if not provided)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=80,
+        help="HTTP/HTTPS port for Ubus and LuCI RPC (default: 80)",
+    )
+    parser.add_argument(
+        "--ssh-port", type=int, default=22, help="SSH port (default: 22)"
+    )
+    parser.add_argument(
+        "--use-ssl", action="store_true", help="Use HTTPS/SSL for Ubus and LuCI RPC"
+    )
+    parser.add_argument(
+        "--verify-ssl", action="store_true", help="Verify SSL certificate"
+    )
 
     args = parser.parse_args()
 
     password = args.password
     if not password:
-        password = getpass.getpass(prompt=f"Enter password for {args.username}@{args.host}: ")
+        password = getpass.getpass(
+            prompt=f"Enter password for {args.username}@{args.host}: "
+        )
 
     async with aiohttp.ClientSession() as session:
         # 1. Ubus
@@ -141,6 +171,7 @@ async def main() -> None:
             port=args.ssh_port,
         )
         await test_client("SSH", ssh)
+
 
 if __name__ == "__main__":
     try:

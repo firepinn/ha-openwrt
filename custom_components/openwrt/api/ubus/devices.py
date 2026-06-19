@@ -1,48 +1,23 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
+
 import contextlib
 import logging
-import re
 from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
     ConnectedDevice,
-    DeviceInfo,
     DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
     IpNeighbor,
     LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusDevicesMixin:
     """Devices methods for UbusClient."""
@@ -160,6 +135,7 @@ class UbusDevicesMixin:
                 dev.connection_type = "wireless" if dev.is_wireless else "wired"
 
         return list(devices.values())
+
     async def _get_devices_from_dhcp(self, devices: dict[str, ConnectedDevice]) -> None:
         """Populate initial device list from DHCP leases."""
         try:
@@ -183,6 +159,7 @@ class UbusDevicesMixin:
             raise
         except Exception:
             pass
+
     async def _process_iwinfo_assoc(
         self, devices: dict[str, ConnectedDevice], wireless_data: dict[str, Any]
     ) -> None:
@@ -220,6 +197,7 @@ class UbusDevicesMixin:
                     raise
                 except UbusError:
                     pass
+
     async def _merge_neighbor_data(self, devices: dict[str, ConnectedDevice]) -> None:
         """Update devices with ARP/neighbor information."""
         try:
@@ -265,6 +243,7 @@ class UbusDevicesMixin:
             raise
         except Exception:
             pass
+
     async def _process_hostapd_clients(
         self, devices: dict[str, ConnectedDevice], wireless_data: dict[str, Any]
     ) -> None:
@@ -292,6 +271,7 @@ class UbusDevicesMixin:
                     raise
                 except UbusError:
                     pass
+
     async def _get_devices_from_static_leases(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -333,6 +313,7 @@ class UbusDevicesMixin:
             raise
         except Exception:
             pass
+
     async def _process_bridge_fdb(self, devices: dict[str, ConnectedDevice]) -> None:
         """Fetch and merge bridge FDB (forwarding database) information."""
         try:
@@ -387,6 +368,7 @@ class UbusDevicesMixin:
             raise
         except Exception as err:
             _LOGGER.debug("Failed to fetch bridge FDB: %s", err)
+
     async def _process_iwinfo_fallback(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -468,6 +450,7 @@ class UbusDevicesMixin:
             raise
         except Exception:
             pass
+
     async def _process_hostapd_fallback(
         self, devices: dict[str, ConnectedDevice]
     ) -> None:
@@ -503,6 +486,7 @@ class UbusDevicesMixin:
             raise
         except Exception:
             pass
+
     def _merge_hostapd_clients(
         self, devices: dict[str, ConnectedDevice], clients: dict[str, Any], ifname: str
     ) -> None:
@@ -526,6 +510,7 @@ class UbusDevicesMixin:
                 dev.rx_rate = client_data.get("rx_rate", 0) * 100
             if "tx_rate" in client_data and not dev.tx_rate:
                 dev.tx_rate = client_data.get("tx_rate", 0) * 100
+
     def _set_wireless_connection_type(self, dev: ConnectedDevice, ifname: str) -> None:
         """Determine specific wireless band from interface name."""
         if not dev.connection_type or dev.connection_type == "wired":
@@ -534,6 +519,7 @@ class UbusDevicesMixin:
                 dev.connection_type = "5GHz"
             elif "2g" in ifname.lower():
                 dev.connection_type = "2.4GHz"
+
     async def get_local_macs(self) -> set[str]:
         """Get all MAC addresses belonging to the router's physical and virtual interfaces."""
         macs = set()
@@ -544,6 +530,7 @@ class UbusDevicesMixin:
                     if isinstance(dev_info, dict) and (mac := dev_info.get("macaddr")):
                         macs.add(mac.lower())
         return macs
+
     async def get_local_ips(self) -> set[str]:
         """Get all IP addresses belonging to the router."""
         ips = set()
@@ -562,6 +549,7 @@ class UbusDevicesMixin:
                         if isinstance(addr, dict) and (address := addr.get("address")):
                             ips.add(address)
         return ips
+
     async def get_ip_neighbors(self) -> list[IpNeighbor]:
         """Get IP neighbor (ARP/NDP) table."""
         neighbors: list[IpNeighbor] = []
@@ -577,6 +565,7 @@ class UbusDevicesMixin:
             await self._get_neighbors_proc_arp(neighbors)
 
         return neighbors
+
     async def _get_neighbors_ubus(self, neighbors: list[IpNeighbor]) -> None:
         """Fetch neighbors using 'network.device status' ubus call."""
         with contextlib.suppress(Exception):
@@ -597,6 +586,7 @@ class UbusDevicesMixin:
                                     state=neigh.get("state", "REACHABLE"),
                                 ),
                             )
+
     async def _get_neighbors_ip_neigh(self, neighbors: list[IpNeighbor]) -> None:
         """Fetch neighbors using 'ip neigh show' via file.exec."""
         existing_macs = {n.mac.lower() for n in neighbors}
@@ -608,6 +598,7 @@ class UbusDevicesMixin:
                     if neigh and neigh.mac.lower() not in existing_macs:
                         neighbors.append(neigh)
                         existing_macs.add(neigh.mac.lower())
+
     def _parse_ip_neigh_line(self, line: str) -> IpNeighbor | None:
         """Parse a single line from 'ip neigh show' output."""
         parts = line.split()
@@ -631,6 +622,7 @@ class UbusDevicesMixin:
         if mac:
             return IpNeighbor(ip=ip, mac=mac, interface=interface, state=state)
         return None
+
     async def _get_neighbors_proc_arp(self, neighbors: list[IpNeighbor]) -> None:
         """Fetch neighbors from /proc/net/arp via file.read."""
         with contextlib.suppress(Exception):
@@ -648,6 +640,7 @@ class UbusDevicesMixin:
                                 state="REACHABLE",
                             ),
                         )
+
     async def get_dhcp_leases(self) -> list[DhcpLease]:
         """Get DHCP leases via ubus or file."""
         if self.dhcp_software == "none":
@@ -736,6 +729,7 @@ class UbusDevicesMixin:
                 _LOGGER.debug("Requested dnsmasq but could not read /tmp/dhcp.leases")
 
         return leases
+
     async def get_lldp_neighbors(self) -> list[LldpNeighbor]:
         """Get LLDP neighbor information via ubus."""
         from ..base import LldpNeighbor
@@ -779,6 +773,7 @@ class UbusDevicesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get LLDP neighbors via ubus: %s", err)
         return neighbors
+
     async def kick_device(self, mac_address: str, interface: str) -> bool:
         """Kick a wireless device from the network using hostapd via direct ubus call."""
         try:

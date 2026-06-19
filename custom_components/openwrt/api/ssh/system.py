@@ -1,46 +1,22 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
+
 import asyncio
-import contextlib
 import json
 import logging
 import re
-import shlex
-from typing import Any
-import paramiko
-from homeassistant.helpers import storage
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
     DeviceInfo,
-    DhcpLease,
     DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
     ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
     SystemResources,
-    UpnpMapping,
     UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SshSystemMixin:
     """System methods for SshClient."""
@@ -183,6 +159,7 @@ class SshSystemMixin:
             pass
 
         return info
+
     async def get_system_resources(self) -> SystemResources:
         """Get system resource usage."""
         resources = SystemResources()
@@ -342,6 +319,7 @@ class SshSystemMixin:
         await self._fetch_top_processes_ssh(resources)
 
         return resources
+
     async def _fetch_dynamic_thermals_ssh(self, resources: SystemResources) -> None:
         """Fetch thermal zones dynamically via SSH."""
         try:
@@ -382,6 +360,7 @@ class SshSystemMixin:
                     resources.temperatures["hwmon0"] = val
         except Exception:
             pass
+
     async def _fetch_usb_devices_ssh(self, resources: SystemResources) -> None:
         """Fetch connected USB devices via SSH."""
         try:
@@ -409,6 +388,7 @@ class SshSystemMixin:
                         )
         except Exception:
             pass
+
     def _parse_lsusb_output(self, resources: SystemResources, stdout: str) -> None:
         """Parse verbose lsusb output."""
         current_dev = None
@@ -433,6 +413,7 @@ class SshSystemMixin:
                     current_dev.serial = line.split(None, 2)[-1]
                 elif "bDeviceClass" in line:
                     current_dev.class_name = line.split(None, 2)[-1]
+
     async def _fetch_top_processes_ssh(self, resources: SystemResources) -> None:
         """Fetch top CPU-consuming processes via SSH."""
         try:
@@ -442,6 +423,7 @@ class SshSystemMixin:
             self._parse_top_output_ssh(resources, stdout)
         except Exception:
             pass
+
     def _parse_top_output_ssh(self, resources: SystemResources, stdout: str) -> None:
         """Parse busybox top output from SSH."""
         lines = stdout.splitlines()
@@ -488,6 +470,7 @@ class SshSystemMixin:
 
             if len(resources.top_processes) >= 10:
                 break
+
     async def get_system_logs(self, count: int = 10) -> list[str]:
         """Get recent system log entries via SSH."""
         try:
@@ -517,6 +500,7 @@ class SshSystemMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get system logs via SSH: %s", err)
         return []
+
     async def reboot(self) -> bool:
         """Reboot the device."""
         try:
@@ -525,6 +509,7 @@ class SshSystemMixin:
         except Exception as err:
             _LOGGER.exception("Failed to reboot: %s", err)
             return False
+
     async def perform_diagnostics(self) -> list[DiagnosticResult]:
         """Perform SSH-specific diagnostic checks."""
         results: list[DiagnosticResult] = []
@@ -532,7 +517,11 @@ class SshSystemMixin:
         # Check connection error
         if self._last_connect_error:
             err_str = str(self._last_connect_error)
-            if "connection refused" in err_str.lower() or "connect call failed" in err_str.lower() or "1225" in err_str:
+            if (
+                "connection refused" in err_str.lower()
+                or "connect call failed" in err_str.lower()
+                or "1225" in err_str
+            ):
                 results.append(
                     DiagnosticResult(
                         name="SSH Service",
@@ -541,10 +530,13 @@ class SshSystemMixin:
                         details=(
                             "The router's SSH service is not running or is blocking the connection on port 22 (or custom port). "
                             "Please check that dropbear/openssh is enabled and running on the router."
-                        )
+                        ),
                     )
                 )
-            elif "unreachable" in err_str.lower() or "no route to host" in err_str.lower():
+            elif (
+                "unreachable" in err_str.lower()
+                or "no route to host" in err_str.lower()
+            ):
                 results.append(
                     DiagnosticResult(
                         name="Host Reachability",
@@ -553,7 +545,7 @@ class SshSystemMixin:
                         details=(
                             "The host is unreachable. Please verify the IP address or hostname is correct, "
                             "and that the router is online and connected to the network."
-                        )
+                        ),
                     )
                 )
 

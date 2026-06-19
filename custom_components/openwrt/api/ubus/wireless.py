@@ -1,48 +1,19 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
-import contextlib
+
 import logging
-import re
-from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
     WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
     WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusWirelessMixin:
     """Wireless methods for UbusClient."""
@@ -75,6 +46,7 @@ class UbusWirelessMixin:
             pass
 
         return WpsStatus()
+
     async def set_wps(self, enabled: bool) -> bool:
         """Enable or disable WPS."""
         try:
@@ -91,6 +63,7 @@ class UbusWirelessMixin:
         except UbusError as err:
             _LOGGER.exception("Failed to set WPS: %s", err)
         return False
+
     async def set_wireless_enabled(self, interface: str, enabled: bool) -> bool:
         """Enable or disable a wireless radio via UCI."""
         try:
@@ -110,6 +83,7 @@ class UbusWirelessMixin:
             return True
         except UbusError:
             return False
+
     async def get_wifi_credentials(self) -> list[WifiCredentials]:
         """Get wifi credentials via UCI."""
         try:
@@ -137,6 +111,7 @@ class UbusWirelessMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get wifi credentials via ubus: %s", err)
             return []
+
     async def trigger_wps_push(self, interface: str) -> bool:
         """Trigger WPS push button on a specific wireless interface via ubus."""
         try:

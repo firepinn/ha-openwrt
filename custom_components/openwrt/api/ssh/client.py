@@ -1,51 +1,29 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-
-from .exceptions import *
-from .system import SshSystemMixin
-from .network import SshNetworkMixin
-from .devices import SshDevicesMixin
-from .features import SshFeaturesMixin
 
 import asyncio
 import contextlib
-import json
 import logging
-import re
 import shlex
 from typing import Any
+
 import paramiko
 from homeassistant.helpers import storage
+
 from ..base import (
     PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
     OpenWrtClient,
     OpenWrtPackages,
     OpenWrtPermissions,
-    ProcessInfo,
-    ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
 )
+from .devices import SshDevicesMixin
+from .exceptions import *
+from .features import SshFeaturesMixin
+from .network import SshNetworkMixin
+from .system import SshSystemMixin
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SshClient(
     SshSystemMixin,
@@ -88,6 +66,7 @@ class SshClient(
         self._ssh_key = ssh_key
         self._client: Any = None
         self._semaphore = asyncio.Semaphore(2)
+
     async def _exec(self, command: str, retry: bool = True) -> str:
         """Execute a command via SSH and return stdout."""
         loop = asyncio.get_event_loop()
@@ -144,14 +123,15 @@ class SshClient(
             if isinstance(err, SshError):
                 raise
             raise SshConnectionError(f"SSH command failed: {err}") from err
+
     async def execute_command(self, command: str) -> str:
         """Execute a command via SSH."""
         return await self._exec(command)
+
     async def file_exec(
         self, command: str, params: list[str] | None = None
     ) -> dict[str, Any]:
         """Execute a binary directly via SSH, returning a file.exec-compatible dict."""
-        import shlex
 
         parts = [command] + (params or [])
         cmd = " ".join(shlex.quote(p) for p in parts)
@@ -173,6 +153,7 @@ class SshClient(
         if rc != 0:
             return {"code": rc, "stdout": "", "stderr": stdout}
         return {"code": rc, "stdout": stdout, "stderr": ""}
+
     async def provision_user(
         self,
         username: str,
@@ -225,6 +206,7 @@ class SshClient(
         except Exception as err:
             _LOGGER.exception("Failed to provision user %s via SSH: %s", username, err)
             return False, str(err)
+
     async def connect(self) -> bool:
         """Connect via SSH."""
         try:
@@ -363,6 +345,7 @@ class SshClient(
         except Exception as err:
             msg = f"SSH connection error: {err}"
             raise SshError(msg) from err
+
     async def disconnect(self) -> None:
         """Disconnect SSH."""
         if self._client:
@@ -370,6 +353,7 @@ class SshClient(
             await loop.run_in_executor(None, self._client.close)
             self._client = None
         self._connected = False
+
     async def check_permissions(self) -> OpenWrtPermissions:
         """Check user permissions via SSH.
 
@@ -478,6 +462,7 @@ class SshClient(
                 perms.write_system = True
                 perms.write_network = True
         return perms
+
     async def check_packages(self) -> OpenWrtPackages:
         """Check installed packages via SSH probes."""
         packages = OpenWrtPackages()
@@ -493,6 +478,7 @@ class SshClient(
 
         self._ensure_all_packages_initialized(packages)
         return packages
+
     async def _check_packages_from_files(self, packages: OpenWrtPackages) -> None:
         """Identify packages by probing filesystem for binaries or scripts via SSH."""
         cmd = (
@@ -546,6 +532,7 @@ class SshClient(
             wifi_check = await self._exec("ubus list network.wireless")
             if wifi_check and "network.wireless" in wifi_check:
                 packages.wireless = True
+
     async def _check_packages_from_opkg(self, packages: OpenWrtPackages) -> None:
         """Identify packages by checking the full installed package list."""
         installed = await self.get_installed_packages()
@@ -582,6 +569,7 @@ class SshClient(
                     )
                 else:
                     setattr(packages, attr, pkg_name in installed)
+
     def _ensure_all_packages_initialized(self, packages: OpenWrtPackages) -> None:
         """Ensure no package attributes remain as None (default to False)."""
         import dataclasses

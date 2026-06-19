@@ -1,48 +1,23 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
+
 import contextlib
 import logging
-import re
 from typing import Any
-import aiohttp
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
-    AccessControl,
-    AdBlockStatus,
-    BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
     DiagnosticResult,
-    FirewallRedirect,
-    FirewallRule,
-    IpNeighbor,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
-    NlbwmonTraffic,
-    OpenWrtClient,
     OpenWrtPackages,
     OpenWrtPermissions,
-    ProcessInfo,
     ServiceInfo,
-    SimpleAdBlockStatus,
-    SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
-    WpsStatus,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
 UBUS_JSONRPC_VERSION = "2.0"
 UBUS_ID_AUTH = 1
 UBUS_ID_CALL = 2
+
 
 class UbusServicesMixin:
     """Services methods for UbusClient."""
@@ -71,6 +46,7 @@ class UbusServicesMixin:
                 perms.read_network = True
 
         return perms
+
     async def _check_perms_from_session(self, perms: OpenWrtPermissions) -> bool:
         """Fetch and parse ACLs from the current ubus session."""
         with contextlib.suppress(Exception):
@@ -163,6 +139,7 @@ class UbusServicesMixin:
 
             return True
         return False
+
     async def _check_perms_from_probes(self, perms: OpenWrtPermissions) -> None:
         """Identify permissions by attempting to call various methods."""
 
@@ -236,6 +213,7 @@ class UbusServicesMixin:
         perms.read_services = await can_call("service", "list") or is_root
         perms.write_services = await can_call("service", "list") or is_root
         perms.write_mqtt = perms.write_devices
+
     async def check_packages(self) -> OpenWrtPackages:
         """Check installed packages."""
         packages = OpenWrtPackages()
@@ -387,6 +365,7 @@ class UbusServicesMixin:
 
         self._ensure_all_packages_initialized(packages)
         return packages
+
     def _check_packages_from_ubus(
         self, packages: OpenWrtPackages, objects: list[str]
     ) -> None:
@@ -397,6 +376,7 @@ class UbusServicesMixin:
         packages.sqm_scripts = "sqm" in objects
         packages.wireguard = "wg" in objects
         packages.asu = "attendedsysupgrade" in objects
+
     async def _check_packages_from_uci(
         self, packages: OpenWrtPackages, objects: list[str]
     ) -> None:
@@ -426,6 +406,7 @@ class UbusServicesMixin:
                     )
                 ):
                     packages.wireguard = True
+
     async def _check_packages_from_files(self, packages: OpenWrtPackages) -> None:
         """Identify packages by probing specific filesystem paths."""
         # For each attribute we try multiple candidate paths (first match wins).
@@ -450,6 +431,7 @@ class UbusServicesMixin:
                     stat = await self._call("file", "stat", {"path": path})
                     if stat and isinstance(stat, dict) and "type" in stat:
                         setattr(packages, attr, True)
+
     async def _check_packages_from_full_list(self, packages: OpenWrtPackages) -> None:
         """Last resort: check against the full list of installed packages."""
         installed = await self.get_installed_packages()
@@ -475,6 +457,7 @@ class UbusServicesMixin:
                     setattr(packages, attr, any(pkg_name in p for p in installed))
                 else:
                     setattr(packages, attr, pkg_name in installed)
+
     def _ensure_all_packages_initialized(self, packages: OpenWrtPackages) -> None:
         """Ensure no package attributes remain as None (default to False)."""
         import dataclasses
@@ -486,6 +469,7 @@ class UbusServicesMixin:
         for field in dataclasses.fields(packages):
             if getattr(packages, field.name) is None:
                 setattr(packages, field.name, False)
+
     async def get_services(self) -> list[ServiceInfo]:
         """Get init.d services via the rc ubus interface."""
         services: list[ServiceInfo] = []
@@ -504,6 +488,7 @@ class UbusServicesMixin:
                 ),
             )
         return services
+
     async def manage_service(self, name: str, action: str) -> bool:
         """Manage a system service (start/stop/restart/enable/disable)."""
         try:
@@ -538,6 +523,7 @@ class UbusServicesMixin:
                         err,
                     )
                     return False
+
     async def get_installed_packages(self) -> list[str]:
         """Get a list of installed packages via apk or opkg.
 
@@ -575,6 +561,7 @@ class UbusServicesMixin:
         except Exception as err:
             _LOGGER.debug("Unexpected error listing installed packages: %s", err)
             return []
+
     async def get_leds(self) -> list:
         """Get LEDs from /sys/class/leds via file.exec."""
         from ..base import LedInfo
@@ -605,6 +592,7 @@ class UbusServicesMixin:
                     ),
                 )
         return leds
+
     async def perform_diagnostics(self) -> list[DiagnosticResult]:
         """Perform ubus-specific diagnostic checks."""
         results: list[DiagnosticResult] = []
@@ -612,7 +600,12 @@ class UbusServicesMixin:
         # Check connection error
         if self._last_connect_error:
             err_str = str(self._last_connect_error)
-            if "ConnectionRefusedError" in err_str or "connection refused" in err_str.lower() or "connect call failed" in err_str.lower() or "1225" in err_str:
+            if (
+                "ConnectionRefusedError" in err_str
+                or "connection refused" in err_str.lower()
+                or "connect call failed" in err_str.lower()
+                or "1225" in err_str
+            ):
                 results.append(
                     DiagnosticResult(
                         name="Router Web Server",
@@ -622,7 +615,7 @@ class UbusServicesMixin:
                             "The router's web server (uhttpd) is not running or is blocking the connection on port 80/443. "
                             "Please check that uhttpd/nginx is enabled and running on the router (e.g. run "
                             "'/etc/init.d/uhttpd start' over SSH)."
-                        )
+                        ),
                     )
                 )
             elif "404" in err_str or "not found" in err_str.lower():
@@ -635,7 +628,7 @@ class UbusServicesMixin:
                             "The router returned HTTP 404 (Not Found) for the API endpoint. "
                             "This indicates that the required RPC package is not installed on the router. "
                             "Please ensure that the 'uhttpd-mod-ubus' package is installed."
-                        )
+                        ),
                     )
                 )
 
@@ -771,6 +764,7 @@ class UbusServicesMixin:
             pass
 
         return results
+
     async def set_led(self, name: str, brightness: int) -> bool:
         """Enable or disable an LED via ubus."""
         try:
@@ -798,6 +792,7 @@ class UbusServicesMixin:
             except Exception as err:
                 _LOGGER.debug("Failed to set LED %s via ubus: %s", name, err)
                 return False
+
     async def is_reboot_required(self) -> bool:
         """Check if reboot is required via common OpenWrt flags."""
         try:

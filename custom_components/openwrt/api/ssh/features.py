@@ -1,46 +1,26 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from .exceptions import *
-import asyncio
-import contextlib
+
 import json
 import logging
-import re
 import shlex
 from typing import Any
-import paramiko
-from homeassistant.helpers import storage
+
 from ..base import (
-    PROVISION_SCRIPT_TEMPLATE,
     AccessControl,
     AdBlockStatus,
     BanIpStatus,
-    ConnectedDevice,
-    DeviceInfo,
-    DhcpLease,
-    DiagnosticResult,
     FirewallRedirect,
     FirewallRule,
-    LldpNeighbor,
-    MwanStatus,
-    NetworkInterface,
     NlbwmonTraffic,
-    OpenWrtClient,
-    OpenWrtPackages,
-    OpenWrtPermissions,
-    ProcessInfo,
     ServiceInfo,
     SimpleAdBlockStatus,
     SqmStatus,
-    SystemResources,
-    UpnpMapping,
-    UsbDevice,
-    WifiCredentials,
-    WireGuardInterface,
-    WireGuardPeer,
-    WirelessInterface,
 )
+from .exceptions import *
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SshFeaturesMixin:
     """Features methods for SshClient."""
@@ -86,6 +66,7 @@ class SshFeaturesMixin:
             return list(set(packages))
         except Exception:
             return []
+
     async def get_services(self) -> list[ServiceInfo]:
         """Get init.d services."""
         services: list[ServiceInfo] = []
@@ -125,6 +106,7 @@ class SshFeaturesMixin:
                 ServiceInfo(name=svc_name, enabled=enabled, running=running),
             )
         return services
+
     async def get_leds(self) -> list:
         """Get LEDs from /sys/class/leds."""
         from ..base import LedInfo
@@ -154,6 +136,7 @@ class SshFeaturesMixin:
                     ),
                 )
         return leds
+
     async def set_led(self, name: str, brightness: int) -> bool:
         """Set LED via SSH."""
         try:
@@ -168,6 +151,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set LED %s: %s", name, err)
             return False
+
     async def get_firewall_rules(self) -> list[FirewallRule]:
         """Get firewall rules via UCI over SSH."""
         from ..base import FirewallRule
@@ -204,6 +188,7 @@ class SshFeaturesMixin:
                     ),
                 )
         return rules
+
     async def set_firewall_rule_enabled(self, section_id: str, enabled: bool) -> bool:
         """Enable or disable a firewall rule via UCI over SSH."""
         try:
@@ -217,6 +202,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set firewall rule via SSH: %s", err)
             return False
+
     async def get_firewall_redirects(self) -> list[FirewallRedirect]:
         """Get firewall port forwarding redirects via UCI over SSH."""
         redirects: list[FirewallRedirect] = []
@@ -252,6 +238,7 @@ class SshFeaturesMixin:
                     ),
                 )
         return redirects
+
     async def set_firewall_redirect_enabled(
         self,
         section_id: str,
@@ -269,6 +256,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set firewall redirect via SSH: %s", err)
             return False
+
     async def get_access_control(self) -> list[AccessControl]:
         """Get access control rules via UCI firewall rules over SSH."""
         rules: list[AccessControl] = []
@@ -305,6 +293,7 @@ class SshFeaturesMixin:
                     ),
                 )
         return rules
+
     async def set_access_control_blocked(self, mac: str, blocked: bool) -> bool:
         """Block or unblock internet access for a MAC via SSH."""
         mac_upper = mac.upper()
@@ -344,6 +333,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set access control via SSH: %s", err)
             return False
+
     async def install_firmware(self, url: str, keep_settings: bool = True) -> None:
         """Install firmware from the given URL via SSH."""
         # Use sysupgrade for installation
@@ -382,6 +372,7 @@ class SshFeaturesMixin:
             _LOGGER.exception("Failed to execute sysupgrade via SSH: %s", err)
             msg = f"sysupgrade execution failed: {err}"
             raise SshError(msg) from err
+
     async def download_file(self, remote_path: str, local_path: str) -> bool:
         """Download a file from the router via SSH using cat (fallback for SCP)."""
         try:
@@ -402,6 +393,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to download file via SSH: %s", err)
         return False
+
     async def get_adblock_status(self) -> AdBlockStatus:
         """Get adblock status via SSH."""
         from ..base import AdBlockStatus
@@ -443,6 +435,7 @@ class SshFeaturesMixin:
             _LOGGER.debug("AdBlock UCI status failed (SSH): %s", err)
 
         return status
+
     async def get_adblock_fast_status(self) -> SimpleAdBlockStatus:
         """Get adblock-fast status via SSH."""
         from ..base import SimpleAdBlockStatus
@@ -459,6 +452,7 @@ class SshFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_adblock_fast_enabled(self, enabled: bool) -> bool:
         """Enable/disable adblock-fast service via SSH."""
         val = "1" if enabled else "0"
@@ -471,6 +465,7 @@ class SshFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def manage_service(self, name: str, action: str) -> bool:
         """Manage a system service (start/stop/restart/enable/disable) via SSH."""
         try:
@@ -487,6 +482,7 @@ class SshFeaturesMixin:
                 err,
             )
             return False
+
     async def set_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable adblock service via SSH."""
         val = "1" if enabled else "0"
@@ -499,6 +495,7 @@ class SshFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_simple_adblock_status(self) -> SimpleAdBlockStatus:
         """Get simple-adblock status via SSH."""
         from ..base import SimpleAdBlockStatus
@@ -514,6 +511,7 @@ class SshFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_simple_adblock_enabled(self, enabled: bool) -> bool:
         """Enable/disable simple-adblock service via SSH."""
         val = "1" if enabled else "0"
@@ -526,6 +524,7 @@ class SshFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_banip_status(self) -> BanIpStatus:
         """Get ban-ip status via SSH."""
         from ..base import BanIpStatus
@@ -538,6 +537,7 @@ class SshFeaturesMixin:
         except Exception:
             pass
         return status
+
     async def set_banip_enabled(self, enabled: bool) -> bool:
         """Enable/disable ban-ip service via SSH."""
         val = "1" if enabled else "0"
@@ -550,6 +550,7 @@ class SshFeaturesMixin:
             return True
         except Exception:
             return False
+
     async def get_sqm_status(self) -> list[SqmStatus]:
         """Get SQM status via SSH."""
         from ..base import SqmStatus
@@ -589,6 +590,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get SQM status via SSH: %s", err)
         return sqm_instances
+
     async def set_sqm_config(self, section_id: str, **kwargs: Any) -> bool:
         """Set SQM configuration via SSH."""
         try:
@@ -605,6 +607,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.exception("Failed to set SQM config via SSH: %s", err)
             return False
+
     async def get_nlbwmon_data(self) -> dict[str, NlbwmonTraffic]:
         """Get bandwidth usage per MAC from nlbwmon via SSH."""
         try:
@@ -634,6 +637,7 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("Failed to get nlbwmon data via SSH: %s", err)
             return {}
+
     async def is_reboot_required(self) -> bool:
         """Check if reboot is required via SSH."""
         try:
