@@ -1887,7 +1887,7 @@ class OpenWrtClient(abc.ABC):
         if data.packages.ban_ip:
             dynamic_tasks["ban_ip"] = self.get_banip_status()
         if (data.packages.batman_adv or data.packages.batctl) and (
-            not self.coordinator or self.coordinator.permissions.read_batman
+            not self.coordinator or data.permissions.read_batman
         ):
             dynamic_tasks["batman"] = self.get_batman_data()
 

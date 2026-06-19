@@ -60,6 +60,10 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const labels = issue.labels.map(l => l.name);
+            const title = issue.title.toLowerCase();
+            const bodyText = (issue.body || "").toLowerCase();
+            const hasBatmanOrMqtt = title.includes("batman") || bodyText.includes("batman") || title.includes("mqtt") || bodyText.includes("mqtt");
+
             let body = "Hi @" + issue.user.login + ", thanks for opening this issue! 👋\n\n";
             const maintainerNote = "\n\n---\n*Please note: I maintain this integration in my free time as a hobby project. I'll do my best to look into this soon, but feedback speed may vary depending on my availability.*";
 
@@ -68,18 +72,21 @@ jobs:
               body += "To help solve this faster, please check the following:\n";
               body += "- [ ] Is your Home Assistant version up to date?\n";
               body += "- [ ] Are you using the latest version of this integration?\n";
-              body += "- [ ] Have you checked the [README](https://github.com/FaserF/ha-openwrt) for similar issues or configuration tips?\n";
+              body += "- [ ] Have you checked the [README](https://github.com/FaserF/ha-openwrt) and other open issues for similar issues or configuration tips?\n";
               body += "- [ ] If applicable: Did you provide a **Diagnostic Download** (Settings -> Devices & Services -> OpenWrt -> 3 Dots -> Download diagnostics)?\n\n";
               body += "I will investigate this as soon as possible!";
-              body += maintainerNote;
             } else if (labels.includes('enhancement') || labels.includes('feature request')) {
               body += "🚀 **Feature Request**\n\n";
               body += "Thanks for the idea! Feature requests help shape the future of this integration. I'll review it and see how it fits into the roadmap.\n";
-              body += maintainerNote;
             } else {
               body += "I've received your issue and will look into it as soon as I can.";
-              body += maintainerNote;
             }
+
+            if (hasBatmanOrMqtt) {
+              body += "\n\nℹ️ **Note on Batman/MQTT:** Batman and MQTT features were community requests and are not actively used by the developer. While issues/bugs in these areas will be addressed, they have a lower priority and are more difficult for me to test.";
+            }
+
+            body += maintainerNote;
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,

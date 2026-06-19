@@ -120,3 +120,76 @@ async def test_luci_get_batman_data():
         assert data["originators"][1].tq == 45
         assert data["translation_table"]["00:11:22:33:44:58"] == "00:11:22:33:44:56"
         assert data["mesh_active"] is True
+
+
+@pytest.mark.parametrize("client_class", [UbusClient, SshClient, LuciRpcClient])
+@pytest.mark.asyncio
+async def test_get_all_data_batman_permissions_check(client_class) -> None:
+    """Test that get_all_data correctly resolves permissions check for batman without AttributeError."""
+    from unittest.mock import AsyncMock
+
+    from custom_components.openwrt.api.base import (
+        OpenWrtData,
+        OpenWrtPackages,
+        OpenWrtPermissions,
+    )
+
+    client = client_class(MagicMock(), MagicMock(), "192.168.1.1", "user", "pass")
+
+    # Mock all core and slow task methods to avoid exceptions
+    client.get_system_resources = AsyncMock()
+    client.get_network_interfaces = AsyncMock(return_value=[])
+    client.get_connected_devices = AsyncMock(return_value=[])
+    client.get_local_macs = AsyncMock(return_value=set())
+    client.get_local_ips = AsyncMock(return_value=set())
+    client.get_device_info = AsyncMock()
+    client.get_services = AsyncMock(return_value=[])
+    client.get_leds = AsyncMock(return_value=[])
+    client.get_firewall_redirects = AsyncMock(return_value=[])
+    client.get_firewall_rules = AsyncMock(return_value=[])
+    client.get_access_control = AsyncMock(return_value=[])
+    client.get_sqm_status = AsyncMock(return_value=[])
+    client.get_wireguard_interfaces = AsyncMock(return_value=[])
+    client.check_packages = AsyncMock(return_value=OpenWrtPackages(batman_adv=True))
+    client.check_permissions = AsyncMock(
+        return_value=OpenWrtPermissions(read_batman=True)
+    )
+    client.is_reboot_required = AsyncMock(return_value=False)
+    client.get_system_logs = AsyncMock(return_value=[])
+
+    # Mock dynamic tasks methods
+    client.get_ip_neighbors = AsyncMock(return_value=[])
+    client.get_mwan_status = AsyncMock(return_value=[])
+    client.get_qmodem_info = AsyncMock()
+    client.get_vpn_status = AsyncMock(return_value=[])
+    client.get_latency = AsyncMock()
+    client.get_external_ip = AsyncMock()
+    client.get_gateway_mac = AsyncMock()
+    client.get_wifi_credentials = AsyncMock(return_value=[])
+    client.get_dhcp_leases = AsyncMock(return_value=[])
+    client.get_lldp_neighbors = AsyncMock(return_value=[])
+    client.get_upnp_mappings = AsyncMock(return_value=[])
+
+    # Mock low-level communication methods to prevent fallback warnings
+    client._call = AsyncMock(return_value={})
+    client._rpc_call = AsyncMock(return_value={})
+    client.execute_command = AsyncMock(return_value="")
+
+    # Mock get_batman_data to return a dummy structure that populates OpenWrtData attributes
+    dummy_batman = {
+        "mesh_active": True,
+        "originators": [],
+        "neighbors": [],
+        "gateways": [],
+    }
+    client.get_batman_data = AsyncMock(return_value=dummy_batman)
+
+    # Set up a mock coordinator
+    mock_coordinator = MagicMock()
+    mock_coordinator.data = OpenWrtData()
+    mock_coordinator.data.permissions = OpenWrtPermissions(read_batman=True)
+    client.coordinator = mock_coordinator
+
+    # This should not raise an AttributeError
+    res = await client.get_all_data()
+    assert res.batman_mesh_active is True
