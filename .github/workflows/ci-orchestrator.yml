@@ -43,10 +43,17 @@ jobs:
           test -f custom_components/openwrt/manifest.json
           test -f hacs.json
 
-      - name: Lint with Ruff
+      - name: Format and Fix with Ruff
         run: |
-          ruff check .
-          ruff format --check .
+          ruff check --fix .
+          ruff format .
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-fix and format with Ruff"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
 
       - name: Run Mypy
         run: mypy custom_components/openwrt
