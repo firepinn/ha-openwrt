@@ -390,3 +390,63 @@ async def test_ubus_get_wireless_interfaces_matching(ubus_client: UbusClient):
         assert wifi5g.ifname == "wlan1"
         assert wifi5g.band == "5 GHz"
         assert wifi5g.channel == 36
+
+
+@pytest.mark.asyncio
+async def test_ubus_get_connected_devices_from_wireless_interfaces(
+    ubus_client: UbusClient,
+):
+    """Test that get_connected_devices uses get_wireless_interfaces to discover and poll interfaces."""
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+    ubus_client.trust_bridge_fdb = False
+    ubus_client._list_objects = AsyncMock(return_value=["hostapd.wlan0"])
+
+    from custom_components.openwrt.api.base import WirelessInterface
+
+    mock_ifaces = [
+        WirelessInterface(name="wlan0", ssid="TestSSID", band="2.4 GHz"),
+    ]
+
+    with (
+        patch.object(
+            ubus_client,
+            "get_wireless_interfaces",
+            new_callable=AsyncMock,
+            return_value=mock_ifaces,
+        ),
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "get_dhcp_leases", new_callable=AsyncMock, return_value=[]
+        ),
+        patch.object(
+            ubus_client, "get_ip_neighbors", new_callable=AsyncMock, return_value=[]
+        ),
+    ):
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "iwinfo" and method == "assoclist":
+                device = params.get("device") if params else None
+                if device == "wlan0":
+                    return {
+                        "results": [
+                            {"mac": "AA:BB:CC:DD:EE:FF", "signal": -50, "noise": -95}
+                        ]
+                    }
+            if object_name == "hostapd.wlan0" and method == "get_clients":
+                return {
+                    "clients": {"AA:BB:CC:DD:EE:FF": {"bytes": {"rx": 100, "tx": 200}}}
+                }
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        devices = await ubus_client.get_connected_devices()
+        assert len(devices) == 1
+        dev = devices[0]
+        assert dev.mac == "aa:bb:cc:dd:ee:ff"
+        assert dev.is_wireless is True
+        assert dev.interface == "wlan0"
+        assert dev.rx_bytes == 100
+        assert dev.tx_bytes == 200

@@ -1391,9 +1391,17 @@ class UbusClient(OpenWrtClient):
         await self._get_devices_from_dhcp(devices)
         await self._get_devices_from_static_leases(devices)
 
-        # 2. Get wireless status for iwinfo and hostapd processing
-        wireless_data: dict[str, Any] = {}
+        # 2. Get active wireless interfaces (preferred source for client scanning)
+        wireless_ifaces = []
         if self.packages.wireless is not False:
+            try:
+                wireless_ifaces = await self.get_wireless_interfaces()
+            except Exception:
+                pass
+
+        # Also call network.wireless status as fallback/legacy
+        wireless_data: dict[str, Any] = {}
+        if self.packages.wireless is not False and not wireless_ifaces:
             try:
                 wireless_data = await self._call("network.wireless", "status")
             except (
@@ -1408,7 +1416,38 @@ class UbusClient(OpenWrtClient):
                 pass
 
         # 3. Process wireless associations (iwinfo)
-        if wireless_data:
+        if wireless_ifaces:
+            for wifi_iface in wireless_ifaces:
+                ifname = wifi_iface.name
+                if not ifname:
+                    continue
+                try:
+                    assoc = await self._call("iwinfo", "assoclist", {"device": ifname})
+                    if assoc and isinstance(assoc, dict):
+                        for client in assoc.get("results", []):
+                            mac = client.get("mac", "").lower()
+                            dev = devices.setdefault(
+                                mac, ConnectedDevice(mac=mac, connected=True)
+                            )
+                            dev.connected = True
+                            dev.is_wireless = True
+                            dev.interface = ifname
+                            self._set_wireless_connection_type(dev, ifname)
+                            dev.signal = client.get("signal", 0)
+                            dev.noise = client.get("noise", 0)
+                            dev.rx_rate = self._get_assoc_rate(client, "rx")
+                            dev.tx_rate = self._get_assoc_rate(client, "tx")
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
+                    raise
+                except UbusError:
+                    pass
+        elif wireless_data:
             await self._process_iwinfo_assoc(devices, wireless_data)
         else:
             # Fallback: scan all interfaces for iwinfo if network.wireless is missing
@@ -1418,7 +1457,28 @@ class UbusClient(OpenWrtClient):
         await self._merge_neighbor_data(devices)
 
         # 5. Process wireless client details (hostapd)
-        if wireless_data and self.packages.wireless is not False:
+        if wireless_ifaces:
+            for wifi_iface in wireless_ifaces:
+                ifname = wifi_iface.name
+                if not ifname:
+                    continue
+                try:
+                    hostapd_data = await self._call(f"hostapd.{ifname}", "get_clients")
+                    if hostapd_data and isinstance(hostapd_data, dict):
+                        clients = hostapd_data.get("clients")
+                        if isinstance(clients, dict):
+                            self._merge_hostapd_clients(devices, clients, ifname)
+                except (
+                    UbusTimeoutError,
+                    UbusConnectionError,
+                    UbusSslError,
+                    UbusPermissionError,
+                    UbusAuthError,
+                ):
+                    raise
+                except UbusError:
+                    pass
+        elif wireless_data and self.packages.wireless is not False:
             await self._process_hostapd_clients(devices, wireless_data)
 
         # 6. Supplemental source: Bridge FDB (Forwarding Database)
