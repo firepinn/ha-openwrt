@@ -821,6 +821,13 @@ class OpenWrtClient(abc.ABC):
         self.packages = OpenWrtPackages()
         self.coordinator: Any = None
 
+    def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
+        """Helper to safely extract wireless rate from assoclist data."""
+        val = client.get(direction)
+        if isinstance(val, dict):
+            return val.get("rate", 0)
+        return client.get(f"{direction}_rate", 0)
+
     async def _get_logread_command(self, count: int) -> str:
         """Resolve the correct logread command (detecting -n vs -l)."""
         if self._logread_flag is None:

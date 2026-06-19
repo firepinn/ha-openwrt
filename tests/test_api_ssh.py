@@ -81,9 +81,7 @@ async def test_ssh_get_connected_devices_iwinfo_fallback(ssh_client: SshClient):
                     return "No information"
                 return "wlan0"
             if "ubus list 'hostapd.*'" in command:
-                return (
-                    'hostapd.wlan0 {"clients": {"aa:bb:cc:dd:ee:ff": {"signal": -50}}}'
-                )
+                return 'hostapd.wlan0 {"clients": {"aa:bb:cc:dd:ee:ff": {"signal": -50, "bytes": {"rx": 123, "tx": 456}, "rx_rate": 24020, "tx_rate": 18010}}}'
             return ""
 
         mock_exec.side_effect = exec_side_effect
@@ -99,6 +97,10 @@ async def test_ssh_get_connected_devices_iwinfo_fallback(ssh_client: SshClient):
         dev2 = next(d for d in devices if d.mac == "aa:bb:cc:dd:ee:ff")
         assert dev2.is_wireless is True
         assert dev2.signal == -50
+        assert dev2.rx_bytes == 123
+        assert dev2.tx_bytes == 456
+        assert dev2.rx_rate == 2402000
+        assert dev2.tx_rate == 1801000
 
 
 @pytest.mark.asyncio
@@ -183,3 +185,36 @@ async def test_ssh_provision_user(ssh_client: SshClient):
         assert "chpasswd" in script
         assert "passwd" in script
         assert "/etc/init.d/rpcd restart" in script
+
+
+@pytest.mark.asyncio
+async def test_ssh_get_connected_devices_iwinfo_rates(ssh_client: SshClient):
+    """Test SSH client parses rates and noise correctly from iwinfo assoclist JSON."""
+    ssh_client._connected = True
+    ssh_client.packages.wireless = True
+    with patch.object(ssh_client, "_exec", new_callable=AsyncMock) as mock_exec:
+
+        def exec_side_effect(command: str) -> str:
+            if "cat /proc/net/arp" in command:
+                return ""
+            if "network.wireless status" in command:
+                return '{"radio0": {"interfaces": [{"ifname": "wlan0"}]}}'
+            if "iwinfo" in command:
+                if "assoclist" in command:
+                    return '{"results": [{"mac": "aa:bb:cc:dd:ee:ff", "signal": -50, "noise": -95, "rx": {"rate": 120100}, "tx": {"rate": 86600}}]}'
+                return "wlan0"
+            if "ubus list 'hostapd.*'" in command:
+                return ""
+            return ""
+
+        mock_exec.side_effect = exec_side_effect
+
+        devices = await ssh_client.get_connected_devices()
+        assert len(devices) == 1
+        dev = devices[0]
+        assert dev.mac == "aa:bb:cc:dd:ee:ff"
+        assert dev.is_wireless is True
+        assert dev.signal == -50
+        assert dev.noise == -95
+        assert dev.rx_rate == 120100
+        assert dev.tx_rate == 86600

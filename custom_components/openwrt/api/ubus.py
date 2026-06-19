@@ -1559,13 +1559,6 @@ class UbusClient(OpenWrtClient):
                 except UbusError:
                     pass
 
-    def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
-        """Helper to safely extract wireless rate from assoclist data."""
-        val = client.get(direction)
-        if isinstance(val, dict):
-            return val.get("rate", 0)
-        return client.get(f"{direction}_rate", 0)
-
     async def _merge_neighbor_data(self, devices: dict[str, ConnectedDevice]) -> None:
         """Update devices with ARP/neighbor information."""
         try:
@@ -1871,6 +1864,13 @@ class UbusClient(OpenWrtClient):
             if isinstance(bytes_data, dict):
                 dev.rx_bytes = bytes_data.get("rx", 0)
                 dev.tx_bytes = bytes_data.get("tx", 0)
+
+            # Hostapd returns rate in 100kbps (tenths of Mbps).
+            # Convert to Kbps by multiplying by 100.
+            if "rx_rate" in client_data and not dev.rx_rate:
+                dev.rx_rate = client_data.get("rx_rate", 0) * 100
+            if "tx_rate" in client_data and not dev.tx_rate:
+                dev.tx_rate = client_data.get("tx_rate", 0) * 100
 
     def _set_wireless_connection_type(self, dev: ConnectedDevice, ifname: str) -> None:
         """Determine specific wireless band from interface name."""

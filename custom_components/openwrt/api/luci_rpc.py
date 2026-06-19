@@ -1666,53 +1666,36 @@ class LuciRpcClient(OpenWrtClient):
             if iw_out:
                 ifaces = iw_out.strip().split()
                 for iface in ifaces:
-                    assoc = await self.execute_command(
-                        f"iwinfo {iface} assoclist 2>/dev/null"
+                    assoc_str = await self.execute_command(
+                        f'ubus call iwinfo assoclist \'{{"device":"{iface}"}}\' 2>/dev/null'
                     )
-                    if assoc:
-                        for line in assoc.strip().split("\n"):
-                            if not line.strip() or "No information" in line:
-                                continue
-                            parts = line.split()
-                            if (
-                                len(parts) >= 1
-                                and parts[0].count(":") == 5
-                                and len(parts[0]) == 17
-                            ):
-                                mac = parts[0].lower()
-                                if mac in devices:
-                                    dev = devices[mac]
-                                else:
-                                    dev = ConnectedDevice(mac=mac, connected=False)
-                                    devices[mac] = dev
-
-                                dev.connected = True  # Wireless association
-
+                    if assoc_str and assoc_str.strip().startswith("{"):
+                        try:
+                            assoc = json.loads(assoc_str).get("results", [])
+                            for client in assoc:
+                                mac = client.get("mac", "").lower()
+                                if not mac:
+                                    continue
+                                dev = devices.setdefault(
+                                    mac, ConnectedDevice(mac=mac, connected=True)
+                                )
+                                dev.connected = True
                                 dev.is_wireless = True
-                                if (
-                                    not dev.connection_type
-                                    or dev.connection_type == "wired"
-                                ):
-                                    if "5g" in iface.lower():
-                                        dev.connection_type = "5GHz"
-                                    elif "2g" in iface.lower():
-                                        dev.connection_type = "2.4GHz"
-                                    else:
-                                        dev.connection_type = "wireless"
                                 dev.interface = iface
-                                if len(parts) >= 2:
-                                    dev.signal = (
-                                        int(parts[1])
-                                        if parts[1].lstrip("-").isdigit()
-                                        else 0
-                                    )
+                                dev.signal = client.get("signal", 0)
+                                dev.noise = client.get("noise", 0)
+                                dev.rx_rate = self._get_assoc_rate(client, "rx")
+                                dev.tx_rate = self._get_assoc_rate(client, "tx")
 
+                                # Set connection type based on interface name
                                 if "5g" in iface.lower():
                                     dev.connection_type = "5GHz"
                                 elif "2g" in iface.lower():
                                     dev.connection_type = "2.4GHz"
                                 else:
                                     dev.connection_type = "wireless"
+                        except Exception:
+                            pass
         except (
             LuciRpcTimeoutError,
             LuciRpcConnectionError,
@@ -1759,6 +1742,18 @@ class LuciRpcClient(OpenWrtClient):
                                 )
                                 if not dev.signal:
                                     dev.signal = info.get("signal", 0)
+
+                                bytes_data = info.get("bytes", {})
+                                if isinstance(bytes_data, dict):
+                                    dev.rx_bytes = bytes_data.get("rx", 0)
+                                    dev.tx_bytes = bytes_data.get("tx", 0)
+
+                                # Hostapd returns rate in 100kbps (tenths of Mbps).
+                                # Convert to Kbps by multiplying by 100.
+                                if "rx_rate" in info and not dev.rx_rate:
+                                    dev.rx_rate = info.get("rx_rate", 0) * 100
+                                if "tx_rate" in info and not dev.tx_rate:
+                                    dev.tx_rate = info.get("tx_rate", 0) * 100
 
                                 if "5g" in iface_name.lower():
                                     dev.connection_type = "5GHz"

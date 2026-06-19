@@ -436,7 +436,13 @@ async def test_ubus_get_connected_devices_from_wireless_interfaces(
                     }
             if object_name == "hostapd.wlan0" and method == "get_clients":
                 return {
-                    "clients": {"AA:BB:CC:DD:EE:FF": {"bytes": {"rx": 100, "tx": 200}}}
+                    "clients": {
+                        "AA:BB:CC:DD:EE:FF": {
+                            "bytes": {"rx": 100, "tx": 200},
+                            "rx_rate": 12010,
+                            "tx_rate": 8660,
+                        }
+                    }
                 }
             return {}
 
@@ -450,6 +456,8 @@ async def test_ubus_get_connected_devices_from_wireless_interfaces(
         assert dev.interface == "wlan0"
         assert dev.rx_bytes == 100
         assert dev.tx_bytes == 200
+        assert dev.rx_rate == 1201000
+        assert dev.tx_rate == 866000
 
 
 @pytest.mark.asyncio

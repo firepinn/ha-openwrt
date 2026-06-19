@@ -298,3 +298,42 @@ async def test_luci_kick_device(luci_client: LuciRpcClient):
                 },
             ],
         )
+
+
+@pytest.mark.asyncio
+async def test_luci_get_connected_devices_iwinfo_rates(
+    luci_client: LuciRpcClient,
+):
+    """Test LuCI RPC client parses rates and noise correctly from JSON iwinfo and hostapd fallback."""
+    luci_client._auth_token = "luci_test_token"
+    luci_client._get_wireless_mapping = AsyncMock()
+    luci_client.packages.wireless = True
+
+    with patch.object(
+        luci_client, "execute_command", new_callable=AsyncMock
+    ) as mock_exec:
+
+        def exec_side_effect(command: str) -> str:
+            if "cat /proc/net/arp" in command:
+                return ""
+            if "iwinfo" in command:
+                if "assoclist" in command:
+                    return '{"results": [{"mac": "aa:bb:cc:dd:ee:ff", "signal": -50, "noise": -95, "rx": {"rate": 120100}, "tx": {"rate": 86600}}]}'
+                return "wlan0"
+            if "ubus list 'hostapd.*'" in command:
+                return 'hostapd.wlan0 {"clients": {"aa:bb:cc:dd:ee:ff": {"signal": -50, "bytes": {"rx": 123, "tx": 456}, "rx_rate": 24020, "tx_rate": 18010}}}'
+            return ""
+
+        mock_exec.side_effect = exec_side_effect
+
+        devices = await luci_client.get_connected_devices()
+        assert len(devices) == 1
+        dev = devices[0]
+        assert dev.mac == "aa:bb:cc:dd:ee:ff"
+        assert dev.is_wireless is True
+        assert dev.signal == -50
+        assert dev.noise == -95
+        assert dev.rx_rate == 120100  # From iwinfo (precedence over hostapd fallback)
+        assert dev.tx_rate == 86600
+        assert dev.rx_bytes == 123  # From hostapd fallback
+        assert dev.tx_bytes == 456
