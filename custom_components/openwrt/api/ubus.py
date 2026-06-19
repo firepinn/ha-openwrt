@@ -3742,6 +3742,22 @@ class UbusClient(OpenWrtClient):
                 _LOGGER.debug("Failed to set LED %s via ubus: %s", name, err)
                 return False
 
+    async def kick_device(self, mac_address: str, interface: str) -> bool:
+        """Kick a wireless device from the network using hostapd via direct ubus call."""
+        try:
+            await self._call(
+                f"hostapd.{interface}",
+                "del_client",
+                {"addr": mac_address, "reason": 5, "deauth": True, "ban_time": 60000},
+            )
+            return True
+        except Exception as err:
+            _LOGGER.debug(
+                "Failed to kick device via hostapd ubus direct call: %s. Trying fallback.",
+                err,
+            )
+            return await super().kick_device(mac_address, interface)
+
     async def is_reboot_required(self) -> bool:
         """Check if reboot is required via common OpenWrt flags."""
         try:

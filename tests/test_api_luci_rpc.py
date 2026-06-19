@@ -272,3 +272,29 @@ async def test_luci_get_connected_devices_fdb(luci_client: LuciRpcClient):
         assert dev2.connected is False
         assert dev2.fdb_age == 120
         assert dev2.port == "lan2"
+
+
+@pytest.mark.asyncio
+async def test_luci_kick_device(luci_client: LuciRpcClient):
+    """Test that kick_device calls del_client via direct ubus call over LuCI RPC."""
+    luci_client._auth_token = "luci_test_token"
+
+    with patch.object(
+        luci_client, "_rpc_call", new_callable=AsyncMock, return_value={}
+    ) as mock_call:
+        success = await luci_client.kick_device("00:11:22:33:44:55", "wlan0")
+        assert success is True
+        mock_call.assert_called_once_with(
+            "ubus",
+            "call",
+            [
+                "hostapd.wlan0",
+                "del_client",
+                {
+                    "addr": "00:11:22:33:44:55",
+                    "reason": 5,
+                    "deauth": True,
+                    "ban_time": 60000,
+                },
+            ],
+        )

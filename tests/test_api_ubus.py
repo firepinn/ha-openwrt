@@ -450,3 +450,26 @@ async def test_ubus_get_connected_devices_from_wireless_interfaces(
         assert dev.interface == "wlan0"
         assert dev.rx_bytes == 100
         assert dev.tx_bytes == 200
+
+
+@pytest.mark.asyncio
+async def test_ubus_kick_device(ubus_client: UbusClient):
+    """Test that kick_device calls del_client on hostapd.<interface> via direct ubus call."""
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+
+    with patch.object(
+        ubus_client, "_call", new_callable=AsyncMock, return_value={}
+    ) as mock_call:
+        success = await ubus_client.kick_device("00:11:22:33:44:55", "wlan0")
+        assert success is True
+        mock_call.assert_called_once_with(
+            "hostapd.wlan0",
+            "del_client",
+            {
+                "addr": "00:11:22:33:44:55",
+                "reason": 5,
+                "deauth": True,
+                "ban_time": 60000,
+            },
+        )

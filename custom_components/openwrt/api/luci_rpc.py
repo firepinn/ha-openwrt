@@ -1927,7 +1927,28 @@ class LuciRpcClient(OpenWrtClient):
     async def kick_device(self, mac_address: str, interface: str) -> bool:
         """Kick a device, mapping UCI section back to system name if needed."""
         sys_iface = getattr(self, "_uci_to_sys", {}).get(interface, interface)
-        return await super().kick_device(mac_address, sys_iface)
+        try:
+            await self._rpc_call(
+                "ubus",
+                "call",
+                [
+                    f"hostapd.{sys_iface}",
+                    "del_client",
+                    {
+                        "addr": mac_address,
+                        "reason": 5,
+                        "deauth": True,
+                        "ban_time": 60000,
+                    },
+                ],
+            )
+            return True
+        except Exception as err:
+            _LOGGER.debug(
+                "Failed to kick device via LuCI RPC ubus call: %s. Trying fallback.",
+                err,
+            )
+            return await super().kick_device(mac_address, sys_iface)
 
     async def get_dhcp_leases(self) -> list[DhcpLease]:
         """Get DHCP leases via LuCI RPC."""
