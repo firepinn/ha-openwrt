@@ -241,7 +241,18 @@ for mock_name in ha_mocks:
 
 # Fix device_registry mocks to behave logically
 dr_mock = MagicMock()
-dr_mock.format_mac.side_effect = lambda x: x.lower() if isinstance(x, str) else x
+
+
+def _mock_format_mac(mac: str) -> str:
+    if not mac:
+        return mac
+    clean = mac.replace(":", "").replace("-", "").lower()
+    if len(clean) == 12:
+        return ":".join(clean[i : i + 2] for i in range(0, 12, 2))
+    return mac.lower()
+
+
+dr_mock.format_mac.side_effect = _mock_format_mac
 sys.modules["homeassistant.helpers.device_registry"] = dr_mock
 if "homeassistant.helpers" in sys.modules:
     sys.modules["homeassistant.helpers"].device_registry = dr_mock

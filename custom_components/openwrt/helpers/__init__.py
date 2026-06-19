@@ -14,7 +14,16 @@ if TYPE_CHECKING:
 
 def _router_id(entry: ConfigEntry) -> str:
     """Extract the canonical router ID from a config entry."""
-    return str(entry.unique_id or entry.data[CONF_HOST])
+    unique_id = entry.unique_id
+    if unique_id and len(unique_id.replace(":", "")) == 12:
+        # Check if it is a mac address and format it with colons
+        try:
+            from homeassistant.helpers import device_registry as dr
+
+            return dr.format_mac(unique_id)
+        except Exception:
+            pass
+    return str(unique_id or entry.data[CONF_HOST])
 
 
 def format_ap_identifier(entry_or_router_id: ConfigEntry | str, iface_name: str) -> str:

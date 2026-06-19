@@ -364,3 +364,22 @@ async def test_coordinator_orphan_cleanup_ghost_sections(hass):
 
     # 4. Verify ghost device was removed
     device_registry.async_remove_device.assert_called_with("ghost_dev_id")
+
+
+def test_router_id_mac_formatting_prevents_duplicate_ap():
+    """Verify that MAC address formatting in unique_id ensures stable router and AP device identification."""
+    from custom_components.openwrt.helpers import _router_id, format_ap_device_id
+
+    # 1. Test helper extraction formatting
+    config_entry = MagicMock()
+    config_entry.unique_id = "9483c4ac7a13"
+    config_entry.data = {"host": "192.168.1.1"}
+
+    # Extract router ID should format the MAC
+    assert _router_id(config_entry) == "94:83:c4:ac:7a:13"
+
+    # Format AP device ID should use the formatted MAC
+    assert (
+        format_ap_device_id(config_entry, "stable_ssid_5 GHz")
+        == "94:83:c4:ac:7a:13_ap_stable_ssid_5 GHz"
+    )

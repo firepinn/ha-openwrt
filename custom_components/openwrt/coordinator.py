@@ -219,9 +219,15 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         self._mqtt_cleanup_done = False
         # Interface name to stable identifier mapping (for AP devices)
         self.interface_to_stable_id: dict[str, str] = {}
-        self.router_id = (
-            self.config_entry.unique_id or self.config_entry.data[CONF_HOST]
-        )
+        unique_id = self.config_entry.unique_id
+        if unique_id and len(unique_id.replace(":", "")) == 12:
+            try:
+                self.router_id = dr.format_mac(unique_id)
+            except Exception:
+                self.router_id = unique_id
+        else:
+            self.router_id = unique_id or self.config_entry.data[CONF_HOST]
+
         self._last_version: str | None = None
         self._boot_time: datetime | None = None
         self._last_uptime: int | None = None
