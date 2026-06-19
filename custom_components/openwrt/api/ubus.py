@@ -1027,16 +1027,24 @@ class UbusClient(OpenWrtClient):
                 try:
                     info = await self._call("iwinfo", "info", {"device": name})
                     if info and info.get("ssid"):
-                        # Try to match with a UCI section by SSID
+                        # Try to match with a UCI section by SSID and band
+                        physical_band = WirelessInterface._band_from_raw(
+                            info.get("frequency", "") or info.get("hwmode", "")
+                        )
                         for wifi in interfaces:
                             if (
                                 not wifi.ifname or wifi.ifname == wifi.section
                             ) and wifi.ssid == info.get("ssid"):
-                                wifi.name = name
-                                wifi.ifname = name
-                                iface_names.add(name)
-                                found_match = True
-                                break
+                                if (
+                                    not wifi.band
+                                    or not physical_band
+                                    or wifi.band == physical_band
+                                ):
+                                    wifi.name = name
+                                    wifi.ifname = name
+                                    iface_names.add(name)
+                                    found_match = True
+                                    break
                 except Exception:
                     pass
 

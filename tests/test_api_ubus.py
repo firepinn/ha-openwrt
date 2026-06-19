@@ -319,3 +319,74 @@ async def test_ubus_get_connected_devices_wireless(ubus_client: UbusClient):
             assert dev.connection_type == "wireless"
             assert dev.signal == -60
             assert dev.noise == -90
+
+
+@pytest.mark.asyncio
+async def test_ubus_get_wireless_interfaces_matching(ubus_client: UbusClient):
+    """Test get_wireless_interfaces matches physical interfaces to UCI sections by SSID and band."""
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+
+    with patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call:
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "network.wireless" and method == "status":
+                return {
+                    "radio0": {
+                        "config": {"band": "2g", "hwmode": "11g"},
+                        "interfaces": [
+                            {
+                                "section": "default_radio0",
+                                "ifname": "",
+                                "config": {"ssid": "AP NYCR"},
+                            }
+                        ],
+                    },
+                    "radio1": {
+                        "config": {"band": "5g", "hwmode": "11a"},
+                        "interfaces": [
+                            {
+                                "section": "default_radio1",
+                                "ifname": "",
+                                "config": {"ssid": "AP NYCR"},
+                            }
+                        ],
+                    },
+                }
+            if object_name == "iwinfo" and method == "devices":
+                return ["wlan1", "wlan0"]
+            if object_name == "iwinfo" and method == "info":
+                device = params.get("device") if params else None
+                if device == "wlan1":
+                    return {
+                        "ssid": "AP NYCR",
+                        "frequency": 5180,
+                        "bssid": "00:11:22:33:44:55",
+                        "channel": 36,
+                    }
+                if device == "wlan0":
+                    return {
+                        "ssid": "AP NYCR",
+                        "frequency": 2412,
+                        "bssid": "00:11:22:33:44:66",
+                        "channel": 1,
+                    }
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        interfaces = await ubus_client.get_wireless_interfaces()
+        assert len(interfaces) == 2
+
+        wifi2g = next(w for w in interfaces if w.section == "default_radio0")
+        assert wifi2g.name == "wlan0"
+        assert wifi2g.ifname == "wlan0"
+        assert wifi2g.band == "2.4 GHz"
+        assert wifi2g.channel == 1
+
+        wifi5g = next(w for w in interfaces if w.section == "default_radio1")
+        assert wifi5g.name == "wlan1"
+        assert wifi5g.ifname == "wlan1"
+        assert wifi5g.band == "5 GHz"
+        assert wifi5g.channel == 36
