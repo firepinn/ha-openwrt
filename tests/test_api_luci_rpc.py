@@ -220,3 +220,55 @@ async def test_luci_get_firewall_rules_anonymous(luci_client: LuciRpcClient):
         assert rules[1].section_id == "@rule[1]"
         assert rules[1].name == "@rule[1]"
         assert rules[1].enabled is False
+
+
+@pytest.mark.asyncio
+async def test_luci_get_connected_devices_fdb(luci_client: LuciRpcClient):
+    """Test get_connected_devices parses FDB age properly in LuCI RPC."""
+    luci_client._auth_token = "luci_test_token"
+    luci_client._get_wireless_mapping = AsyncMock()
+    luci_client.trust_bridge_fdb = True
+    luci_client.trust_stale_arp = False
+
+    with patch.object(
+        luci_client, "execute_command", new_callable=AsyncMock
+    ) as mock_exec:
+
+        def exec_side_effect(command: str) -> str:
+            if "cat /tmp/dhcp.leases" in command:
+                return (
+                    "1611234567 00:11:22:33:44:55 192.168.1.5 host1 *\n"
+                    "1611234567 aa:bb:cc:dd:ee:ff 192.168.1.6 host2 *\n"
+                )
+            if "cat /proc/net/arp" in command:
+                return ""
+            if "ip neigh show" in command:
+                return (
+                    "192.168.1.5 dev br-lan lladdr 00:11:22:33:44:55 REACHABLE\n"
+                    "192.168.1.6 dev br-lan lladdr aa:bb:cc:dd:ee:ff STALE\n"
+                )
+            if "ubus call network.device status" in command:
+                return '{"br-lan": {"up": true}}'
+            if "ubus call network.device fdb" in command:
+                return (
+                    "["
+                    '  {"mac": "00:11:22:33:44:55", "port": "lan1", "age": 10},'
+                    '  {"mac": "aa:bb:cc:dd:ee:ff", "port": "lan2", "age": 120}'
+                    "]"
+                )
+            return ""
+
+        mock_exec.side_effect = exec_side_effect
+
+        devices = await luci_client.get_connected_devices()
+        assert len(devices) == 2
+
+        dev1 = next(d for d in devices if d.mac == "00:11:22:33:44:55")
+        assert dev1.connected is True
+        assert dev1.fdb_age == 10
+        assert dev1.port == "lan1"
+
+        dev2 = next(d for d in devices if d.mac == "aa:bb:cc:dd:ee:ff")
+        assert dev2.connected is False
+        assert dev2.fdb_age == 120
+        assert dev2.port == "lan2"

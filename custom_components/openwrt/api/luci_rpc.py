@@ -1850,7 +1850,11 @@ class LuciRpcClient(OpenWrtClient):
                             port = entry.get("port", "")
                             if port:
                                 dev.port = port
-                                dev.connected = True  # Seen on a physical port recently
+                                dev.fdb_age = entry.get("age")
+                                if dev.fdb_age is None or dev.fdb_age < 60:
+                                    dev.connected = (
+                                        True  # Seen on a physical port recently
+                                    )
                                 if not dev.is_wireless and not dev.interface:
                                     dev.interface = dev_name
                 except (
