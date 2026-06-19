@@ -184,3 +184,46 @@ async def test_deploy_helper_success(hass: HomeAssistant) -> None:
         # We can't easily check the exact base64 without re-implementing,
         # but we check if it was called multiple times for files
         assert mock_client.execute_command.call_count >= 10
+
+
+async def test_mqtt_discovery_cleanup_no_colons(hass: HomeAssistant) -> None:
+    """Test that MQTT discovery cleanup topics never contain colons."""
+    from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
+
+    config_entry = MagicMock()
+    config_entry.options = {}
+    config_entry.data = {
+        "host": "192.168.1.1",
+        "username": "root",
+        "password": "password",
+    }
+    config_entry.entry_id = "test_entry"
+
+    mock_client = AsyncMock()
+
+    with patch("custom_components.openwrt.coordinator.storage.Store") as mock_store:
+        mock_store.return_value.async_load = AsyncMock(return_value={})
+        coordinator = OpenWrtDataCoordinator(hass, config_entry, mock_client)
+
+    # Set router_id (which has colons)
+    coordinator.router_id = "11:22:33:44:55:66"
+
+    # Mock the hass services async_call
+    calls = []
+
+    async def mock_async_call(domain, service, service_data, **kwargs):
+        if domain == "mqtt" and service == "publish":
+            calls.append(service_data)
+
+    hass.services.async_call = mock_async_call
+
+    # Call cleanup
+    await coordinator._async_discovery_mqtt_device_cleanup("AA:BB:CC:DD:EE:FF")
+
+    # Verify calls
+    assert len(calls) > 0
+    for call in calls:
+        topic = call["topic"]
+        # Discovery topics must not contain colons
+        if "device_tracker" in topic:
+            assert ":" not in topic, f"Topic '{topic}' contains colons"

@@ -1087,7 +1087,6 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         # Cleanup all legacy patterns we might have used
         # IMPORTANT: Discovery topics MUST NOT contain colons
         legacy_topics = [
-            f"homeassistant/device_tracker/{self.router_id}_{mac_safe}/config",
             f"homeassistant/device_tracker/{router_id_safe}_{mac_safe}/config",
             f"homeassistant/device_tracker/openwrt_{mac_safe}/config",
             f"homeassistant/device_tracker/{mac_6chars}/config",
