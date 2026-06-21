@@ -1694,10 +1694,7 @@ class OpenWrtClient(abc.ABC):
                                 str(value).replace("\n", " ").strip() if value else ""
                             )
 
-                    elif (
-                        item_type == "progress_bar"
-                        and class_origin == "Cell Information"
-                    ):
+                    elif class_origin == "Cell Information":
                         if current_context == "LTE":
                             lte_signals[item_key] = value
                         elif current_context == "NR5G":
