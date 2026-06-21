@@ -10,7 +10,7 @@ body:
       value: |
         ## Before submitting
         - 🔍 Search [existing feature requests](https://github.com/FaserF/ha-openwrt/issues?q=label%3Aenhancement) to avoid duplicates
-        - 📖 Check the [documentation](https://github.com/FaserF/ha-openwrt/blob/master/README.md)
+        - 📖 Check the [Documentation Site](https://faserf.github.io/ha-openwrt/)
         - 🔗 View the integration: [![Open your Home Assistant instance and show the openwrt integration.](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration/?domain=openwrt)
 
   - type: textarea

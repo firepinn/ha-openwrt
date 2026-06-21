@@ -3,6 +3,7 @@
 [![GitHub Release](https://img.shields.io/github/release/FaserF/ha-openwrt.svg?style=flat-square)](https://github.com/FaserF/ha-openwrt/releases)
 [![License](https://img.shields.io/github/license/FaserF/ha-openwrt.svg?style=flat-square)](LICENSE)
 [![hacs](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://hacs.xyz)
+[![Documentation](https://img.shields.io/badge/docs-Material--MkDocs-blue.svg?style=flat-square)](https://faserf.github.io/ha-openwrt/)
 [![Add to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=openwrt)
 [![CI Orchestrator](https://github.com/FaserF/ha-openwrt/actions/workflows/ci-orchestrator.yml/badge.svg)](https://github.com/FaserF/ha-openwrt/actions/workflows/ci-orchestrator.yml)
 
@@ -12,9 +13,9 @@ A secure, production-ready Home Assistant integration for OpenWrt devices. Monit
 
 | | | | |
 | :--- | :--- | :--- | :--- |
-| [✨ Features](#-features) | [📦 Installation](#-installation) | [⚙️ Configuration](#️-configuration) | [🛡️ Security](SECURITY.md) |
-| [🛠️ Options](#️-options-flow) | [🧱 Services](#-services) | [📖 Automations](#-automation-examples) | [❓ FAQ](#-troubleshooting--faq) |
-| [🧑‍💻 Development](#-development) | [💖 Credits](#-credits--acknowledgements) | [📄 License](#-license) | |
+| [📖 Documentation Site](https://faserf.github.io/ha-openwrt/) | [✨ Features](#-features) | [📦 Installation](#-installation) | [⚙️ Configuration](#️-configuration) |
+| [🛡️ Security](SECURITY.md) | [🛠️ Options](#️-options-flow) | [🧱 Services](#-services) | [📖 Automations](#-automation-examples) |
+| [❓ FAQ](#-troubleshooting--faq) | [🧑‍💻 Development](#-development) | [💖 Credits](#-credits--acknowledgements) | [📄 License](#-license) |
 
 ### Why use this integration?
 While you can monitor routers via SNMP or ping trackers, this integration uses native OpenWrt APIs (Ubus/RPC) to provide deep, reliable integration without the overhead of polling generic network protocols. This means instant device tracking via modern ARP/NDP tables, full control over firewall rules and radios, and even the ability to compile firmware directly from your dashboard.
