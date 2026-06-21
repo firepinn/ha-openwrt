@@ -237,6 +237,10 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             f"{DOMAIN}_{config_entry.entry_id}_history",
         )
 
+        update_interval = self.config_entry.options.get(
+            CONF_UPDATE_INTERVAL,
+            self.config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+        )
         self._configured_update_interval = update_interval
         self._current_backoff_interval = update_interval
 
