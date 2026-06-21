@@ -307,12 +307,40 @@ def _register_services(hass: HomeAssistant) -> None:
     async def _handle_wol(call: ServiceCall) -> None:
         """Handle Wake-on-LAN service call."""
         entry_id = call.data["target"]
-        mac = call.data["mac"]
+        mac = call.data.get("mac")
+        device_id = call.data.get("device_id")
+        entity_id = call.data.get("entity_id")
         interface = call.data.get("interface")
 
         if entry_id not in hass.data[DOMAIN]:
             msg = f"Config entry {entry_id} not found"
             raise vol.Invalid(msg)
+
+        if not mac:
+            if entity_id:
+                ent_reg = er.async_get(hass)
+                entity = ent_reg.async_get(entity_id)
+                if entity and entity.device_id:
+                    device_id = entity.device_id
+            
+            if device_id:
+                dev_reg = dr.async_get(hass)
+                device = dev_reg.async_get(device_id)
+                if device:
+                    for conn in device.connections:
+                        if conn[0] == dr.CONNECTION_NETWORK_MAC:
+                            mac = conn[1]
+                            break
+                    if not mac:
+                        for ident in device.identifiers:
+                            if ident[0] == DOMAIN:
+                                potential_mac = ident[1]
+                                if len(potential_mac.replace(":", "")) == 12:
+                                    mac = potential_mac
+                                    break
+
+        if not mac:
+            raise HomeAssistantError("Could not resolve a MAC address for Wake-on-LAN")
 
         client = hass.data[DOMAIN][entry_id][DATA_CLIENT]
         command = f"ether-wake {mac}"
@@ -373,7 +401,9 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 vol.Required("target"): cv.string,
-                vol.Required("mac"): cv.string,
+                vol.Optional("mac"): cv.string,
+                vol.Optional("device_id"): cv.string,
+                vol.Optional("entity_id"): cv.string,
                 vol.Optional("interface"): cv.string,
             },
         ),
