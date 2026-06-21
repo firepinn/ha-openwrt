@@ -50,7 +50,7 @@ async def async_setup_entry(
         if not coordinator.data:
             return
 
-        new_entities = []
+        new_entities: list[UpdateEntity] = []
 
         # 1. Add firmware update entity
         fw_key = f"{entry.entry_id}_firmware_update"

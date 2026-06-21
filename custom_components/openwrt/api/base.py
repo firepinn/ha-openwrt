@@ -825,7 +825,7 @@ class OpenWrtClient(abc.ABC):
         self._last_connect_error: Exception | None = None
         self._last_slow_poll_time = 0.0
         self._last_medium_poll_time = 0.0
-        self._cached_medium_data = {}
+        self._cached_medium_data: dict[str, Any] = {}
 
     def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
         """Helper to safely extract wireless rate from assoclist data."""
@@ -1819,7 +1819,7 @@ class OpenWrtClient(abc.ABC):
         ]
 
         # Add fast dynamic tasks (wireless, dhcp) to core_tasks
-        core_dynamic_tasks = {}
+        core_dynamic_tasks: dict[str, Any] = {}
         if data.packages.wireless is not False:
             core_dynamic_tasks["wireless"] = self.get_wireless_interfaces()
         if data.packages.dhcp is not False:
