@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from custom_components.openwrt.api.base import OpenWrtData
 from custom_components.openwrt.sensor import (
-    OpenWrtNlbwmonSensor,
+    OpenWrtNlbwmonRxSensor,
     OpenWrtNlbwmonTopHostsSensor,
 )
 
@@ -65,7 +65,7 @@ def test_nlbwmon_client_sensor_device_info() -> None:
         "custom_components.openwrt.sensor.DeviceInfo",
         side_effect=lambda **kwargs: kwargs,
     ):
-        sensor = OpenWrtNlbwmonSensor(coordinator, entry, mac, "Test Host")
+        sensor = OpenWrtNlbwmonRxSensor(coordinator, entry, mac, "Test Host")
 
         device_info = sensor.device_info
         assert any(ident[1] == mac.lower() for ident in device_info["identifiers"])
