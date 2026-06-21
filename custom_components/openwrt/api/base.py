@@ -1688,7 +1688,6 @@ class OpenWrtClient(abc.ABC):
                     class_origin = item.get("class_origin", "")
                     item_key = item.get("key", "")
                     value = item.get("value", "")
-                    item_type = item.get("type", "")
 
                     if item_key == "LTE":
                         current_context = "LTE"
