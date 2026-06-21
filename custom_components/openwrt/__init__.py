@@ -411,7 +411,10 @@ def _register_services(hass: HomeAssistant) -> None:
 
     async def _handle_backup(call: ServiceCall) -> ServiceResponse:
         """Handle create backup service call."""
+        import os
         entry_id = call.data["entry_id"]
+        custom_path = call.data.get("download_path")
+
         if entry_id not in hass.data[DOMAIN]:
             msg = f"Config entry {entry_id} not found"
             raise vol.Invalid(msg)
@@ -419,7 +422,37 @@ def _register_services(hass: HomeAssistant) -> None:
         client = hass.data[DOMAIN][entry_id][DATA_CLIENT]
         try:
             backup_path = await client.create_backup()
-            return {"backup_path": backup_path}
+            if not backup_path:
+                raise HomeAssistantError("Backup creation returned empty path")
+
+            filename = os.path.basename(backup_path)
+            if custom_path:
+                local_dir = custom_path
+                if not os.path.isabs(local_dir):
+                    local_dir = hass.config.path(local_dir)
+            else:
+                local_dir = hass.config.path("openwrt_backups")
+
+            os.makedirs(local_dir, exist_ok=True)
+            local_path = os.path.join(local_dir, filename)
+
+            # Download the backup file from the router
+            download_success = await client.download_file(backup_path, local_path)
+            
+            # Clean up the remote backup file
+            try:
+                await client.execute_command(f"rm -f {backup_path}")
+            except Exception as clean_err:
+                _LOGGER.warning("Could not delete remote backup file %s: %s", backup_path, clean_err)
+
+            if not download_success:
+                raise HomeAssistantError("Failed to download the backup file from the router")
+
+            return {
+                "backup_path": backup_path,
+                "local_path": local_path,
+                "filename": filename
+            }
         except Exception as err:
             msg = f"Failed to create backup: {err}"
             raise HomeAssistantError(msg) from err
@@ -431,6 +464,7 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 vol.Required("entry_id"): cv.string,
+                vol.Optional("download_path"): cv.string,
             },
         ),
         supports_response=SupportsResponse.ONLY,
