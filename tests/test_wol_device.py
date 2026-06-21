@@ -48,7 +48,7 @@ async def test_wol_resolve_device(hass) -> None:
 
             call_data = MagicMock()
             call_data.data = {
-                "entry_id": "test_entry_id",
+                "target": "test_entry_id",
                 "device_id": "mock_device_id",
             }
             await wol_handler(call_data)

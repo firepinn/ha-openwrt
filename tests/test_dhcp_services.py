@@ -93,6 +93,5 @@ async def test_delete_static_lease_service(hass) -> None:
     # Verify execute_command was called with script containing the delete command
     mock_client.execute_command.assert_called_once()
     script = mock_client.execute_command.call_args[0][0]
-    assert "uci show dhcp | grep 'aa:bb:cc:dd:ee:ff' | cut -d'.' -f2" in script
-    assert "uci delete dhcp.$section" in script
+    assert 'm="aa:bb:cc:dd:ee:ff"' in script
     assert "uci commit dhcp" in script

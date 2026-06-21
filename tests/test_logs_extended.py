@@ -40,17 +40,17 @@ async def test_get_system_logs_service(hass) -> None:
         call_data = MagicMock()
         call_data.data = {
             "entry_id": "test_entry_id",
-            "lines": 10,
+            "count": 10,
             "log_type": "system",
         }
         res = await log_handler(call_data)
         assert res == {"logs": ["syslog line 1"]}
-        mock_client.get_system_logs.assert_called_once_with(lines=10)
+        mock_client.get_system_logs.assert_called_once_with(count=10)
 
         # Test kernel log type
         call_data.data = {
             "entry_id": "test_entry_id",
-            "lines": 20,
+            "count": 20,
             "log_type": "kernel",
         }
         res = await log_handler(call_data)

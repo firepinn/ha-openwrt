@@ -33,6 +33,7 @@ def build_changelog(commits, url):
                 "chore(release)",
                 "chore(dev)",
                 "merge ",
+                "style: auto-fix",
             ]
         ):
             continue

@@ -11,6 +11,7 @@ from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
 @pytest.mark.asyncio
 async def test_coordinator_backoff_on_failure(hass) -> None:
     """Test that coordinator doubles update interval on error and resets on success."""
+    hass.loop.time = MagicMock(return_value=100000.0)
     mock_client = MagicMock()
     mock_client.connect = AsyncMock()
     mock_client.connected = True
