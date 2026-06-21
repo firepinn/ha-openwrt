@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Generates a structured, deduplicated, user-friendly changelog from git commit history."""
+
 import argparse
 import re
 import subprocess
@@ -15,7 +18,7 @@ NOISE_PATTERNS = [
     r"^\[skip[- ]ci\]",
     r"^chore: regenerate (manifest|connections|changelog)\b",
     r"^(auto.?generated?|automated?|bot:)\b",
-    r"^Revert \"Revert",
+    r'^Revert "Revert',
     r"^Initial commit\s*$",
     r"^WIP\b",
     r"^wip\b",
@@ -38,7 +41,6 @@ CATEGORY_ORDER = [
     "chore",
     "other",
 ]
-
 CATEGORY_EMOJI = {
     "breaking": "💥 Breaking Changes",
     "feat": "✨ New Features",
@@ -54,7 +56,7 @@ CATEGORY_EMOJI = {
     "other": "📦 Other Changes",
 }
 
-# Conventional commit type -> bucket mapping
+# Conventional commit type → bucket mapping
 TYPE_MAP = {
     "feat": "feat",
     "feature": "feat",
@@ -99,27 +101,26 @@ SCOPE_MAP = {
 }
 
 MAX_PER_SECTION = 15
-NEVER_COLLAPSE = {"breaking", "security"}
+NEVER_COLLAPSE = ["breaking", "security"]
 
 
 def get_norm_key(msg: str) -> str:
     n = msg.lower()
-    # Strip conventional commit prefix
+    # Strip conventional commit prefixes
     n = re.sub(
         r"^(feat|fix|docs|style|refactor|perf|test|chore|ci|security|build|ui|ux|revert)(\([^)]*\))?(!)?:\s*",
         "",
         n,
     )
-    # Remove punctuation
-    n = re.sub(r"[\.\!\?\,\;\:\"'`]", "", n)
-    # Remove common stop words
+    n = re.sub(r"[\.\!\?\,\;\:\"\'`]", "", n)
+    # Strip common prepositions
     n = re.sub(r"\b(the|a|an|for|of|in|to|with|from|on|at|by)\b", "", n)
-    # Normalize spaces
+    # Normalize whitespaces
     n = re.sub(r"\s+", " ", n)
     return n.strip()
 
 
-def get_formatted_item(display: str, hashes: list[str], repo: str) -> str:
+def get_formatted_item(display: str, hashes: list, repo: str) -> str:
     if hashes:
         links = []
         for h in hashes:
@@ -133,79 +134,69 @@ def get_formatted_item(display: str, hashes: list[str], repo: str) -> str:
 
 
 def main():
-    sys.stdout.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--from-tag", default="")
-    parser.add_argument("--total-commits", default="")
-    parser.add_argument("--repo", default="")
+    parser = argparse.ArgumentParser(description="Generate structured git changelog.")
+    parser.add_argument("--from-tag", default="", help="Git ref to diff against")
+    parser.add_argument("--total-commits", default="", help="Total commit count input")
+    parser.add_argument("--repo", default="", help="Repository identifier (owner/name)")
     args = parser.parse_args()
 
     from_tag = args.from_tag
+    total_commits = args.total_commits
     repo = args.repo
 
     if from_tag:
-        git_range = f"{from_tag}..HEAD"
+        git_args = ["git", "log", f"{from_tag}..HEAD", "--pretty=format:%h %s"]
     else:
-        git_range = ""
+        git_args = ["git", "log", "--pretty=format:%h %s", "--max-count=2000"]
 
     try:
-        cmd = ["git", "log"]
-        if git_range:
-            cmd.append(git_range)
-        else:
-            cmd.extend(["--max-count=2000"])
-        cmd.append("--pretty=format:%h %s")
-
-        # Run git command
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        raw_lines = res.stdout.splitlines()
+        raw_output = subprocess.check_output(
+            git_args, stderr=subprocess.DEVNULL
+        ).decode("utf-8", errors="ignore")
     except subprocess.CalledProcessError:
-        raw_lines = []
+        raw_output = ""
 
-    total_raw = int(args.total_commits) if args.total_commits else len(raw_lines)
+    commit_lines = [line.strip() for line in raw_output.splitlines() if line.strip()]
+
+    try:
+        total_raw = int(total_commits) if total_commits else len(commit_lines)
+    except ValueError:
+        total_raw = len(commit_lines)
 
     buckets = {k: [] for k in CATEGORY_ORDER}
     seen_items = {}
 
-    for line in raw_lines:
-        line = line.strip()
-        if not line:
-            continue
+    for line in commit_lines:
         match = re.match(r"^([0-9a-fA-F]+)\s+(.*)$", line)
         if match:
             commit_hash = match.group(1)
             msg = match.group(2).strip()
         else:
             commit_hash = ""
-            msg = line
+            msg = line.strip()
 
         if not msg:
             continue
 
-        # Noise check
-        skip = False
-        for pattern in NOISE_PATTERNS:
-            if re.search(pattern, msg):
-                skip = True
-                break
-        if skip:
+        # Skip noise commits
+        if any(re.search(p, msg) for p in NOISE_PATTERNS):
             continue
 
         bucket = "other"
         display = msg
         is_break = False
 
-        # Parse conventional commits
-        cc_match = re.match(r"^([A-Za-z][A-Za-z0-9_-]*)(\([^)]*\))?(!)?:\s*(.+)$", msg)
-        if cc_match:
-            raw_type = cc_match.group(1).lower()
+        conv_match = re.match(
+            r"^([A-Za-z][A-Za-z0-9_-]*)(\([^)]*\))?(!)?:\s*(.+)$", msg
+        )
+        if conv_match:
+            raw_type = conv_match.group(1).lower()
+            raw_scope = conv_match.group(2)
             raw_scope = (
-                cc_match.group(2).replace("(", "").replace(")", "").lower().strip()
-                if cc_match.group(2)
-                else ""
+                re.sub(r"[()]", "", raw_scope).lower().strip() if raw_scope else ""
             )
-            is_break = bool(cc_match.group(3))
-            desc = cc_match.group(4).strip()
+            is_break = bool(conv_match.group(3))
+            desc = conv_match.group(4).strip()
 
             if raw_scope and raw_scope in SCOPE_MAP:
                 bucket = SCOPE_MAP[raw_scope]
@@ -220,42 +211,76 @@ def main():
         else:
             display = msg[0].upper() + msg[1:] if msg else msg
             msg_lower = msg.lower()
-            # Heuristics for non-conventional commits
-            if re.search(
-                r"\b(general\s+fix|small\s+fix|bug\s+fix|fix(es|ed)?\b|fix\s+\w|general\s+improve)",
-                msg_lower,
+            if any(
+                w in msg_lower
+                for w in ["general fix", "small fix", "bug fix", "fixes", "fixed"]
             ):
                 bucket = "fix"
-            elif re.search(
-                r"\b(ci\b|linter?|lint\s+fix|pipeline|workflow|github\s+action|generate[_\s]changelog|changelog\s+)",
-                msg_lower,
+            elif any(
+                w in msg_lower
+                for w in [
+                    "ci",
+                    "linter",
+                    "lint fix",
+                    "pipeline",
+                    "workflow",
+                    "github action",
+                    "generate_changelog",
+                    "changelog",
+                ]
             ):
                 bucket = "ci"
-            elif re.search(
-                r"\b(update\s+depend|bump\s+depend|renovate|dependency\s+update|upgrade\s+dep)",
-                msg_lower,
+            elif any(
+                w in msg_lower
+                for w in [
+                    "update depend",
+                    "bump depend",
+                    "renovate",
+                    "dependency update",
+                    "upgrade dep",
+                ]
             ):
                 bucket = "chore"
-            elif re.search(
-                r"\b(add(ed|s)?\s+(missing\s+)?feature|new\s+feature|add\s+support)",
-                msg_lower,
+            elif any(
+                w in msg_lower
+                for w in [
+                    "add feature",
+                    "added feature",
+                    "adds feature",
+                    "new feature",
+                    "add support",
+                ]
             ):
                 bucket = "feat"
-            elif re.search(r"\b(security|vulnerability|cve|auth(en|oriz))", msg_lower):
+            elif any(
+                w in msg_lower for w in ["security", "vulnerability", "cve", "auth"]
+            ):
                 bucket = "security"
-            elif re.search(r"\b(perf(ormance)?|speed|faster|optim)", msg_lower):
+            elif any(w in msg_lower for w in ["perf", "speed", "faster", "optim"]):
                 bucket = "perf"
-            elif re.search(
-                r"\b(refactor(ing)?|clean.?up|improve(d|s|ment)?)\b", msg_lower
+            elif (
+                "refactor" in msg_lower
+                or "cleanup" in msg_lower
+                or "clean up" in msg_lower
+                or "improve" in msg_lower
             ):
                 bucket = "refactor"
-            elif re.search(r"\b(doc(s|ument(ation)?)?|readme|wiki|guide)\b", msg_lower):
+            elif any(w in msg_lower for w in ["doc", "readme", "wiki", "guide"]):
                 bucket = "docs"
-            elif re.search(r"\b(test(s|ing)?|spec|unit\s+test)", msg_lower):
+            elif any(w in msg_lower for w in ["test", "spec", "unit test"]):
                 bucket = "test"
-            elif re.search(
-                r"\b(ui\b|ux\b|layout|style|theme|translation|translations|strings|lang)\b",
-                msg_lower,
+            elif any(
+                w in msg_lower
+                for w in [
+                    "ui",
+                    "ux",
+                    "layout",
+                    "style",
+                    "theme",
+                    "translation",
+                    "strings",
+                    "lang",
+                ]
             ):
                 bucket = "ui"
 
@@ -290,7 +315,6 @@ def main():
     has_any = False
     filtered_count = sum(len(buckets[k]) for k in CATEGORY_ORDER)
 
-    # Breaking changes callout
     if buckets["breaking"]:
         has_any = True
         out.append("> [!CAUTION]")
@@ -306,36 +330,36 @@ def main():
     for key in CATEGORY_ORDER:
         if key == "breaking":
             continue
-        bucket_items = buckets[key]
-        if not bucket_items:
+        bucket = buckets[key]
+        if not bucket:
             continue
         has_any = True
 
         out.append(f"### {CATEGORY_EMOJI[key]}")
         out.append("")
 
-        collapse = (len(bucket_items) > MAX_PER_SECTION) and (key not in NEVER_COLLAPSE)
+        collapse = (len(bucket) > MAX_PER_SECTION) and (key not in NEVER_COLLAPSE)
 
         if collapse:
             for i in range(MAX_PER_SECTION):
                 formatted = get_formatted_item(
-                    bucket_items[i]["display"], bucket_items[i]["hashes"], repo
+                    bucket[i]["display"], bucket[i]["hashes"], repo
                 )
                 out.append(f"- {formatted}")
-            remaining = len(bucket_items) - MAX_PER_SECTION
+            remaining = len(bucket) - MAX_PER_SECTION
             out.append("")
             out.append("<details>")
             out.append(f"<summary>Show {remaining} more changes…</summary>")
             out.append("")
-            for i in range(MAX_PER_SECTION, len(bucket_items)):
+            for i in range(MAX_PER_SECTION, len(bucket)):
                 formatted = get_formatted_item(
-                    bucket_items[i]["display"], bucket_items[i]["hashes"], repo
+                    bucket[i]["display"], bucket[i]["hashes"], repo
                 )
                 out.append(f"- {formatted}")
             out.append("")
             out.append("</details>")
         else:
-            for item in bucket_items:
+            for item in bucket:
                 formatted = get_formatted_item(item["display"], item["hashes"], repo)
                 out.append(f"- {formatted}")
         out.append("")
@@ -357,6 +381,7 @@ def main():
     else:
         out.append(f"*Changelog generated from `{range_str}`.*")
 
+    sys.stdout.reconfigure(encoding="utf-8")
     print("\n".join(out))
 
 
