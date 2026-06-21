@@ -1751,17 +1751,23 @@ class OpenWrtClient(abc.ABC):
             _LOGGER.debug("Error retrieving QModem info: %s", err)
 
         return info
+
     async def get_all_data(self, is_full_poll: bool = False) -> OpenWrtData:
         """Fetch all data from OpenWrt in parallel blocks with robust fallbacks."""
         import time
+
         now = time.time()
 
         # Multi-Interval-Polling:
         # - Fast-poll: CPU/RAM/Uptime/Load, Active Interfaces, Network traffic rates, Connected clients/wireless, DHCP Leases. (Every cycle)
         # - Medium-poll: IP neighbors, MWAN, Latency, External IP, VPN, UPnP, AdBlock, banIP, etc. (Every 3 cycles or ~3 minutes)
         # - Slow-poll: Device info, system logs, packages lists, firewall, sqm, wireguard, services, etc. (Every 30 cycles or ~15-30 minutes)
-        
-        is_slow_poll = is_full_poll or (self._cached_device_info is None) or (now - self._last_slow_poll_time >= 900.0)
+
+        is_slow_poll = (
+            is_full_poll
+            or (self._cached_device_info is None)
+            or (now - self._last_slow_poll_time >= 900.0)
+        )
         is_medium_poll = is_slow_poll or (now - self._last_medium_poll_time >= 180.0)
 
         self._poll_count += 1
@@ -1811,22 +1817,22 @@ class OpenWrtClient(abc.ABC):
             self.get_local_macs(),
             self.get_local_ips(),
         ]
-        
+
         # Add fast dynamic tasks (wireless, dhcp) to core_tasks
         core_dynamic_tasks = {}
         if data.packages.wireless is not False:
             core_dynamic_tasks["wireless"] = self.get_wireless_interfaces()
         if data.packages.dhcp is not False:
             core_dynamic_tasks["dhcp"] = self.get_dhcp_leases()
-            
+
         core_dyn_keys = list(core_dynamic_tasks.keys())
-        
+
         core_results = await asyncio.gather(
             *core_tasks,
             *[core_dynamic_tasks[k] for k in core_dyn_keys],
-            return_exceptions=True
+            return_exceptions=True,
         )
-        
+
         data.system_resources = get_val(
             core_results[0], data.system_resources, "system_resources"
         )
@@ -1838,16 +1844,20 @@ class OpenWrtClient(abc.ABC):
         )
         data.local_macs = get_val(core_results[3], data.local_macs, "local_macs")
         data.local_ips = get_val(core_results[4], data.local_ips, "local_ips")
-        
+
         core_dyn_offset = len(core_tasks)
-        core_dyn_results = dict(zip(core_dyn_keys, core_results[core_dyn_offset:], strict=False))
-        
+        core_dyn_results = dict(
+            zip(core_dyn_keys, core_results[core_dyn_offset:], strict=False)
+        )
+
         if "wireless" in core_dyn_results:
             data.wireless_interfaces = get_val(
                 core_dyn_results["wireless"], data.wireless_interfaces, "wireless"
             )
         if "dhcp" in core_dyn_results:
-            data.dhcp_leases = get_val(core_dyn_results["dhcp"], data.dhcp_leases, "DHCP")
+            data.dhcp_leases = get_val(
+                core_dyn_results["dhcp"], data.dhcp_leases, "DHCP"
+            )
 
         # 2. Slow-changing optional data (Slow Poll) - Reduces router load
         if is_slow_poll:
@@ -1908,7 +1918,9 @@ class OpenWrtClient(abc.ABC):
                 slow_map["dmesg_logs"], data.dmesg_logs, "dmesg logs"
             )
             data.upgradeable_packages = get_val(
-                slow_map["upgradeable_packages"], data.upgradeable_packages, "upgradeable packages"
+                slow_map["upgradeable_packages"],
+                data.upgradeable_packages,
+                "upgradeable packages",
             )
 
             self._cached_device_info = data.device_info
@@ -1982,25 +1994,35 @@ class OpenWrtClient(abc.ABC):
             )
             data.mwan_status = get_val(med_map.get("mwan"), data.mwan_status, "MWAN")
             data.qmodem_info = get_val(med_map.get("qmodem"), data.qmodem_info, "modem")
-            data.vpn_interfaces = get_val(med_map.get("vpn"), data.vpn_interfaces, "VPN")
+            data.vpn_interfaces = get_val(
+                med_map.get("vpn"), data.vpn_interfaces, "VPN"
+            )
             data.latency = get_val(med_map.get("latency"), data.latency, "latency")
             data.external_ip = get_val(
                 med_map.get("external_ip"), data.external_ip, "external IP"
             )
             if data.device_info:
                 data.device_info.gateway_mac = get_val(
-                    med_map.get("gateway_mac"), data.device_info.gateway_mac, "gateway MAC"
+                    med_map.get("gateway_mac"),
+                    data.device_info.gateway_mac,
+                    "gateway MAC",
                 )
             data.wifi_credentials = get_val(
-                med_map.get("wifi_credentials"), data.wifi_credentials, "WiFi credentials"
+                med_map.get("wifi_credentials"),
+                data.wifi_credentials,
+                "WiFi credentials",
             )
 
             if "wps" in med_map:
                 data.wps_status = get_val(med_map["wps"], data.wps_status, "WPS")
             if "lldp" in med_map:
-                data.lldp_neighbors = get_val(med_map["lldp"], data.lldp_neighbors, "LLDP")
+                data.lldp_neighbors = get_val(
+                    med_map["lldp"], data.lldp_neighbors, "LLDP"
+                )
             if "upnp" in med_map:
-                data.upnp_mappings = get_val(med_map["upnp"], data.upnp_mappings, "UPnP")
+                data.upnp_mappings = get_val(
+                    med_map["upnp"], data.upnp_mappings, "UPnP"
+                )
             if "adblock" in med_map:
                 data.adblock = get_val(med_map["adblock"], data.adblock, "adblock")
             if "simple_adblock" in med_map:
@@ -2050,7 +2072,11 @@ class OpenWrtClient(abc.ABC):
             for k, v in med_cached.items():
                 if hasattr(data, k) and v is not None:
                     setattr(data, k, v)
-            if "gateway_mac" in med_cached and data.device_info and med_cached["gateway_mac"]:
+            if (
+                "gateway_mac" in med_cached
+                and data.device_info
+                and med_cached["gateway_mac"]
+            ):
                 data.device_info.gateway_mac = med_cached["gateway_mac"]
 
         # Populate MAC address for device info if missing

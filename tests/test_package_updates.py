@@ -1,17 +1,16 @@
 """Tests for OPKG/APK package update entities."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.components.update import UpdateEntityFeature
-from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.openwrt.update import (
-    async_setup_entry,
-    OpenWrtPackageUpdateEntity,
-)
-from custom_components.openwrt.const import DOMAIN, DATA_COORDINATOR, DATA_CLIENT
 from custom_components.openwrt.api.base import OpenWrtData
+from custom_components.openwrt.const import DATA_CLIENT, DATA_COORDINATOR, DOMAIN
+from custom_components.openwrt.update import (
+    OpenWrtPackageUpdateEntity,
+    async_setup_entry,
+)
 
 
 @pytest.mark.asyncio
@@ -50,9 +49,11 @@ async def test_package_update_setup_and_install(hass) -> None:
 
     await async_setup_entry(hass, entry, async_add_entities)
 
-    package_entities = [e for e in added_entities if isinstance(e, OpenWrtPackageUpdateEntity)]
+    package_entities = [
+        e for e in added_entities if isinstance(e, OpenWrtPackageUpdateEntity)
+    ]
     assert len(package_entities) == 1
-    
+
     pkg_entity = package_entities[0]
     assert pkg_entity.name == "Package luci-mod-rpc"
     assert pkg_entity.entity_registry_enabled_default is False
@@ -61,7 +62,7 @@ async def test_package_update_setup_and_install(hass) -> None:
 
     # Verify install triggers opkg/apk install commands
     await pkg_entity.async_install(version=None, backup=False)
-    
+
     mock_client.execute_command.assert_called_once()
     script = mock_client.execute_command.call_args[0][0]
     assert "apk add --upgrade luci-mod-rpc" in script

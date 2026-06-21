@@ -458,7 +458,9 @@ class OpenWrtUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntit
             # User said "automatically trigger a backup", so let's log it.
 
 
-class OpenWrtPackageUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntity):
+class OpenWrtPackageUpdateEntity(
+    CoordinatorEntity[OpenWrtDataCoordinator], UpdateEntity
+):
     """Representation of an OpenWrt package update."""
 
     _attr_has_entity_name = True
@@ -497,7 +499,9 @@ class OpenWrtPackageUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], Upda
         """Return the latest version."""
         if self.coordinator.data is None:
             return self._latest_version
-        return self.coordinator.data.upgradeable_packages.get(self._package_name, self._latest_version)
+        return self.coordinator.data.upgradeable_packages.get(
+            self._package_name, self._latest_version
+        )
 
     async def async_install(
         self, version: str | None, backup: bool, **kwargs: Any
@@ -515,4 +519,6 @@ class OpenWrtPackageUpdateEntity(CoordinatorEntity[OpenWrtDataCoordinator], Upda
             await client.execute_command(script)
             await self.coordinator.async_request_refresh()
         except Exception as err:
-            raise HomeAssistantError(f"Failed to install package {self._package_name}: {err}") from err
+            raise HomeAssistantError(
+                f"Failed to install package {self._package_name}: {err}"
+            ) from err

@@ -1,10 +1,10 @@
 """Tests for Coordinator exponential backoff on poll failure."""
 
 from datetime import timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from homeassistant.exceptions import ConfigEntryNotReady
+
 from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
 
 
@@ -14,7 +14,7 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     mock_client = MagicMock()
     mock_client.connect = AsyncMock()
     mock_client.connected = True
-    
+
     # 1. Raise Exception on first fetch
     mock_client.get_all_data = AsyncMock(side_effect=RuntimeError("Connection lost"))
 
@@ -24,11 +24,11 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     entry.entry_id = "test_entry"
 
     coordinator = OpenWrtDataCoordinator(hass, entry, mock_client)
-    
+
     # Trigger first failed update
     with pytest.raises(RuntimeError):
         await coordinator._async_update_data()
-        
+
     # Verify update interval doubled to 60 seconds
     assert coordinator.update_interval == timedelta(seconds=60)
     assert coordinator._current_backoff_interval == 60
@@ -36,7 +36,7 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     # Trigger second failed update
     with pytest.raises(RuntimeError):
         await coordinator._async_update_data()
-        
+
     # Verify update interval doubled again to 120 seconds
     assert coordinator.update_interval == timedelta(seconds=120)
 

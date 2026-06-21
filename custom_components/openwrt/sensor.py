@@ -1162,7 +1162,7 @@ def _create_nlbwmon_sensors(
             entry,
             device.mac.lower(),
             device.hostname or device.mac,
-        )
+        ),
     ]
 
 

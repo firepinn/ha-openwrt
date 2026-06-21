@@ -332,13 +332,24 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             # Reset backoff on success
             if self._current_backoff_interval != self._configured_update_interval:
                 self._current_backoff_interval = self._configured_update_interval
-                self.update_interval = timedelta(seconds=self._configured_update_interval)
-                _LOGGER.info("Connection re-established, resetting update interval to default (%s s)", self._configured_update_interval)
+                self.update_interval = timedelta(
+                    seconds=self._configured_update_interval
+                )
+                _LOGGER.info(
+                    "Connection re-established, resetting update interval to default (%s s)",
+                    self._configured_update_interval,
+                )
         except Exception as err:
             # Double backoff up to 10 minutes (600 seconds)
-            self._current_backoff_interval = min(self._current_backoff_interval * 2, 600)
+            self._current_backoff_interval = min(
+                self._current_backoff_interval * 2, 600
+            )
             self.update_interval = timedelta(seconds=self._current_backoff_interval)
-            _LOGGER.warning("Update failed: %s. Backing off next poll to %s seconds", err, self._current_backoff_interval)
+            _LOGGER.warning(
+                "Update failed: %s. Backing off next poll to %s seconds",
+                err,
+                self._current_backoff_interval,
+            )
             raise
 
         async_delete_connection_lost_repair(self.hass, self.config_entry)

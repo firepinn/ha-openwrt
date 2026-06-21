@@ -3,9 +3,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.exceptions import HomeAssistantError
+
 from custom_components.openwrt import _register_services
-from custom_components.openwrt.const import DOMAIN, DATA_CLIENT
+from custom_components.openwrt.const import DATA_CLIENT, DOMAIN
 
 
 @pytest.mark.asyncio
@@ -31,11 +31,13 @@ async def test_wol_resolve_device(hass) -> None:
 
     with (
         patch("homeassistant.core.ServiceRegistry.async_register") as mock_register,
-        patch("homeassistant.helpers.device_registry.async_get", return_value=mock_dev_reg),
-        patch("homeassistant.helpers.entity_registry.async_get")
+        patch(
+            "homeassistant.helpers.device_registry.async_get", return_value=mock_dev_reg
+        ),
+        patch("homeassistant.helpers.entity_registry.async_get"),
     ):
         _register_services(hass)
-        
+
         wol_handler = None
         for call in mock_register.call_args_list:
             if call[0][1] == "wake_on_lan":
@@ -51,6 +53,6 @@ async def test_wol_resolve_device(hass) -> None:
         }
 
         await wol_handler(call_data)
-        
+
         mock_client.execute_command.assert_called_once()
         assert "11:22:33:44:55:66" in mock_client.execute_command.call_args[0][0]

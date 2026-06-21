@@ -2,12 +2,12 @@
 
 from unittest.mock import MagicMock
 
+from custom_components.openwrt.api.base import NlbwmonTraffic, OpenWrtData
 from custom_components.openwrt.sensor import (
-    _create_nlbwmon_sensors,
     OpenWrtNlbwmonRxSensor,
     OpenWrtNlbwmonTxSensor,
+    _create_nlbwmon_sensors,
 )
-from custom_components.openwrt.api.base import OpenWrtData, NlbwmonTraffic
 
 
 def test_nlbwmon_rx_tx_creation() -> None:
@@ -24,11 +24,11 @@ def test_nlbwmon_rx_tx_creation() -> None:
     entry.entry_id = "test_entry"
 
     sensors = _create_nlbwmon_sensors(coordinator, entry, device)
-    
+
     assert len(sensors) == 2
     assert isinstance(sensors[0], OpenWrtNlbwmonRxSensor)
     assert isinstance(sensors[1], OpenWrtNlbwmonTxSensor)
-    
+
     # Assert disabled by default
     assert sensors[0].entity_registry_enabled_default is False
     assert sensors[1].entity_registry_enabled_default is False
@@ -41,7 +41,7 @@ def test_nlbwmon_rx_tx_values() -> None:
     coordinator.data.nlbwmon_traffic = {
         "11:22:33:44:55:66": NlbwmonTraffic(
             rx_bytes=10485760,  # 10 MB
-            tx_bytes=5242880,   # 5 MB
+            tx_bytes=5242880,  # 5 MB
             rx_packets=1000,
             tx_packets=500,
         )
