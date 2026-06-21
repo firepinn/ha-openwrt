@@ -803,9 +803,10 @@ Attended Sysupgrade allows you to generate and install custom firmware images ta
 
 For maximum safety, the integration can automatically trigger a router configuration backup before any firmware update starts.
 
-- **Storage**: Backups are downloaded and stored locally in your Home Assistant configuration directory under `backups/openwrt/`.
+- **Storage**: Backups are downloaded and stored locally in your Home Assistant configuration directory under `openwrt_backups/` (or a custom path defined in the service call).
 - **Cleanup**: The remote backup file on the router is automatically removed after a successful download.
 - **Toggle**: This feature is enabled by default but can be disabled in the integration options.
+- **Retention Policy**: To prevent disk space exhaustion, you can configure a retention policy in the integration options. By default, backups older than **30 days** are automatically pruned when a new backup is created.
 
 ### Snapshot Logic
 

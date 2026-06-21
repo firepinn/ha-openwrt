@@ -220,6 +220,7 @@
           "consider_home": "Device 'Consider Home' Delay (seconds)",
           "dhcp_software": "DHCP Software",
           "auto_backup": "Automatic Backup before Firmware Update",
+          "backup_retention_days": "Backup retention period (days)",
           "custom_firmware_repo": "Custom Firmware GitHub Repo (owner/repo)",
           "asu_url": "Attended Sysupgrade Server URL",
           "target_override": "Target Override (e.g. arch/subtarget)",

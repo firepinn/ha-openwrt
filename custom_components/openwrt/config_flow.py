@@ -65,6 +65,7 @@ from .api.ubus import (
 from .const import (
     CONF_ASU_URL,
     CONF_AUTO_BACKUP,
+    CONF_BACKUP_RETENTION_DAYS,
     CONF_CONNECTION_TYPE,
     CONF_CONSIDER_HOME,
     CONF_CUSTOM_FIRMWARE_REPO,
@@ -101,6 +102,7 @@ from .const import (
     CONNECTION_TYPE_SSH,
     CONNECTION_TYPE_UBUS,
     DATA_COORDINATOR,
+    DEFAULT_BACKUP_RETENTION_DAYS,
     DEFAULT_CONSIDER_HOME,
     DEFAULT_PORT_SSH,
     DEFAULT_PORT_UBUS,
@@ -2155,6 +2157,12 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     CONF_AUTO_BACKUP,
                     default=current.get(CONF_AUTO_BACKUP, True),
                 ): bool,
+                vol.Optional(
+                    CONF_BACKUP_RETENTION_DAYS,
+                    default=current.get(
+                        CONF_BACKUP_RETENTION_DAYS, DEFAULT_BACKUP_RETENTION_DAYS
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=365)),
                 vol.Optional(
                     CONF_CUSTOM_FIRMWARE_REPO,
                     default=current.get(CONF_CUSTOM_FIRMWARE_REPO, ""),

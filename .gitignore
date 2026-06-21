@@ -182,3 +182,5 @@ ruff_errors.json
 test_live.py
 /scratch
 config_entry-openwrt-*.json
+fcntl.py
+resource.py

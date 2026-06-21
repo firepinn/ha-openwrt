@@ -39,21 +39,23 @@ from .api.luci_rpc import LuciRpcAuthError, LuciRpcError
 from .api.ssh import SshAuthError, SshError
 from .api.ubus import UbusAuthError, UbusError
 from .const import (
+    CONF_BACKUP_RETENTION_DAYS,
     DATA_CLIENT,
     DATA_COORDINATOR,
+    DEFAULT_BACKUP_RETENTION_DAYS,
     DOMAIN,
     PLATFORMS,
+    SERVICE_ADD_STATIC_LEASE,
     SERVICE_BACKUP,
+    SERVICE_DELETE_STATIC_LEASE,
     SERVICE_EXEC,
     SERVICE_GENERATE_REPORT,
+    SERVICE_GET_SYSTEM_LOGS,
     SERVICE_INIT,
     SERVICE_REBOOT,
     SERVICE_UCI_GET,
     SERVICE_UCI_SET,
     SERVICE_WOL,
-    SERVICE_ADD_STATIC_LEASE,
-    SERVICE_DELETE_STATIC_LEASE,
-    SERVICE_GET_SYSTEM_LOGS,
 )
 from .coordinator import OpenWrtDataCoordinator, create_client
 
@@ -322,7 +324,7 @@ def _register_services(hass: HomeAssistant) -> None:
                 entity = ent_reg.async_get(entity_id)
                 if entity and entity.device_id:
                     device_id = entity.device_id
-            
+
             if device_id:
                 dev_reg = dr.async_get(hass)
                 device = dev_reg.async_get(device_id)
@@ -442,6 +444,7 @@ def _register_services(hass: HomeAssistant) -> None:
     async def _handle_backup(call: ServiceCall) -> ServiceResponse:
         """Handle create backup service call."""
         import os
+
         entry_id = call.data["entry_id"]
         custom_path = call.data.get("download_path")
 
@@ -468,20 +471,62 @@ def _register_services(hass: HomeAssistant) -> None:
 
             # Download the backup file from the router
             download_success = await client.download_file(backup_path, local_path)
-            
+
             # Clean up the remote backup file
             try:
                 await client.execute_command(f"rm -f {backup_path}")
             except Exception as clean_err:
-                _LOGGER.warning("Could not delete remote backup file %s: %s", backup_path, clean_err)
+                _LOGGER.warning(
+                    "Could not delete remote backup file %s: %s", backup_path, clean_err
+                )
 
             if not download_success:
-                raise HomeAssistantError("Failed to download the backup file from the router")
+                raise HomeAssistantError(
+                    "Failed to download the backup file from the router"
+                )
+
+            # Perform backup retention cleanup
+            try:
+                # Find the config entry options to get the retention days
+                entry = hass.config_entries.async_get_entry(entry_id)
+                retention_days = DEFAULT_BACKUP_RETENTION_DAYS
+                if entry and entry.options:
+                    retention_days = entry.options.get(
+                        CONF_BACKUP_RETENTION_DAYS, DEFAULT_BACKUP_RETENTION_DAYS
+                    )
+
+                import time
+
+                now = time.time()
+                retention_seconds = retention_days * 86400
+
+                for f in os.listdir(local_dir):
+                    if f.startswith("backup-ha-") and f.endswith(".tar.gz"):
+                        f_path = os.path.join(local_dir, f)
+                        try:
+                            mtime = os.path.getmtime(f_path)
+                            if now - mtime > retention_seconds:
+                                os.remove(f_path)
+                                _LOGGER.info(
+                                    "Removed old backup file %s due to retention policy (%s days)",
+                                    f_path,
+                                    retention_days,
+                                )
+                        except Exception as file_err:
+                            _LOGGER.warning(
+                                "Could not check/remove old backup file %s: %s",
+                                f_path,
+                                file_err,
+                            )
+            except Exception as cleanup_err:
+                _LOGGER.warning(
+                    "Error performing backup retention cleanup: %s", cleanup_err
+                )
 
             return {
                 "backup_path": backup_path,
                 "local_path": local_path,
-                "filename": filename
+                "filename": filename,
             }
         except Exception as err:
             msg = f"Failed to create backup: {err}"
@@ -558,7 +603,7 @@ while true; do
   fi
   i=$((i+1))
 done"""
-        
+
         add_parts = [
             "uci add dhcp host",
             f"uci set dhcp.@host[-1].mac='{mac}'",
@@ -567,13 +612,15 @@ done"""
         if name:
             add_parts.append(f"uci set dhcp.@host[-1].name='{name}'")
 
-        add_parts.extend([
-            "uci commit dhcp",
-            "/etc/init.d/dnsmasq restart || /etc/init.d/odhcpd restart"
-        ])
-        
+        add_parts.extend(
+            [
+                "uci commit dhcp",
+                "/etc/init.d/dnsmasq restart || /etc/init.d/odhcpd restart",
+            ]
+        )
+
         script = f"{del_script}\n" + "\n".join(add_parts)
-        
+
         try:
             await client.execute_command(script)
         except Exception as err:
@@ -677,7 +724,9 @@ uci commit dhcp
         schema=vol.Schema(
             {
                 vol.Required("entry_id"): cv.string,
-                vol.Optional("count"): vol.All(vol.Coerce(int), vol.Range(min=1, max=1000)),
+                vol.Optional("count"): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=1000)
+                ),
                 vol.Optional("log_type"): vol.In(["system", "kernel"]),
             },
         ),

@@ -220,6 +220,7 @@
           "consider_home": "Verzögerung für 'Anwesend' Status (Sekunden)",
           "dhcp_software": "DHCP Software",
           "auto_backup": "Automatisches Backup vor Firmware-Update",
+          "backup_retention_days": "Backup-Vorhaltezeit (Tage)",
           "custom_firmware_repo": "Custom Firmware GitHub Repo (owner/repo)",
           "asu_url": "Attended Sysupgrade Server URL",
           "target_override": "Target Override (z.B. arch/subtarget)",
