@@ -13,6 +13,19 @@ name: Release
           - stable
           - beta
           - nightly
+      bump_level:
+        description: "Bump Level (SemVer only: major, minor, patch)"
+        required: false
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      version_override:
+        description: "Manually override new version (e.g. 1.2.3 or 2026.6.2b1). Leave empty to use automatic calculation."
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-release
@@ -31,20 +44,22 @@ jobs:
       is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
       release_body: ${{ steps.get_version.outputs.release_body }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.14.6"
+          python-version: "3.14"
 
       - name: Calculate Version and Release Details
         id: get_version
         shell: bash
         env:
           RELEASE_TYPE: ${{ inputs.release_type }}
+          BUMP_LEVEL: ${{ inputs.bump_level }}
+          VERSION_OVERRIDE: ${{ inputs.version_override }}
           REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
@@ -52,7 +67,7 @@ jobs:
           python .github/scripts/calculate_release_details.py
 
       - name: Upload Release Body
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: release-body
           path: release_body.md
@@ -79,7 +94,7 @@ jobs:
           fi
 
       - name: Create Initial Draft Release
-        uses: softprops/action-gh-release@v3.0.1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: Release ${{ steps.get_version.outputs.version }}
@@ -96,14 +111,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.14.6"
+          python-version: "3.14"
 
       - name: Configure Git and pull latest
         run: |
@@ -114,18 +129,18 @@ jobs:
       - name: Update Files
         shell: bash
         run: |
-          python .github/scripts/version_manager.py bump --type ${{ inputs.release_type }}
+          python .github/scripts/version_manager.py bump --type ${{ inputs.release_type }} --level ${{ inputs.bump_level }} --override "${{ inputs.version_override }}"
 
       - name: Commit and Push
         run: |
-          git add custom_components/db_infoscreen/manifest.json
+          git add custom_components/openwrt/manifest.json
           if ! git diff --staged --quiet; then
             git commit -m "chore: release version ${{ needs.versioning.outputs.version }} [skip ci]"
             git push origin HEAD:${{ github.ref_name }} || (git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }})
           fi
 
       - name: Download Release Body
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8
         with:
           name: release-body
 
@@ -136,7 +151,7 @@ jobs:
           printf "%s\n\n---\n🔄 **Release Progress**: Repository version synced. Creating release assets...\n" "$body" > updated_draft_body.md
 
       - name: Update Draft Release on GitHub
-        uses: softprops/action-gh-release@v3.0.1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.versioning.outputs.tag }}
           name: Release ${{ needs.versioning.outputs.version }}
@@ -153,23 +168,23 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: 📦 Zip Component
         run: |
           cd custom_components
-          zip -r ../db_infoscreen.zip db_infoscreen
+          zip -r ../openwrt.zip openwrt
           cd ..
 
       - name: Download Release Body Artifact
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8
         with:
           name: release-body
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3.0.1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.versioning.outputs.tag }}
           name: Release ${{ needs.versioning.outputs.version }}
@@ -178,7 +193,7 @@ jobs:
           draft: false
           generate_release_notes: false
           files: |
-            db_infoscreen.zip
+            openwrt.zip
 
   cleanup-release:
     needs: [versioning, sync-version, gh-release]
