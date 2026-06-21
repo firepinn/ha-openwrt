@@ -1,6 +1,6 @@
 """Tests for OpenWrt static DHCP lease services."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
