@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+
 from custom_components.openwrt import _register_services
 from custom_components.openwrt.const import DATA_CLIENT, DOMAIN
 
@@ -24,7 +26,7 @@ async def test_wol_resolve_device(hass) -> None:
 
     # Mock device and connections
     mock_device = MagicMock()
-    mock_device.connections = {("mac", "11:22:33:44:55:66")}
+    mock_device.connections = {(CONNECTION_NETWORK_MAC, "11:22:33:44:55:66")}
 
     mock_dev_reg = MagicMock()
     mock_dev_reg.async_get = MagicMock(return_value=mock_device)
