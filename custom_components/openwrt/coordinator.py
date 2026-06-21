@@ -237,10 +237,8 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             f"{DOMAIN}_{config_entry.entry_id}_history",
         )
 
-        update_interval = config_entry.options.get(
-            CONF_UPDATE_INTERVAL,
-            config_entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
-        )
+        self._configured_update_interval = update_interval
+        self._current_backoff_interval = update_interval
 
         super().__init__(
             hass,
@@ -325,7 +323,19 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
     async def _async_update_data(self) -> OpenWrtData:
         """Fetch data."""
-        data = await self._async_fetch_all_data()
+        try:
+            data = await self._async_fetch_all_data()
+            # Reset backoff on success
+            if self._current_backoff_interval != self._configured_update_interval:
+                self._current_backoff_interval = self._configured_update_interval
+                self.update_interval = timedelta(seconds=self._configured_update_interval)
+                _LOGGER.info("Connection re-established, resetting update interval to default (%s s)", self._configured_update_interval)
+        except Exception as err:
+            # Double backoff up to 10 minutes (600 seconds)
+            self._current_backoff_interval = min(self._current_backoff_interval * 2, 600)
+            self.update_interval = timedelta(seconds=self._current_backoff_interval)
+            _LOGGER.warning("Update failed: %s. Backing off next poll to %s seconds", err, self._current_backoff_interval)
+            raise
 
         async_delete_connection_lost_repair(self.hass, self.config_entry)
 
