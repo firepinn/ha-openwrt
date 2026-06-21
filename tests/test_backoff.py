@@ -25,6 +25,9 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     entry.entry_id = "test_entry"
 
     coordinator = OpenWrtDataCoordinator(hass, entry, mock_client)
+    coordinator._store = MagicMock()
+    coordinator._store.async_load = AsyncMock(return_value={})
+    coordinator._store.async_save = AsyncMock()
 
     # Trigger first failed update
     with pytest.raises(Exception, match="Connection lost"):
