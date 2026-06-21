@@ -42,7 +42,9 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     assert coordinator.update_interval == timedelta(seconds=120)
 
     # 2. Succeed on third fetch
-    mock_client.get_all_data = AsyncMock(return_value=MagicMock())
+    mock_data = MagicMock()
+    mock_data.system_resources.uptime = 100
+    mock_client.get_all_data = AsyncMock(return_value=mock_data)
     await coordinator._async_update_data()
 
     # Verify update interval reset to default (30 seconds)

@@ -13,7 +13,7 @@ from custom_components.openwrt.const import DATA_CLIENT, DOMAIN
 async def test_wol_resolve_device(hass) -> None:
     """Test resolving WoL MAC from device registry."""
     mock_client = MagicMock()
-    mock_client.execute_command = AsyncMock()
+    mock_client.execute_command = AsyncMock(return_value="Success")
 
     hass.data = {
         DOMAIN: {
