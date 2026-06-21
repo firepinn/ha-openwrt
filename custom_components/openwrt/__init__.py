@@ -51,6 +51,8 @@ from .const import (
     SERVICE_UCI_GET,
     SERVICE_UCI_SET,
     SERVICE_WOL,
+    SERVICE_ADD_STATIC_LEASE,
+    SERVICE_DELETE_STATIC_LEASE,
 )
 from .coordinator import OpenWrtDataCoordinator, create_client
 
@@ -467,6 +469,83 @@ def _register_services(hass: HomeAssistant) -> None:
 
         return {"report": report}
 
+    async def _handle_add_static_lease(call: ServiceCall) -> None:
+        """Handle add static lease service call."""
+        entry_id = call.data["entry_id"]
+        mac = call.data["mac"]
+        ip = call.data["ip"]
+        name = call.data.get("name")
+
+        if entry_id not in hass.data[DOMAIN]:
+            msg = f"Config entry {entry_id} not found"
+            raise vol.Invalid(msg)
+
+        client = hass.data[DOMAIN][entry_id][DATA_CLIENT]
+
+        del_script = f"""m="{mac}"
+i=0
+while true; do
+  val=$(uci get dhcp.@host[$i].mac 2>/dev/null)
+  [ -z "$val" ] && break
+  if [ "$(echo "$val" | tr 'A-Z' 'a-z')" = "$(echo "$m" | tr 'A-Z' 'a-z')" ]; then
+    uci delete dhcp.@host[$i]
+    continue
+  fi
+  i=$((i+1))
+done"""
+        
+        add_parts = [
+            "uci add dhcp host",
+            f"uci set dhcp.@host[-1].mac='{mac}'",
+            f"uci set dhcp.@host[-1].ip='{ip}'",
+        ]
+        if name:
+            add_parts.append(f"uci set dhcp.@host[-1].name='{name}'")
+
+        add_parts.extend([
+            "uci commit dhcp",
+            "/etc/init.d/dnsmasq restart || /etc/init.d/odhcpd restart"
+        ])
+        
+        script = f"{del_script}\n" + "\n".join(add_parts)
+        
+        try:
+            await client.execute_command(script)
+        except Exception as err:
+            msg = f"Failed to add static lease: {err}"
+            raise HomeAssistantError(msg) from err
+
+    async def _handle_delete_static_lease(call: ServiceCall) -> None:
+        """Handle delete static lease service call."""
+        entry_id = call.data["entry_id"]
+        mac = call.data["mac"]
+
+        if entry_id not in hass.data[DOMAIN]:
+            msg = f"Config entry {entry_id} not found"
+            raise vol.Invalid(msg)
+
+        client = hass.data[DOMAIN][entry_id][DATA_CLIENT]
+
+        script = f"""m="{mac}"
+i=0
+while true; do
+  val=$(uci get dhcp.@host[$i].mac 2>/dev/null)
+  [ -z "$val" ] && break
+  if [ "$(echo "$val" | tr 'A-Z' 'a-z')" = "$(echo "$m" | tr 'A-Z' 'a-z')" ]; then
+    uci delete dhcp.@host[$i]
+    continue
+  fi
+  i=$((i+1))
+done
+uci commit dhcp
+/etc/init.d/dnsmasq restart || /etc/init.d/odhcpd restart"""
+
+        try:
+            await client.execute_command(script)
+        except Exception as err:
+            msg = f"Failed to delete static lease: {err}"
+            raise HomeAssistantError(msg) from err
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_GENERATE_REPORT,
@@ -477,4 +556,30 @@ def _register_services(hass: HomeAssistant) -> None:
             },
         ),
         supports_response=SupportsResponse.ONLY,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_STATIC_LEASE,
+        _handle_add_static_lease,
+        schema=vol.Schema(
+            {
+                vol.Required("entry_id"): cv.string,
+                vol.Required("mac"): cv.string,
+                vol.Required("ip"): cv.string,
+                vol.Optional("name"): cv.string,
+            },
+        ),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_STATIC_LEASE,
+        _handle_delete_static_lease,
+        schema=vol.Schema(
+            {
+                vol.Required("entry_id"): cv.string,
+                vol.Required("mac"): cv.string,
+            },
+        ),
     )
