@@ -821,6 +821,9 @@ class OpenWrtClient(abc.ABC):
         self.packages = OpenWrtPackages()
         self.coordinator: Any = None
         self._last_connect_error: Exception | None = None
+        self._last_slow_poll_time = 0.0
+        self._last_medium_poll_time = 0.0
+        self._cached_medium_data = {}
 
     def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
         """Helper to safely extract wireless rate from assoclist data."""
@@ -1713,12 +1716,18 @@ class OpenWrtClient(abc.ABC):
             _LOGGER.debug("Error retrieving QModem info: %s", err)
 
         return info
-
     async def get_all_data(self, is_full_poll: bool = False) -> OpenWrtData:
         """Fetch all data from OpenWrt in parallel blocks with robust fallbacks."""
-        # Force full poll every 30 cycles or if we have no cached device info yet
-        if self._cached_device_info is None or self._poll_count % 30 == 0:
-            is_full_poll = True
+        import time
+        now = time.time()
+
+        # Multi-Interval-Polling:
+        # - Fast-poll: CPU/RAM/Uptime/Load, Active Interfaces, Network traffic rates, Connected clients/wireless, DHCP Leases. (Every cycle)
+        # - Medium-poll: IP neighbors, MWAN, Latency, External IP, VPN, UPnP, AdBlock, banIP, etc. (Every 3 cycles or ~3 minutes)
+        # - Slow-poll: Device info, system logs, packages lists, firewall, sqm, wireguard, services, etc. (Every 30 cycles or ~15-30 minutes)
+        
+        is_slow_poll = is_full_poll or (self._cached_device_info is None) or (now - self._last_slow_poll_time >= 900.0)
+        is_medium_poll = is_slow_poll or (now - self._last_medium_poll_time >= 180.0)
 
         self._poll_count += 1
         data = (self.coordinator.data if self.coordinator else None) or OpenWrtData()
@@ -1739,15 +1748,10 @@ class OpenWrtClient(abc.ABC):
                 and isinstance(res, list)
                 and default
             ):
-                # If the new list is missing items that were previously there,
-                # merge them to prevent entities from going unavailable.
-                # We assume the name/section_id is the unique key.
                 if name == "network_interfaces":
                     new_names = {i.name for i in res}
                     for old_iface in default:
                         if old_iface.name not in new_names:
-                            # Keep the old interface but mark as down/inactive
-                            # to avoid "unavailable" state in HA.
                             old_iface.up = False
                             res.append(old_iface)
                 elif name == "SQM":
@@ -1764,7 +1768,7 @@ class OpenWrtClient(abc.ABC):
                     return default
             return res
 
-        # 1. Core data (Fast block) - Essential for basic functionality and trackers
+        # 1. Fast-changing Core data - Essential for basic functionality, trackers, and rates
         core_tasks = [
             self.get_system_resources(),
             self.get_network_interfaces(),
@@ -1772,8 +1776,22 @@ class OpenWrtClient(abc.ABC):
             self.get_local_macs(),
             self.get_local_ips(),
         ]
-        core_results = await asyncio.gather(*core_tasks, return_exceptions=True)
-
+        
+        # Add fast dynamic tasks (wireless, dhcp) to core_tasks
+        core_dynamic_tasks = {}
+        if data.packages.wireless is not False:
+            core_dynamic_tasks["wireless"] = self.get_wireless_interfaces()
+        if data.packages.dhcp is not False:
+            core_dynamic_tasks["dhcp"] = self.get_dhcp_leases()
+            
+        core_dyn_keys = list(core_dynamic_tasks.keys())
+        
+        core_results = await asyncio.gather(
+            *core_tasks,
+            *[core_dynamic_tasks[k] for k in core_dyn_keys],
+            return_exceptions=True
+        )
+        
         data.system_resources = get_val(
             core_results[0], data.system_resources, "system_resources"
         )
@@ -1785,9 +1803,19 @@ class OpenWrtClient(abc.ABC):
         )
         data.local_macs = get_val(core_results[3], data.local_macs, "local_macs")
         data.local_ips = get_val(core_results[4], data.local_ips, "local_ips")
+        
+        core_dyn_offset = len(core_tasks)
+        core_dyn_results = dict(zip(core_dyn_keys, core_results[core_dyn_offset:], strict=False))
+        
+        if "wireless" in core_dyn_results:
+            data.wireless_interfaces = get_val(
+                core_dyn_results["wireless"], data.wireless_interfaces, "wireless"
+            )
+        if "dhcp" in core_dyn_results:
+            data.dhcp_leases = get_val(core_dyn_results["dhcp"], data.dhcp_leases, "DHCP")
 
-        # 2. Slow-changing optional data (Full Poll) - Reduces router load
-        if is_full_poll:
+        # 2. Slow-changing optional data (Slow Poll) - Reduces router load
+        if is_slow_poll:
             slow_optional_tasks = {
                 "device_info": self.get_device_info(),
                 "services": self.get_services(),
@@ -1857,8 +1885,9 @@ class OpenWrtClient(abc.ABC):
                     "system_logs",
                 ]
             }
+            self._last_slow_poll_time = now
         else:
-            # Reuse cached data on fast polls
+            # Reuse cached data on fast/medium polls
             if self._cached_device_info:
                 data.device_info = self._cached_device_info
 
@@ -1867,90 +1896,117 @@ class OpenWrtClient(abc.ABC):
                 if hasattr(data, k) and v is not None:
                     setattr(data, k, v)
 
-        # 3. Dynamic always-fresh data (Dynamic block)
-        dynamic_tasks = {
-            "ip_neighbors": self.get_ip_neighbors(),
-            "mwan": self.get_mwan_status(),
-            "qmodem": self.get_qmodem_info(),
-            "vpn": self.get_vpn_status(),
-            "latency": self.get_latency(),
-            "external_ip": self.get_external_ip(),
-            "gateway_mac": self.get_gateway_mac(),
-            "wifi_credentials": self.get_wifi_credentials(),
-        }
+        # 3. Medium-changing dynamic data
+        if is_medium_poll:
+            medium_tasks = {
+                "ip_neighbors": self.get_ip_neighbors(),
+                "mwan": self.get_mwan_status(),
+                "qmodem": self.get_qmodem_info(),
+                "vpn": self.get_vpn_status(),
+                "latency": self.get_latency(),
+                "external_ip": self.get_external_ip(),
+                "gateway_mac": self.get_gateway_mac(),
+                "wifi_credentials": self.get_wifi_credentials(),
+            }
 
-        if data.packages.wireless is not False:
-            dynamic_tasks["wireless"] = self.get_wireless_interfaces()
-            dynamic_tasks["wps"] = self.get_wps_status()
-        if data.packages.dhcp is not False:
-            dynamic_tasks["dhcp"] = self.get_dhcp_leases()
-        if data.packages.lldp is not False:
-            dynamic_tasks["lldp"] = self.get_lldp_neighbors()
-        if data.packages.miniupnpd is not False:
-            dynamic_tasks["upnp"] = self.get_upnp_mappings()
-        if data.packages.adblock:
-            dynamic_tasks["adblock"] = self.get_adblock_status()
-        if data.packages.simple_adblock:
-            dynamic_tasks["simple_adblock"] = self.get_simple_adblock_status()
-        if data.packages.ban_ip:
-            dynamic_tasks["ban_ip"] = self.get_banip_status()
-        if (data.packages.batman_adv or data.packages.batctl) and (
-            not self.coordinator or data.permissions.read_batman
-        ):
-            dynamic_tasks["batman"] = self.get_batman_data()
+            if data.packages.wireless is not False:
+                medium_tasks["wps"] = self.get_wps_status()
+            if data.packages.lldp is not False:
+                medium_tasks["lldp"] = self.get_lldp_neighbors()
+            if data.packages.miniupnpd is not False:
+                medium_tasks["upnp"] = self.get_upnp_mappings()
+            if data.packages.adblock:
+                medium_tasks["adblock"] = self.get_adblock_status()
+            if data.packages.simple_adblock:
+                medium_tasks["simple_adblock"] = self.get_simple_adblock_status()
+            if data.packages.ban_ip:
+                medium_tasks["ban_ip"] = self.get_banip_status()
+            if (data.packages.batman_adv or data.packages.batctl) and (
+                not self.coordinator or data.permissions.read_batman
+            ):
+                medium_tasks["batman"] = self.get_batman_data()
 
-        dyn_keys = list(dynamic_tasks.keys())
-        dyn_results = await asyncio.gather(
-            *[dynamic_tasks[k] for k in dyn_keys], return_exceptions=True
-        )
-        dyn_map = dict(zip(dyn_keys, dyn_results, strict=False))
-
-        data.ip_neighbors = get_val(
-            dyn_map.get("ip_neighbors"), data.ip_neighbors, "IP neighbors"
-        )
-        data.mwan_status = get_val(dyn_map.get("mwan"), data.mwan_status, "MWAN")
-        data.qmodem_info = get_val(dyn_map.get("qmodem"), data.qmodem_info, "modem")
-        data.vpn_interfaces = get_val(dyn_map.get("vpn"), data.vpn_interfaces, "VPN")
-        data.latency = get_val(dyn_map.get("latency"), data.latency, "latency")
-        data.external_ip = get_val(
-            dyn_map.get("external_ip"), data.external_ip, "external IP"
-        )
-        if data.device_info:
-            data.device_info.gateway_mac = get_val(
-                dyn_map.get("gateway_mac"), data.device_info.gateway_mac, "gateway MAC"
+            med_keys = list(medium_tasks.keys())
+            med_results = await asyncio.gather(
+                *[medium_tasks[k] for k in med_keys], return_exceptions=True
             )
-        data.wifi_credentials = get_val(
-            dyn_map.get("wifi_credentials"), data.wifi_credentials, "WiFi credentials"
-        )
+            med_map = dict(zip(med_keys, med_results, strict=False))
 
-        if "wireless" in dyn_map:
-            data.wireless_interfaces = get_val(
-                dyn_map["wireless"], data.wireless_interfaces, "wireless"
+            data.ip_neighbors = get_val(
+                med_map.get("ip_neighbors"), data.ip_neighbors, "IP neighbors"
             )
-        if "wps" in dyn_map:
-            data.wps_status = get_val(dyn_map["wps"], data.wps_status, "WPS")
-        if "dhcp" in dyn_map:
-            data.dhcp_leases = get_val(dyn_map["dhcp"], data.dhcp_leases, "DHCP")
-        if "lldp" in dyn_map:
-            data.lldp_neighbors = get_val(dyn_map["lldp"], data.lldp_neighbors, "LLDP")
-        if "upnp" in dyn_map:
-            data.upnp_mappings = get_val(dyn_map["upnp"], data.upnp_mappings, "UPnP")
-        if "adblock" in dyn_map:
-            data.adblock = get_val(dyn_map["adblock"], data.adblock, "adblock")
-        if "simple_adblock" in dyn_map:
-            data.simple_adblock = get_val(
-                dyn_map["simple_adblock"], data.simple_adblock, "simple adblock"
+            data.mwan_status = get_val(med_map.get("mwan"), data.mwan_status, "MWAN")
+            data.qmodem_info = get_val(med_map.get("qmodem"), data.qmodem_info, "modem")
+            data.vpn_interfaces = get_val(med_map.get("vpn"), data.vpn_interfaces, "VPN")
+            data.latency = get_val(med_map.get("latency"), data.latency, "latency")
+            data.external_ip = get_val(
+                med_map.get("external_ip"), data.external_ip, "external IP"
             )
-        if "ban_ip" in dyn_map:
-            data.ban_ip = get_val(dyn_map["ban_ip"], data.ban_ip, "ban-ip")
-        if "batman" in dyn_map:
-            batman = get_val(dyn_map["batman"], None, "batman")
-            if batman:
-                data.batman_originators = batman.get("originators", [])
-                data.batman_neighbors = batman.get("neighbors", [])
-                data.batman_gateways = batman.get("gateways", [])
-                data.batman_translation_table = batman.get("translation_table", {})
-                data.batman_mesh_active = batman.get("mesh_active", False)
+            if data.device_info:
+                data.device_info.gateway_mac = get_val(
+                    med_map.get("gateway_mac"), data.device_info.gateway_mac, "gateway MAC"
+                )
+            data.wifi_credentials = get_val(
+                med_map.get("wifi_credentials"), data.wifi_credentials, "WiFi credentials"
+            )
+
+            if "wps" in med_map:
+                data.wps_status = get_val(med_map["wps"], data.wps_status, "WPS")
+            if "lldp" in med_map:
+                data.lldp_neighbors = get_val(med_map["lldp"], data.lldp_neighbors, "LLDP")
+            if "upnp" in med_map:
+                data.upnp_mappings = get_val(med_map["upnp"], data.upnp_mappings, "UPnP")
+            if "adblock" in med_map:
+                data.adblock = get_val(med_map["adblock"], data.adblock, "adblock")
+            if "simple_adblock" in med_map:
+                data.simple_adblock = get_val(
+                    med_map["simple_adblock"], data.simple_adblock, "simple adblock"
+                )
+            if "ban_ip" in med_map:
+                data.ban_ip = get_val(med_map["ban_ip"], data.ban_ip, "ban-ip")
+            if "batman" in med_map:
+                batman = get_val(med_map["batman"], None, "batman")
+                if batman:
+                    data.batman_originators = batman.get("originators", [])
+                    data.batman_neighbors = batman.get("neighbors", [])
+                    data.batman_gateways = batman.get("gateways", [])
+                    data.batman_translation_table = batman.get("translation_table", {})
+                    data.batman_mesh_active = batman.get("mesh_active", False)
+
+            self._cached_medium_data = {
+                k: data.__dict__.get(k)
+                for k in [
+                    "ip_neighbors",
+                    "mwan_status",
+                    "qmodem_info",
+                    "vpn_interfaces",
+                    "latency",
+                    "external_ip",
+                    "wifi_credentials",
+                    "wps_status",
+                    "lldp_neighbors",
+                    "upnp_mappings",
+                    "adblock",
+                    "simple_adblock",
+                    "ban_ip",
+                    "batman_originators",
+                    "batman_neighbors",
+                    "batman_gateways",
+                    "batman_translation_table",
+                    "batman_mesh_active",
+                ]
+            }
+            if data.device_info:
+                self._cached_medium_data["gateway_mac"] = data.device_info.gateway_mac
+            self._last_medium_poll_time = now
+        else:
+            # Reuse cached medium data
+            med_cached = getattr(self, "_cached_medium_data", {})
+            for k, v in med_cached.items():
+                if hasattr(data, k) and v is not None:
+                    setattr(data, k, v)
+            if "gateway_mac" in med_cached and data.device_info and med_cached["gateway_mac"]:
+                data.device_info.gateway_mac = med_cached["gateway_mac"]
 
         # Populate MAC address for device info if missing
         if data.device_info and not data.device_info.mac_address:
