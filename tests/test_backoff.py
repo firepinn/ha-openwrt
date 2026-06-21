@@ -26,7 +26,7 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     coordinator = OpenWrtDataCoordinator(hass, entry, mock_client)
 
     # Trigger first failed update
-    with pytest.raises(RuntimeError):
+    with pytest.raises(Exception, match="Connection lost"):
         await coordinator._async_update_data()
 
     # Verify update interval doubled to 60 seconds
@@ -34,7 +34,7 @@ async def test_coordinator_backoff_on_failure(hass) -> None:
     assert coordinator._current_backoff_interval == 60
 
     # Trigger second failed update
-    with pytest.raises(RuntimeError):
+    with pytest.raises(Exception, match="Connection lost"):
         await coordinator._async_update_data()
 
     # Verify update interval doubled again to 120 seconds

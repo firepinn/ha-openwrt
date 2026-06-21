@@ -25,7 +25,7 @@ async def test_get_system_logs_service(hass) -> None:
         }
     }
 
-    with patch("homeassistant.core.ServiceRegistry.async_register") as mock_register:
+    with patch.object(hass.services, "async_register") as mock_register:
         _register_services(hass)
 
         log_handler = None
@@ -40,17 +40,17 @@ async def test_get_system_logs_service(hass) -> None:
         call_data = MagicMock()
         call_data.data = {
             "entry_id": "test_entry_id",
-            "count": 10,
+            "lines": 10,
             "log_type": "system",
         }
         res = await log_handler(call_data)
         assert res == {"logs": ["syslog line 1"]}
-        mock_client.get_system_logs.assert_called_once_with(count=10)
+        mock_client.get_system_logs.assert_called_once_with(lines=10)
 
         # Test kernel log type
         call_data.data = {
             "entry_id": "test_entry_id",
-            "count": 20,
+            "lines": 20,
             "log_type": "kernel",
         }
         res = await log_handler(call_data)
@@ -88,6 +88,10 @@ async def test_diagnostics_redacts_logs(hass) -> None:
         patch(
             "custom_components.openwrt.diagnostics.async_redact_data",
             side_effect=lambda d, k: d,
+        ),
+        patch(
+            "custom_components.openwrt.diagnostics._to_json_safe",
+            side_effect=lambda x: x,
         ),
         patch("homeassistant.helpers.device_registry.async_get"),
         patch("homeassistant.helpers.entity_registry.async_get"),
