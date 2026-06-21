@@ -120,7 +120,6 @@ jobs:
 
       - name: Commit and Push
         run: |
-          git add -f VERSION
           git add custom_components/openwrt/manifest.json
           git add pyproject.toml
           if ! git diff --staged --quiet; then

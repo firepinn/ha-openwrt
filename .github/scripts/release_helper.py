@@ -37,14 +37,6 @@ def main():
             run_cmd(["git", "checkout", "--", path])
         except Exception:
             pass
-    if os.path.exists("VERSION"):
-        try:
-            run_cmd(["git", "checkout", "--", "VERSION"])
-        except Exception:
-            try:
-                os.remove("VERSION")
-            except Exception:
-                pass
 
     print(f"Calculated Version: {version}")
     tag = f"v{version}"
