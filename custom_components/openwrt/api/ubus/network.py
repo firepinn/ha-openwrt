@@ -639,6 +639,6 @@ class UbusNetworkMixin:
                 idx = parts.index("lladdr")
                 if len(parts) > idx + 1:
                     return parts[idx + 1].upper()
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
         return None

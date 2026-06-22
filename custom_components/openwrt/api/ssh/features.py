@@ -417,7 +417,7 @@ class SshFeaturesMixin:
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status

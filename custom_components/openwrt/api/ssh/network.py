@@ -36,7 +36,7 @@ class SshNetworkMixin:
                 try:
                     dev_idx = parts.index("dev")
                     wan_iface = parts[dev_idx + 1]
-                except ValueError, IndexError:
+                except (ValueError, IndexError):
                     pass
 
             # 2. Get interface dump

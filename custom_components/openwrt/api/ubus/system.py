@@ -368,7 +368,7 @@ class UbusSystemMixin:
                                 )
                                 resources.storage.append(usage)
                                 self._update_legacy_fs_fields(resources, usage)
-                            except ValueError, IndexError:
+                            except (ValueError, IndexError):
                                 continue
 
     def _update_legacy_fs_fields(self, resources: SystemResources, usage: Any) -> None:
@@ -494,7 +494,7 @@ class UbusSystemMixin:
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
 
             # Only keep top 10

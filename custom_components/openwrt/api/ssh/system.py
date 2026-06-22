@@ -465,7 +465,7 @@ class SshSystemMixin:
                         command=" ".join(parts[cmd_idx:]),
                     )
                 )
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
 
             if len(resources.top_processes) >= 10:

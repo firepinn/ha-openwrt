@@ -159,7 +159,7 @@ class LuciRpcFeaturesMixin:
 
                 try:
                     enabled = bool(int(val.get("enabled", "1")))
-                except ValueError, TypeError:
+                except (ValueError, TypeError):
                     enabled = True
                 rules.append(
                     FirewallRule(
@@ -322,7 +322,7 @@ class LuciRpcFeaturesMixin:
                         )
                         try:
                             status.blocked_domains = int(float(blocked))
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):
                             pass
                         status.last_update = res.get("last_run")
                         return status

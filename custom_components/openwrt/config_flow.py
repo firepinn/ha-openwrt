@@ -2502,7 +2502,7 @@ class OpenWrtOptionsFlow(OptionsFlow):
                     )
                     if coordinator and coordinator.data:
                         self._permissions = coordinator.data.permissions
-                except KeyError, AttributeError:
+                except (KeyError, AttributeError):
                     pass
             if not user_input.get(CONF_MQTT_PRESENCE):
                 self._options.update(user_input)

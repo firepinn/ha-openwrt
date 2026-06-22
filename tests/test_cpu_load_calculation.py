@@ -45,7 +45,7 @@ class OpenWrtClientMock:
 
             cpu_usage = (total_diff - idle_diff) / total_diff
             return round(max(0.0, min(100.0, cpu_usage * 100.0)), 1)
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             return 0.0
 
 
