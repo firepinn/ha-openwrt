@@ -218,3 +218,25 @@ async def test_ssh_get_connected_devices_iwinfo_rates(ssh_client: SshClient):
         assert dev.noise == -95
         assert dev.rx_rate == 120100
         assert dev.tx_rate == 86600
+
+
+@pytest.mark.asyncio
+async def test_ssh_get_ip_neighbors_filters_ipv6_link_local(ssh_client: SshClient):
+    """Test that get_ip_neighbors parses IPv4 and IPv6 global addresses but filters IPv6 link-local."""
+    ssh_client._connected = True
+    with patch.object(ssh_client, "_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = (
+            "192.168.1.5 dev br-lan lladdr 00:11:22:33:44:55 REACHABLE\n"
+            "2001:db8::1 dev br-lan lladdr 00:11:22:33:44:56 REACHABLE\n"
+            "fe80::1 dev br-lan lladdr aa:bb:cc:dd:ee:ff STALE\n"
+        )
+        neighbors = await ssh_client.get_ip_neighbors()
+
+        # Should only contain the IPv4 and IPv6 global address, not the link-local fe80::1
+        assert len(neighbors) == 2
+
+        ips = [n.ip for n in neighbors]
+        assert "192.168.1.5" in ips
+        assert "2001:db8::1" in ips
+        assert "fe80::1" not in ips
+
