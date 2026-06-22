@@ -266,7 +266,11 @@ class UbusNetworkMixin:
                 _LOGGER.debug(
                     "Failed to fetch detailed info for wifi interface %s", wifi.name
                 )
-                if self.coordinator and self.coordinator.data and self.coordinator.data.wireless_interfaces:
+                if (
+                    self.coordinator
+                    and self.coordinator.data
+                    and self.coordinator.data.wireless_interfaces
+                ):
                     for prev_wifi in self.coordinator.data.wireless_interfaces:
                         if prev_wifi.name == wifi.name:
                             wifi.ssid = prev_wifi.ssid

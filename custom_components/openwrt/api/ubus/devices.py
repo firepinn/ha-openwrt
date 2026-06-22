@@ -85,9 +85,17 @@ class UbusDevicesMixin:
                 ):
                     raise
                 except UbusError:
-                    if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+                    if (
+                        self.coordinator
+                        and self.coordinator.data
+                        and self.coordinator.data.all_connected_devices
+                    ):
                         for prev_dev in self.coordinator.data.all_connected_devices:
-                            if prev_dev.is_wireless and prev_dev.connected and prev_dev.interface == ifname:
+                            if (
+                                prev_dev.is_wireless
+                                and prev_dev.connected
+                                and prev_dev.interface == ifname
+                            ):
                                 dev = devices.setdefault(
                                     prev_dev.mac,
                                     ConnectedDevice(
@@ -102,12 +110,14 @@ class UbusDevicesMixin:
                                         noise=prev_dev.noise,
                                         rx_rate=prev_dev.rx_rate,
                                         tx_rate=prev_dev.tx_rate,
-                                    )
+                                    ),
                                 )
                                 dev.connected = True
                                 dev.is_wireless = True
                                 dev.interface = ifname
-                                dev.connection_type = prev_dev.connection_type or dev.connection_type
+                                dev.connection_type = (
+                                    prev_dev.connection_type or dev.connection_type
+                                )
                                 dev.signal = prev_dev.signal or dev.signal
                                 dev.noise = prev_dev.noise or dev.noise
                                 dev.rx_rate = prev_dev.rx_rate or dev.rx_rate
@@ -142,9 +152,17 @@ class UbusDevicesMixin:
                 ):
                     raise
                 except UbusError:
-                    if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+                    if (
+                        self.coordinator
+                        and self.coordinator.data
+                        and self.coordinator.data.all_connected_devices
+                    ):
                         for prev_dev in self.coordinator.data.all_connected_devices:
-                            if prev_dev.is_wireless and prev_dev.connected and prev_dev.interface == ifname:
+                            if (
+                                prev_dev.is_wireless
+                                and prev_dev.connected
+                                and prev_dev.interface == ifname
+                            ):
                                 dev = devices.setdefault(
                                     prev_dev.mac,
                                     ConnectedDevice(
@@ -159,12 +177,14 @@ class UbusDevicesMixin:
                                         noise=prev_dev.noise,
                                         rx_rate=prev_dev.rx_rate,
                                         tx_rate=prev_dev.tx_rate,
-                                    )
+                                    ),
                                 )
                                 dev.connected = True
                                 dev.is_wireless = True
                                 dev.interface = ifname
-                                dev.connection_type = prev_dev.connection_type or dev.connection_type
+                                dev.connection_type = (
+                                    prev_dev.connection_type or dev.connection_type
+                                )
                                 dev.signal = prev_dev.signal or dev.signal
                                 dev.noise = prev_dev.noise or dev.noise
                                 dev.rx_rate = prev_dev.rx_rate or dev.rx_rate
@@ -491,9 +511,17 @@ class UbusDevicesMixin:
                 ):
                     raise
                 except UbusError:
-                    if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+                    if (
+                        self.coordinator
+                        and self.coordinator.data
+                        and self.coordinator.data.all_connected_devices
+                    ):
                         for prev_dev in self.coordinator.data.all_connected_devices:
-                            if prev_dev.is_wireless and prev_dev.connected and prev_dev.interface == ifname:
+                            if (
+                                prev_dev.is_wireless
+                                and prev_dev.connected
+                                and prev_dev.interface == ifname
+                            ):
                                 dev = devices.setdefault(
                                     prev_dev.mac,
                                     ConnectedDevice(
@@ -508,12 +536,14 @@ class UbusDevicesMixin:
                                         noise=prev_dev.noise,
                                         rx_rate=prev_dev.rx_rate,
                                         tx_rate=prev_dev.tx_rate,
-                                    )
+                                    ),
                                 )
                                 dev.connected = True
                                 dev.is_wireless = True
                                 dev.interface = ifname
-                                dev.connection_type = prev_dev.connection_type or dev.connection_type
+                                dev.connection_type = (
+                                    prev_dev.connection_type or dev.connection_type
+                                )
                                 dev.signal = prev_dev.signal or dev.signal
                                 dev.noise = prev_dev.noise or dev.noise
                                 dev.rx_rate = prev_dev.rx_rate or dev.rx_rate
@@ -554,9 +584,17 @@ class UbusDevicesMixin:
                     ):
                         raise
                     except UbusError:
-                        if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+                        if (
+                            self.coordinator
+                            and self.coordinator.data
+                            and self.coordinator.data.all_connected_devices
+                        ):
                             for prev_dev in self.coordinator.data.all_connected_devices:
-                                if prev_dev.is_wireless and prev_dev.connected and prev_dev.interface == ifname:
+                                if (
+                                    prev_dev.is_wireless
+                                    and prev_dev.connected
+                                    and prev_dev.interface == ifname
+                                ):
                                     dev = devices.setdefault(
                                         prev_dev.mac,
                                         ConnectedDevice(
@@ -571,12 +609,14 @@ class UbusDevicesMixin:
                                             noise=prev_dev.noise,
                                             rx_rate=prev_dev.rx_rate,
                                             tx_rate=prev_dev.tx_rate,
-                                        )
+                                        ),
                                     )
                                     dev.connected = True
                                     dev.is_wireless = True
                                     dev.interface = ifname
-                                    dev.connection_type = prev_dev.connection_type or dev.connection_type
+                                    dev.connection_type = (
+                                        prev_dev.connection_type or dev.connection_type
+                                    )
                                     dev.signal = prev_dev.signal or dev.signal
                                     dev.noise = prev_dev.noise or dev.noise
                                     dev.rx_rate = prev_dev.rx_rate or dev.rx_rate

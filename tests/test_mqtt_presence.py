@@ -231,8 +231,9 @@ async def test_mqtt_discovery_cleanup_no_colons(hass: HomeAssistant) -> None:
 
 async def test_mqtt_discovery_cleanup_allowed_characters(hass: HomeAssistant) -> None:
     """Test that MQTT discovery cleanup topics only contain allowed characters."""
-    from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
     import re
+
+    from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
 
     config_entry = MagicMock()
     config_entry.options = {}
@@ -274,5 +275,6 @@ async def test_mqtt_discovery_cleanup_allowed_characters(hass: HomeAssistant) ->
             parts = topic.split("/")
             node_id = parts[2]
             # Must only consist of [a-zA-Z0-9_-]
-            assert re.match(r"^[a-zA-Z0-9_-]+$", node_id), f"Node ID '{node_id}' in topic '{topic}' contains illegal characters"
-
+            assert re.match(r"^[a-zA-Z0-9_-]+$", node_id), (
+                f"Node ID '{node_id}' in topic '{topic}' contains illegal characters"
+            )

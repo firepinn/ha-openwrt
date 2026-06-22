@@ -272,7 +272,11 @@ class SshNetworkMixin:
                 _LOGGER.debug(
                     "Failed to get iwinfo for %s via SSH: %s", iface_name, err
                 )
-                if self.coordinator and self.coordinator.data and self.coordinator.data.wireless_interfaces:
+                if (
+                    self.coordinator
+                    and self.coordinator.data
+                    and self.coordinator.data.wireless_interfaces
+                ):
                     for prev_wifi in self.coordinator.data.wireless_interfaces:
                         if prev_wifi.name == wifi.name:
                             wifi.ssid = prev_wifi.ssid

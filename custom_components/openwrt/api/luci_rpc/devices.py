@@ -125,7 +125,11 @@ class LuciRpcDevicesMixin:
         ):
             raise
         except LuciRpcError:
-            if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+            if (
+                self.coordinator
+                and self.coordinator.data
+                and self.coordinator.data.all_connected_devices
+            ):
                 for prev_dev in self.coordinator.data.all_connected_devices:
                     if prev_dev.is_wireless and prev_dev.connected:
                         dev = devices.setdefault(
@@ -142,12 +146,14 @@ class LuciRpcDevicesMixin:
                                 noise=prev_dev.noise,
                                 rx_rate=prev_dev.rx_rate,
                                 tx_rate=prev_dev.tx_rate,
-                            )
+                            ),
                         )
                         dev.connected = True
                         dev.is_wireless = True
                         dev.interface = prev_dev.interface or dev.interface
-                        dev.connection_type = prev_dev.connection_type or dev.connection_type
+                        dev.connection_type = (
+                            prev_dev.connection_type or dev.connection_type
+                        )
                         dev.signal = prev_dev.signal or dev.signal
                         dev.noise = prev_dev.noise or dev.noise
                         dev.rx_rate = prev_dev.rx_rate or dev.rx_rate
@@ -166,7 +172,9 @@ class LuciRpcDevicesMixin:
                         if len(parts) < 2:
                             continue
                         obj_name, data_str = parts
-                        iface_name = obj_name.split(".", 1)[1] if "." in obj_name else obj_name
+                        iface_name = (
+                            obj_name.split(".", 1)[1] if "." in obj_name else obj_name
+                        )
                         try:
                             data = json.loads(data_str)
                             if data and isinstance(data, dict):
@@ -177,14 +185,18 @@ class LuciRpcDevicesMixin:
                                         if mac in devices:
                                             dev = devices[mac]
                                         else:
-                                            dev = ConnectedDevice(mac=mac, connected=False)
+                                            dev = ConnectedDevice(
+                                                mac=mac, connected=False
+                                            )
                                             devices[mac] = dev
 
                                             dev.connected = True  # Wireless association
 
                                         dev.is_wireless = True
                                         # Map system interface name to UCI section if possible
-                                        dev.interface = getattr(self, "_sys_to_uci", {}).get(
+                                        dev.interface = getattr(
+                                            self, "_sys_to_uci", {}
+                                        ).get(
                                             iface_name,
                                             iface_name,
                                         )
@@ -215,7 +227,11 @@ class LuciRpcDevicesMixin:
                         ):
                             continue
             except LuciRpcError:
-                if self.coordinator and self.coordinator.data and self.coordinator.data.all_connected_devices:
+                if (
+                    self.coordinator
+                    and self.coordinator.data
+                    and self.coordinator.data.all_connected_devices
+                ):
                     for prev_dev in self.coordinator.data.all_connected_devices:
                         if prev_dev.is_wireless and prev_dev.connected:
                             dev = devices.setdefault(
@@ -232,12 +248,14 @@ class LuciRpcDevicesMixin:
                                     noise=prev_dev.noise,
                                     rx_rate=prev_dev.rx_rate,
                                     tx_rate=prev_dev.tx_rate,
-                                )
+                                ),
                             )
                             dev.connected = True
                             dev.is_wireless = True
                             dev.interface = prev_dev.interface or dev.interface
-                            dev.connection_type = prev_dev.connection_type or dev.connection_type
+                            dev.connection_type = (
+                                prev_dev.connection_type or dev.connection_type
+                            )
                             dev.signal = prev_dev.signal or dev.signal
                             dev.noise = prev_dev.noise or dev.noise
                             dev.rx_rate = prev_dev.rx_rate or dev.rx_rate

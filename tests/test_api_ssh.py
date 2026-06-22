@@ -239,4 +239,3 @@ async def test_ssh_get_ip_neighbors_filters_ipv6_link_local(ssh_client: SshClien
         assert "192.168.1.5" in ips
         assert "2001:db8::1" in ips
         assert "fe80::1" not in ips
-
