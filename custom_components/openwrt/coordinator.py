@@ -1110,7 +1110,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         """Remove legacy MQTT discovery messages for a device tracker."""
         mac_safe = mac.replace(":", "_")
         mac_colons = mac.lower()
-        router_id_safe = self.router_id.replace(":", "_")
+        router_id_safe = re.sub(r"[^a-zA-Z0-9_-]", "_", self.router_id)
 
         mac_no_colons = mac.replace(":", "").lower()
         mac_6chars = mac_no_colons[-6:].upper()

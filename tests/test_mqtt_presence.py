@@ -227,3 +227,52 @@ async def test_mqtt_discovery_cleanup_no_colons(hass: HomeAssistant) -> None:
         # Discovery topics must not contain colons
         if "device_tracker" in topic:
             assert ":" not in topic, f"Topic '{topic}' contains colons"
+
+
+async def test_mqtt_discovery_cleanup_allowed_characters(hass: HomeAssistant) -> None:
+    """Test that MQTT discovery cleanup topics only contain allowed characters."""
+    from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
+    import re
+
+    config_entry = MagicMock()
+    config_entry.options = {}
+    config_entry.data = {
+        "host": "openwrt.local",
+        "username": "root",
+        "password": "password",
+    }
+    config_entry.entry_id = "test_entry"
+
+    mock_client = AsyncMock()
+
+    with patch("custom_components.openwrt.coordinator.storage.Store") as mock_store:
+        mock_store.return_value.async_load = AsyncMock(return_value={})
+        coordinator = OpenWrtDataCoordinator(hass, config_entry, mock_client)
+
+    # Set router_id with dots and other characters
+    coordinator.router_id = "openwrt.local"
+
+    # Mock the hass services async_call
+    calls = []
+
+    async def mock_async_call(domain, service, service_data, **kwargs):
+        if domain == "mqtt" and service == "publish":
+            calls.append(service_data)
+
+    hass.services.async_call = mock_async_call
+
+    # Call cleanup
+    await coordinator._async_discovery_mqtt_device_cleanup("AA:BB:CC:DD:EE:FF")
+
+    # Verify calls
+    assert len(calls) > 0
+    for call in calls:
+        topic = call["topic"]
+        if "device_tracker" in topic:
+            # The topic looks like: homeassistant/device_tracker/<node_id>/config
+            # Extract the node_id part
+            parts = topic.split("/")
+            node_id = parts[2]
+            # Must only consist of [a-zA-Z0-9_-]
+            assert re.match(r"^[a-zA-Z0-9_-]+$", node_id), f"Node ID '{node_id}' in topic '{topic}' contains illegal characters"
+
