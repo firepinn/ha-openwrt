@@ -184,3 +184,6 @@ test_live.py
 config_entry-openwrt-*.json
 fcntl.py
 resource.py
+
+.ruff_cache/
+*.pyc
