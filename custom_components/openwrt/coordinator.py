@@ -33,7 +33,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api.base import OpenWrtClient, OpenWrtData
+from .api.base import ConnectedDevice, OpenWrtClient, OpenWrtData
 from .api.luci_rpc import (
     LuciRpcAuthError,
     LuciRpcClient,
@@ -53,6 +53,7 @@ from .const import (
     ATTR_MANUFACTURER,
     CONF_ASU_URL,
     CONF_CONNECTION_TYPE,
+    CONF_CONSIDER_HOME,
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
     CONF_ENABLE_NLBWMON_SENSORS,
@@ -76,6 +77,7 @@ from .const import (
     CONNECTION_TYPE_LUCI_RPC,
     CONNECTION_TYPE_SSH,
     CONNECTION_TYPE_UBUS,
+    DEFAULT_CONSIDER_HOME,
     DEFAULT_PORT_SSH,
     DEFAULT_PORT_UBUS,
     DEFAULT_PORT_UBUS_SSL,
@@ -213,6 +215,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         self._last_firmware_check: float = -86400.0  # Force check on startup
         self._last_update_time: float = 0.0
         self._device_history: dict[str, dict[str, Any]] = {}
+        self._wireless_last_seen: dict[str, float] = {}
         self._prev_network_stats: dict[str, dict[str, int]] = {}
         self._mqtt_discovered: set[str] = set()
         self._mqtt_discovery_started = False
@@ -831,6 +834,70 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             stored_data = await self._store.async_load()
             if stored_data:
                 self._device_history = stored_data
+
+        # Stabilize wireless connection states (prevent flapping to 0 due to transient packet drops or RPC glitches)
+        if self.data and self.data.all_connected_devices:
+            prev_wireless = {
+                d.mac.lower(): d
+                for d in self.data.all_connected_devices
+                if d.mac and d.is_wireless and d.connected
+            }
+            if prev_wireless:
+                current_time = time.time()
+                consider_home = self.config_entry.options.get(
+                    CONF_CONSIDER_HOME,
+                    self.config_entry.data.get(CONF_CONSIDER_HOME, DEFAULT_CONSIDER_HOME),
+                )
+
+                # Update last seen time for currently connected wireless devices
+                for device in data.connected_devices:
+                    if device.mac:
+                        mac_lower = device.mac.lower()
+                        if device.connected and device.is_wireless:
+                            self._wireless_last_seen[mac_lower] = current_time
+
+                # For any device that was previously connected wireless:
+                # If it's now missing or marked disconnected, keep it connected if within the consider_home window
+                current_macs = {d.mac.lower() for d in data.connected_devices if d.mac}
+                for mac_lower, prev_dev in prev_wireless.items():
+                    if mac_lower not in self._wireless_last_seen:
+                        self._wireless_last_seen[mac_lower] = current_time
+
+                    last_seen = self._wireless_last_seen[mac_lower]
+                    if current_time - last_seen < consider_home:
+                        if mac_lower in current_macs:
+                            device = next(
+                                d
+                                for d in data.connected_devices
+                                if d.mac and d.mac.lower() == mac_lower
+                            )
+                            if not device.connected:
+                                device.connected = True
+                                device.is_wireless = True
+                                device.interface = device.interface or prev_dev.interface
+                                device.connection_type = (
+                                    device.connection_type or prev_dev.connection_type
+                                )
+                                device.signal = device.signal or prev_dev.signal
+                                device.noise = device.noise or prev_dev.noise
+                                device.rx_rate = device.rx_rate or prev_dev.rx_rate
+                                device.tx_rate = device.tx_rate or prev_dev.tx_rate
+                        else:
+                            # Restore missing device as connected
+                            restored_device = ConnectedDevice(
+                                mac=prev_dev.mac,
+                                ip=prev_dev.ip,
+                                hostname=prev_dev.hostname,
+                                connected=True,
+                                is_wireless=True,
+                                interface=prev_dev.interface,
+                                connection_type=prev_dev.connection_type,
+                                signal=prev_dev.signal,
+                                noise=prev_dev.noise,
+                                rx_rate=prev_dev.rx_rate,
+                                tx_rate=prev_dev.tx_rate,
+                            )
+                            data.connected_devices.append(restored_device)
 
         own_macs = self._get_own_macs(data)
         own_ips = data.local_ips
