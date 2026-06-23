@@ -846,7 +846,9 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 current_time = time.time()
                 consider_home = self.config_entry.options.get(
                     CONF_CONSIDER_HOME,
-                    self.config_entry.data.get(CONF_CONSIDER_HOME, DEFAULT_CONSIDER_HOME),
+                    self.config_entry.data.get(
+                        CONF_CONSIDER_HOME, DEFAULT_CONSIDER_HOME
+                    ),
                 )
 
                 # Update last seen time for currently connected wireless devices
@@ -874,7 +876,9 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                             if not device.connected:
                                 device.connected = True
                                 device.is_wireless = True
-                                device.interface = device.interface or prev_dev.interface
+                                device.interface = (
+                                    device.interface or prev_dev.interface
+                                )
                                 device.connection_type = (
                                     device.connection_type or prev_dev.connection_type
                                 )
