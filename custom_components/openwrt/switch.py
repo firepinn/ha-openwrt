@@ -768,7 +768,9 @@ class OpenWrtWirelessSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEnt
             self._attr_name = f"Radio [{iface_name}]"
 
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, format_ap_device_id(entry, stable_id))},
+            identifiers={
+                (DOMAIN, format_ap_device_id(coordinator.router_id, stable_id))
+            },
             name=name_label,
             manufacturer="OpenWrt",
             model="Access Point",

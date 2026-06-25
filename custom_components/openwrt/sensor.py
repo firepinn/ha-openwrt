@@ -171,9 +171,10 @@ class OpenWrtWifiSensorEntity(OpenWrtSensorEntity):
             elif description.name:
                 self._attr_name = f"{description.name} [{iface_name}]"
 
-        router_id = cast(str, entry.unique_id or entry.data[CONF_HOST])
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, format_ap_device_id(router_id, stable_id))},
+            identifiers={
+                (DOMAIN, format_ap_device_id(coordinator.router_id, stable_id))
+            },
             name=name_label,
             manufacturer="OpenWrt",
             model="Access Point",
@@ -1764,7 +1765,7 @@ def _create_device_sensors(
                 None,
             ),
             lambda d, m=mac: any(
-                x.mac == m and x.rx_rate > 0 for x in d.connected_devices
+                x.mac == m and x.is_wireless for x in d.connected_devices
             ),
         ),
         (
@@ -1777,7 +1778,7 @@ def _create_device_sensors(
                 None,
             ),
             lambda d, m=mac: any(
-                x.mac == m and x.tx_rate > 0 for x in d.connected_devices
+                x.mac == m and x.is_wireless for x in d.connected_devices
             ),
         ),
         (

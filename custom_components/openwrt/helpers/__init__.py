@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
 
@@ -157,7 +157,7 @@ def get_via_device(
     """
     from homeassistant.helpers import device_registry as dr
 
-    router_id = cast(str, entry.unique_id or entry.data[CONF_HOST])
+    router_id = _router_id(entry)
     via_device = (DOMAIN, router_id)
 
     if coordinator.data:
