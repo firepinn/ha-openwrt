@@ -484,7 +484,9 @@ class LuciRpcDevicesMixin:
                                     hostname = f"{hostname}.{domain}"
                                 leases.append(
                                     DhcpLease(
-                                        expires=int(parts[0]) if parts[0].isdigit() else 0,
+                                        expires=int(parts[0])
+                                        if parts[0].isdigit()
+                                        else 0,
                                         mac=mac,
                                         ip=ip,
                                         hostname=hostname,

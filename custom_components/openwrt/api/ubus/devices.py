@@ -842,7 +842,7 @@ class UbusDevicesMixin:
                                 ip=lease.get("ipaddr", ""),
                                 expires=lease.get("expires", 0),
                                 type="v4",
-                             ),
+                            ),
                         )
 
                 # IPv6 leases
