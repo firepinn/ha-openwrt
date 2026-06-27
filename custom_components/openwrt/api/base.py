@@ -1077,6 +1077,10 @@ class OpenWrtClient(abc.ABC):
         """Get DHCP lease information."""
         raise NotImplementedError
 
+    async def get_dnsmasq_lease_configs(self) -> list[tuple[str, str | None]]:
+        """Get dnsmasq lease files and domains from UCI config."""
+        return [("/tmp/dhcp.leases", None)]
+
     async def get_ip_neighbors(self) -> list[IpNeighbor]:
         """Get IP neighbor (ARP/NDP) table."""
         neighbors: list[IpNeighbor] = []

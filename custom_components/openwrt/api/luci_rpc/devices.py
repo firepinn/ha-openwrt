@@ -16,6 +16,23 @@ _LOGGER = logging.getLogger(__name__)
 class LuciRpcDevicesMixin:
     """Devices methods for LuciRpcClient."""
 
+    async def get_dnsmasq_lease_configs(self) -> list[tuple[str, str | None]]:
+        """Get dnsmasq lease files and domains from UCI config."""
+        configs = []
+        try:
+            config = await self._rpc_call("uci", "get_all", ["dhcp"])
+            if config and isinstance(config, dict):
+                for _section, values in config.items():
+                    if isinstance(values, dict) and values.get(".type") == "dnsmasq":
+                        leasefile = values.get("leasefile") or "/tmp/dhcp.leases"
+                        domain = values.get("domain")
+                        configs.append((leasefile, domain))
+        except Exception:
+            pass
+        if not configs:
+            configs.append(("/tmp/dhcp.leases", None))
+        return configs
+
     async def get_connected_devices(self) -> list[ConnectedDevice]:
         """Get connected devices by combining DHCP, ARP and wireless station info via sys.exec."""
         # Ensure mapping is available
@@ -24,20 +41,30 @@ class LuciRpcDevicesMixin:
 
         # 1. DHCP Leases
         try:
-            leases_str = await self.execute_command("cat /tmp/dhcp.leases 2>/dev/null")
-            if leases_str:
-                for line in leases_str.strip().split("\n"):
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        mac = parts[1].lower()
-                        devices[mac] = ConnectedDevice(
-                            mac=mac,
-                            ip=parts[2],
-                            hostname=parts[3] if parts[3] != "*" else "",
-                            connected=False,  # DHCP alone is not proof of connectivity
-                            is_wireless=False,
-                            connection_type="wired",
-                        )
+            lease_configs = await self.get_dnsmasq_lease_configs()
+            seen_leases = set()
+            for leasefile, domain in lease_configs:
+                leases_str = await self.execute_command(f"cat {leasefile} 2>/dev/null")
+                if leases_str:
+                    for line in leases_str.strip().split("\n"):
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            mac = parts[1].lower()
+                            ip = parts[2]
+                            if (mac, ip) in seen_leases:
+                                continue
+                            seen_leases.add((mac, ip))
+                            hostname = parts[3] if parts[3] != "*" else ""
+                            if hostname and domain and "." not in hostname:
+                                hostname = f"{hostname}.{domain}"
+                            devices[mac] = ConnectedDevice(
+                                mac=mac,
+                                ip=ip,
+                                hostname=hostname,
+                                connected=False,  # DHCP alone is not proof of connectivity
+                                is_wireless=False,
+                                connection_type="wired",
+                            )
         except (
             LuciRpcTimeoutError,
             LuciRpcConnectionError,
@@ -429,33 +456,44 @@ class LuciRpcDevicesMixin:
                     )
                     return []
 
-        # Parse dnsmasq leases from /tmp/dhcp.leases
+        # Parse dnsmasq leases from lease files
         if (
             self.dhcp_software in ("auto", "dnsmasq")
             and self.packages.dhcp is not False
         ):
             try:
-                leases_str = await self._rpc_call(
-                    "sys",
-                    "exec",
-                    ["cat /tmp/dhcp.leases 2>/dev/null"],
-                )
-                if leases_str:
-                    for line in leases_str.strip().split("\n"):
-                        parts = line.split()
-                        if len(parts) >= 4:
-                            leases.append(
-                                DhcpLease(
-                                    expires=int(parts[0]) if parts[0].isdigit() else 0,
-                                    mac=parts[1].lower(),
-                                    ip=parts[2],
-                                    hostname=parts[3] if parts[3] != "*" else "",
-                                ),
-                            )
+                lease_configs = await self.get_dnsmasq_lease_configs()
+                seen_leases = set()
+                for leasefile, domain in lease_configs:
+                    leases_str = await self._rpc_call(
+                        "sys",
+                        "exec",
+                        [f"cat {leasefile} 2>/dev/null"],
+                    )
+                    if leases_str:
+                        for line in leases_str.strip().split("\n"):
+                            parts = line.split()
+                            if len(parts) >= 4:
+                                mac = parts[1].lower()
+                                ip = parts[2]
+                                if (mac, ip) in seen_leases:
+                                    continue
+                                seen_leases.add((mac, ip))
+                                hostname = parts[3] if parts[3] != "*" else ""
+                                if hostname and domain and "." not in hostname:
+                                    hostname = f"{hostname}.{domain}"
+                                leases.append(
+                                    DhcpLease(
+                                        expires=int(parts[0]) if parts[0].isdigit() else 0,
+                                        mac=mac,
+                                        ip=ip,
+                                        hostname=hostname,
+                                    ),
+                                )
             except LuciRpcError:
                 if self.dhcp_software == "dnsmasq":
                     _LOGGER.debug(
-                        "Requested dnsmasq but cat /tmp/dhcp.leases failed via LuCI RPC",
+                        "Requested dnsmasq but reading leases failed via LuCI RPC",
                     )
 
         return leases

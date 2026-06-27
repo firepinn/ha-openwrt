@@ -399,21 +399,65 @@ class SshDevicesMixin:
                             ),
                         )
 
+    async def get_dnsmasq_lease_configs(self) -> list[tuple[str, str | None]]:
+        """Get dnsmasq lease files and domains from UCI config."""
+        configs = []
+        try:
+            output = await self._exec("uci -q show dhcp")
+            sections: dict[str, dict[str, str]] = {}
+            for line in output.splitlines():
+                if "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                parts = key.split(".")
+                if len(parts) == 2:
+                    section = parts[1]
+                    if section not in sections:
+                        sections[section] = {}
+                    sections[section][".type"] = val.strip("'")
+                elif len(parts) >= 3:
+                    section = parts[1]
+                    if section not in sections:
+                        sections[section] = {}
+                    sections[section][parts[2]] = val.strip("'")
+
+            for val in sections.values():
+                if val.get(".type") == "dnsmasq":
+                    leasefile = val.get("leasefile") or "/tmp/dhcp.leases"
+                    domain = val.get("domain")
+                    configs.append((leasefile, domain))
+        except Exception:
+            pass
+        if not configs:
+            configs.append(("/tmp/dhcp.leases", None))
+        return configs
+
     async def _get_leases_dnsmasq(self, leases: list[DhcpLease]) -> None:
-        """Fetch DHCP leases from dnsmasq lease file via SSH."""
-        with contextlib.suppress(Exception):
-            content = await self._exec("cat /tmp/dhcp.leases 2>/dev/null")
-            for line in content.strip().split("\n"):
-                parts = line.split()
-                if len(parts) >= 4:
-                    leases.append(
-                        DhcpLease(
-                            expires=int(parts[0]) if parts[0].isdigit() else 0,
-                            mac=parts[1].lower(),
-                            ip=parts[2],
-                            hostname=parts[3] if parts[3] != "*" else "",
-                        ),
-                    )
+        """Fetch DHCP leases from dnsmasq lease files via SSH."""
+        lease_configs = await self.get_dnsmasq_lease_configs()
+        seen_leases = set()
+        for leasefile, domain in lease_configs:
+            with contextlib.suppress(Exception):
+                content = await self._exec(f"cat {leasefile} 2>/dev/null")
+                for line in content.strip().split("\n"):
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        mac = parts[1].lower()
+                        ip = parts[2]
+                        if (mac, ip) in seen_leases:
+                            continue
+                        seen_leases.add((mac, ip))
+                        hostname = parts[3] if parts[3] != "*" else ""
+                        if hostname and domain and "." not in hostname:
+                            hostname = f"{hostname}.{domain}"
+                        leases.append(
+                            DhcpLease(
+                                expires=int(parts[0]) if parts[0].isdigit() else 0,
+                                mac=mac,
+                                ip=ip,
+                                hostname=hostname,
+                            ),
+                        )
 
     async def get_local_macs(self) -> set[str]:
         """Get all MAC addresses belonging to the router's physical and virtual interfaces."""

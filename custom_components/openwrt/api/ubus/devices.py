@@ -786,6 +786,23 @@ class UbusDevicesMixin:
                             ),
                         )
 
+    async def get_dnsmasq_lease_configs(self) -> list[tuple[str, str | None]]:
+        """Get dnsmasq lease files and domains from UCI config."""
+        configs = []
+        try:
+            config = await self._call("uci", "get", {"config": "dhcp"})
+            if config and isinstance(config, dict):
+                for _section, values in config.items():
+                    if isinstance(values, dict) and values.get(".type") == "dnsmasq":
+                        leasefile = values.get("leasefile") or "/tmp/dhcp.leases"
+                        domain = values.get("domain")
+                        configs.append((leasefile, domain))
+        except Exception:
+            pass
+        if not configs:
+            configs.append(("/tmp/dhcp.leases", None))
+        return configs
+
     async def get_dhcp_leases(self) -> list[DhcpLease]:
         """Get DHCP leases via ubus or file."""
         if self.dhcp_software == "none":
@@ -813,7 +830,7 @@ class UbusDevicesMixin:
                                 ip=lease.get("ipaddr", ""),
                                 expires=lease.get("expires", 0),
                                 type="v4",
-                            ),
+                             ),
                         )
 
                 # IPv6 leases
@@ -843,35 +860,46 @@ class UbusDevicesMixin:
                     _LOGGER.debug("Requested odhcpd but 'dhcp' ubus object not found")
                     return []
 
-        # Parse dnsmasq leases from /tmp/dhcp.leases
+        # Parse dnsmasq leases from lease files
         if self.dhcp_software in ("auto", "dnsmasq"):
-            content = ""
-            with contextlib.suppress(UbusError):
-                # Priority 1: file.read (more robust/standard)
-                result = await self._call("file", "read", {"path": "/tmp/dhcp.leases"})
-                content = result.get("data", "")
+            lease_configs = await self.get_dnsmasq_lease_configs()
+            seen_leases = set()
+            for leasefile, domain in lease_configs:
+                content = ""
+                with contextlib.suppress(UbusError):
+                    # Priority 1: file.read (more robust/standard)
+                    result = await self._call("file", "read", {"path": leasefile})
+                    content = result.get("data", "")
 
-            if not content:
-                with contextlib.suppress(Exception):
-                    # Priority 2: file.exec (original fallback)
-                    content = await self.execute_command(
-                        "cat /tmp/dhcp.leases 2>/dev/null",
-                    )
-
-            if content:
-                for line in content.strip().split("\n"):
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        leases.append(
-                            DhcpLease(
-                                expires=int(parts[0]) if parts[0].isdigit() else 0,
-                                mac=parts[1].lower(),
-                                ip=parts[2],
-                                hostname=parts[3] if parts[3] != "*" else "",
-                            ),
+                if not content:
+                    with contextlib.suppress(Exception):
+                        # Priority 2: file.exec (original fallback)
+                        content = await self.execute_command(
+                            f"cat {leasefile} 2>/dev/null",
                         )
-            elif self.dhcp_software == "dnsmasq":
-                _LOGGER.debug("Requested dnsmasq but could not read /tmp/dhcp.leases")
+
+                if content:
+                    for line in content.strip().split("\n"):
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            mac = parts[1].lower()
+                            ip = parts[2]
+                            if (mac, ip) in seen_leases:
+                                continue
+                            seen_leases.add((mac, ip))
+                            hostname = parts[3] if parts[3] != "*" else ""
+                            if hostname and domain and "." not in hostname:
+                                hostname = f"{hostname}.{domain}"
+                            leases.append(
+                                DhcpLease(
+                                    expires=int(parts[0]) if parts[0].isdigit() else 0,
+                                    mac=mac,
+                                    ip=ip,
+                                    hostname=hostname,
+                                ),
+                            )
+                elif self.dhcp_software == "dnsmasq":
+                    _LOGGER.debug("Requested dnsmasq but could not read %s", leasefile)
 
         return leases
 
