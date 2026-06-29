@@ -723,6 +723,16 @@ class UbusDevicesMixin:
                         mac = neigh.get("lladdr")
                         ip = neigh.get("address")
                         if mac and ip:
+                            # Filter out IPv6 link-local addresses (fe80::/10)
+                            import ipaddress
+
+                            try:
+                                ip_obj = ipaddress.ip_address(ip)
+                                if ip_obj.version == 6 and ip_obj.is_link_local:
+                                    continue
+                            except ValueError:
+                                pass
+
                             neighbors.append(
                                 IpNeighbor(
                                     ip=ip,

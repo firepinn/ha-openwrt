@@ -481,3 +481,53 @@ async def test_ubus_kick_device(ubus_client: UbusClient):
                 "ban_time": 60000,
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_ubus_get_ip_neighbors_filters_ipv6_link_local(ubus_client: UbusClient):
+    """Test that get_ip_neighbors in Ubus filters out IPv6 link-local addresses."""
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+
+    ubus_status_mock = {
+        "br-lan": {
+            "neighbors": [
+                {
+                    "address": "192.168.1.5",
+                    "lladdr": "00:11:22:33:44:55",
+                    "state": "REACHABLE",
+                },
+                {"address": "fe80::1", "lladdr": "aa:bb:cc:dd:ee:ff", "state": "STALE"},
+                {
+                    "address": "2001:db8::1",
+                    "lladdr": "00:11:22:33:44:56",
+                    "state": "REACHABLE",
+                },
+            ]
+        }
+    }
+
+    ip_neigh_mock_output = (
+        "192.168.1.5 dev br-lan lladdr 00:11:22:33:44:55 REACHABLE\n"
+        "2001:db8::1 dev br-lan lladdr 00:11:22:33:44:56 REACHABLE\n"
+        "fe80::1 dev br-lan lladdr aa:bb:cc:dd:ee:ff STALE\n"
+    )
+
+    with (
+        patch.object(
+            ubus_client, "_call", new_callable=AsyncMock, return_value=ubus_status_mock
+        ),
+        patch.object(
+            ubus_client,
+            "execute_command",
+            new_callable=AsyncMock,
+            return_value=ip_neigh_mock_output,
+        ),
+    ):
+        neighbors = await ubus_client.get_ip_neighbors()
+
+        assert len(neighbors) == 2
+        ips = {n.ip for n in neighbors}
+        assert "192.168.1.5" in ips
+        assert "2001:db8::1" in ips
+        assert "fe80::1" not in ips
