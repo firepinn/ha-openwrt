@@ -6,8 +6,31 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_execute_at_command(
+    client: Any, port: str, at_command: str, timeout: int = 2
+) -> str:
+    """Send an AT command to the serial port using microcom or a universal fallback."""
+    # Construct a shell command that tries:
+    # 1. microcom
+    # 2. stty + echo + timeout/cat
+    cmd = (
+        f"if command -v microcom >/dev/null 2>&1; then "
+        f'echo -e "{at_command}\\r" | microcom -t {timeout}000 {port} 2>/dev/null; '
+        f"elif command -v stty >/dev/null 2>&1; then "
+        f"stty -F {port} 9600 -echo igncr icanon onlcr 2>/dev/null; "
+        f'(sleep 0.2; echo -e "{at_command}\\r" > {port}) & '
+        f"timeout {timeout} cat {port} 2>/dev/null; "
+        f"else "
+        f'(sleep 0.2; echo -e "{at_command}\\r" > {port}) & '
+        f"timeout {timeout} cat {port} 2>/dev/null; "
+        f"fi"
+    )
+    return await client.execute_command(cmd)
 
 
 def parse_nmea_coordinate(coord_str: str) -> float | None:
@@ -39,7 +62,7 @@ def parse_qgpsloc_response(response: str) -> tuple[float, float] | None:
     for line in response.splitlines():
         line = line.strip()
         if "+QGPSLOC:" in line:
-            # Strip anything before "+QGPSLOC: " to handle echoes or prefixes
+            # Strip anything before "+QGPSLOC:" to handle echoes or prefixes
             start = line.find("+QGPSLOC:")
             content = line[start + len("+QGPSLOC:") :].strip()
             parts = content.split(",")
@@ -57,22 +80,19 @@ async def async_update_gps_location(
     hass: HomeAssistant,
     client: Any,
     port: str,
-) -> bool:
-    """Query GPS coordinates from modem and update HA location."""
+) -> tuple[float, float, str] | None:
+    """Query GPS coordinates from modem, update HA location and return coordinates."""
     try:
         # Check if GPS is enabled
-        check_cmd = f'echo -e "AT+QGPS?\\r" | microcom -t 1000 {port}'
-        check_res = await client.execute_command(check_cmd)
+        check_res = await async_execute_at_command(client, port, "AT+QGPS?", timeout=1)
 
         # If QGPS is disabled or query returned error, try enabling it
         if "+QGPS: 0" in check_res or "ERROR" in check_res:
             _LOGGER.debug("GPS is disabled, enabling via AT+QGPS=1")
-            enable_cmd = f'echo -e "AT+QGPS=1\\r" | microcom -t 1000 {port}'
-            await client.execute_command(enable_cmd)
+            await async_execute_at_command(client, port, "AT+QGPS=1", timeout=1)
 
         # Poll the GPS location
-        loc_cmd = f'echo -e "AT+QGPSLOC?\\r" | microcom -t 2000 {port}'
-        loc_res = await client.execute_command(loc_cmd)
+        loc_res = await async_execute_at_command(client, port, "AT+QGPSLOC?", timeout=2)
 
         coords = parse_qgpsloc_response(loc_res)
         if coords:
@@ -86,10 +106,11 @@ async def async_update_gps_location(
                     "longitude": lon,
                 },
             )
-            return True
+            last_update = dt_util.now().isoformat()
+            return lat, lon, last_update
         _LOGGER.debug(
             "Failed to get valid GPS fix or coordinates from %s: %s", port, loc_res
         )
     except Exception as err:
         _LOGGER.warning("Failed to update GPS location from Quectel modem: %s", err)
-    return False
+    return None

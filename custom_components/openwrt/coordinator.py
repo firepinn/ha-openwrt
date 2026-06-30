@@ -455,6 +455,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             except Exception as err:
                 _LOGGER.debug("nlbwmon top hosts fetch failed: %s", err)
         if self.config_entry.options.get(CONF_GPS_MODEM_ENABLED, False):
+            data.qmodem_info.enabled = True
             gps_port = self.config_entry.options.get(
                 CONF_GPS_MODEM_PORT, DEFAULT_GPS_MODEM_PORT
             )
@@ -467,9 +468,27 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 from .helpers.gps import async_update_gps_location
 
                 try:
-                    await async_update_gps_location(self.hass, self.client, gps_port)
+                    res = await async_update_gps_location(
+                        self.hass, self.client, gps_port
+                    )
+                    if res:
+                        lat, lon, last_update = res
+                        data.qmodem_info.gps_latitude = lat
+                        data.qmodem_info.gps_longitude = lon
+                        data.qmodem_info.gps_last_update = last_update
                 except Exception as gps_err:
                     _LOGGER.debug("GPS location update failed: %s", gps_err)
+
+            # Preserve previous GPS data if we are not currently polling it
+            if self.data and self.data.qmodem_info:
+                if data.qmodem_info.gps_latitude is None:
+                    data.qmodem_info.gps_latitude = self.data.qmodem_info.gps_latitude
+                if data.qmodem_info.gps_longitude is None:
+                    data.qmodem_info.gps_longitude = self.data.qmodem_info.gps_longitude
+                if data.qmodem_info.gps_last_update is None:
+                    data.qmodem_info.gps_last_update = (
+                        self.data.qmodem_info.gps_last_update
+                    )
 
         return data
 

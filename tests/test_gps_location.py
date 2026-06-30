@@ -72,7 +72,9 @@ async def test_async_update_gps_location(hass):
         hass.services, "async_call", new_callable=AsyncMock
     ) as mock_service_call:
         res = await async_update_gps_location(hass, mock_client, "/dev/ttyUSB3")
-        assert res is True
+        assert res is not None
+        assert res[0] == pytest.approx(52.01681667)
+        assert res[1] == pytest.approx(-0.71821833)
         mock_service_call.assert_called_once_with(
             "homeassistant",
             "set_location",
@@ -94,6 +96,8 @@ async def test_async_update_gps_location(hass):
         hass.services, "async_call", new_callable=AsyncMock
     ) as mock_service_call:
         res = await async_update_gps_location(hass, mock_client, "/dev/ttyUSB3")
-        assert res is True
+        assert res is not None
+        assert res[0] == pytest.approx(52.01681667)
+        assert res[1] == pytest.approx(-0.71821833)
         assert mock_client.execute_command.call_count == 3
         mock_service_call.assert_called_once()

@@ -840,6 +840,27 @@ def _get_qmodem_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             entity_category=EntityCategory.DIAGNOSTIC,
             value_fn=lambda data: data.qmodem_info.nr5g_sinr,
         ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_latitude",
+            name="Modem GPS Latitude",
+            translation_key="qmodem_gps_latitude",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: data.qmodem_info.gps_latitude,
+        ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_longitude",
+            name="Modem GPS Longitude",
+            translation_key="qmodem_gps_longitude",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: data.qmodem_info.gps_longitude,
+        ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_last_update",
+            name="Modem GPS Last Update",
+            translation_key="qmodem_gps_last_update",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: data.qmodem_info.gps_last_update,
+        ),
     )
 
 

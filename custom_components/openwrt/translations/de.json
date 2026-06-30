@@ -593,6 +593,15 @@
       "qmodem_nr5g_sinr": {
         "name": "5G NR SINR"
       },
+      "qmodem_gps_latitude": {
+        "name": "Modem GPS Breitengrad"
+      },
+      "qmodem_gps_longitude": {
+        "name": "Modem GPS Längengrad"
+      },
+      "qmodem_gps_last_update": {
+        "name": "Modem GPS Letzte Aktualisierung"
+      },
       "dhcp_lease_count": {
         "name": "DHCP Leases"
       },

@@ -468,6 +468,9 @@ class QModemInfo:
     nr5g_rsrp: int | None = None
     nr5g_rsrq: int | None = None
     nr5g_sinr: int | None = None
+    gps_latitude: float | None = None
+    gps_longitude: float | None = None
+    gps_last_update: str | None = None
 
 
 @dataclass
