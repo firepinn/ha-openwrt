@@ -11,28 +11,6 @@ from homeassistant.util import dt as dt_util
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_execute_at_command(
-    client: Any, port: str, at_command: str, timeout: int = 2
-) -> str:
-    """Send an AT command to the serial port using microcom or a universal fallback."""
-    # Construct a shell command that tries:
-    # 1. microcom
-    # 2. stty + echo + timeout/cat
-    cmd = (
-        f"if command -v microcom >/dev/null 2>&1; then "
-        f'echo -e "{at_command}\\r" | microcom -t {timeout}000 {port} 2>/dev/null; '
-        f"elif command -v stty >/dev/null 2>&1; then "
-        f"stty -F {port} 9600 -echo igncr icanon onlcr 2>/dev/null; "
-        f'(sleep 0.2; echo -e "{at_command}\\r" > {port}) & '
-        f"timeout {timeout} cat {port} 2>/dev/null; "
-        f"else "
-        f'(sleep 0.2; echo -e "{at_command}\\r" > {port}) & '
-        f"timeout {timeout} cat {port} 2>/dev/null; "
-        f"fi"
-    )
-    return await client.execute_command(cmd)
-
-
 def parse_nmea_coordinate(coord_str: str) -> float | None:
     """Parse NMEA coordinate string (ddmm.mmmmN/S or dddmm.mmmmE/W) into decimal degrees."""
     if not coord_str or len(coord_str) < 3:
@@ -83,18 +61,41 @@ async def async_update_gps_location(
 ) -> tuple[float, float, str] | None:
     """Query GPS coordinates from modem, update HA location and return coordinates."""
     try:
-        # Check if GPS is enabled
-        check_res = await async_execute_at_command(client, port, "AT+QGPS?", timeout=1)
+        # Check if stty and timeout are available on the router
+        stty_check = await client.execute_command("command -v stty")
+        timeout_check = await client.execute_command("command -v timeout")
+        if not stty_check or not timeout_check:
+            _LOGGER.warning(
+                "GPS tracking requires 'stty' and 'timeout' utilities on the router. "
+                "Please install them (e.g. 'opkg update && opkg install busybox' or "
+                "'apk add coreutils-stty coreutils-timeout')."
+            )
+            return None
 
-        # If QGPS is disabled or query returned error, try enabling it
-        if "+QGPS: 0" in check_res or "ERROR" in check_res:
-            _LOGGER.debug("GPS is disabled, enabling via AT+QGPS=1")
-            await async_execute_at_command(client, port, "AT+QGPS=1", timeout=1)
+        # Build single robust shell script to query the modem using file descriptor redirection
+        cmd = (
+            f"exec 3<>{port}; "
+            f"stty 9600 cs8 -parenb -cstopb raw -echo min 0 time 20 <&3 2>/dev/null || "
+            f"stty -F {port} 9600 cs8 -parenb -cstopb raw -echo min 0 time 20 2>/dev/null; "
+            f"printf 'AT+QGPS?\\r' >&3; "
+            f"sleep 1; "
+            f"GPS_STATUS=$(timeout 2 cat <&3); "
+            f"if ! echo \"$GPS_STATUS\" | grep -q '+QGPS: 1'; then "
+            f"printf 'AT+QGPS=1\\r' >&3; "
+            f"sleep 5; "
+            f"timeout 1 cat <&3 >/dev/null; "
+            f"fi; "
+            f"printf 'AT+QGPSLOC?\\r' >&3; "
+            f"sleep 1; "
+            f"GPS_LOC=$(timeout 3 cat <&3); "
+            f"exec 3>&-; "
+            f'echo "===GPS_LOC==="; '
+            f'echo "$GPS_LOC"'
+        )
 
-        # Poll the GPS location
-        loc_res = await async_execute_at_command(client, port, "AT+QGPSLOC?", timeout=2)
+        res = await client.execute_command(cmd)
 
-        coords = parse_qgpsloc_response(loc_res)
+        coords = parse_qgpsloc_response(res)
         if coords:
             lat, lon = coords
             _LOGGER.info("Updating Home Assistant location to: %s, %s", lat, lon)
@@ -108,8 +109,9 @@ async def async_update_gps_location(
             )
             last_update = dt_util.now().isoformat()
             return lat, lon, last_update
+
         _LOGGER.debug(
-            "Failed to get valid GPS fix or coordinates from %s: %s", port, loc_res
+            "Failed to get valid GPS fix or coordinates from %s: %s", port, res
         )
     except Exception as err:
         _LOGGER.warning("Failed to update GPS location from Quectel modem: %s", err)

@@ -40,7 +40,7 @@ def test_parse_nmea_coordinate():
 def test_parse_qgpsloc_response():
     """Test parsing standard +QGPSLOC response."""
     response = (
-        "AT+QGPSLOC?\r\n"
+        "===GPS_LOC===\r\n"
         "+QGPSLOC: 105742.00,5201.0090N,00043.0931W,0.8,78.2,3,,0.0,0.0,290626,13\r\n"
         "OK\r\n"
     )
@@ -62,10 +62,11 @@ async def test_async_update_gps_location(hass):
     mock_client = MagicMock()
     mock_client.execute_command = AsyncMock()
 
-    # Case 1: GPS is already enabled and returns valid coordinates
+    # Mock stty and timeout checks to pass
     mock_client.execute_command.side_effect = [
-        "+QGPS: 1\r\nOK",  # Check if enabled
-        "+QGPSLOC: 105742.00,5201.0090N,00043.0931W,0.8,78.2,3,,0.0,0.0,290626,13\r\nOK",  # Location
+        "/usr/bin/stty",  # command -v stty
+        "/usr/bin/timeout",  # command -v timeout
+        "===GPS_LOC===\n+QGPSLOC: 105742.00,5201.0090N,00043.0931W,0.8,78.2,3,,0.0,0.0,290626,13\nOK",  # location output
     ]
 
     with patch.object(
@@ -83,21 +84,4 @@ async def test_async_update_gps_location(hass):
                 "longitude": pytest.approx(-0.71821833),
             },
         )
-
-    # Case 2: GPS is disabled, we enable it and then query location
-    mock_client.execute_command.reset_mock()
-    mock_client.execute_command.side_effect = [
-        "+QGPS: 0\r\nOK",  # Check if enabled -> returns 0
-        "OK",  # Enable command AT+QGPS=1 response
-        "+QGPSLOC: 105742.00,5201.0090N,00043.0931W,0.8,78.2,3,,0.0,0.0,290626,13\r\nOK",  # Location
-    ]
-
-    with patch.object(
-        hass.services, "async_call", new_callable=AsyncMock
-    ) as mock_service_call:
-        res = await async_update_gps_location(hass, mock_client, "/dev/ttyUSB3")
-        assert res is not None
-        assert res[0] == pytest.approx(52.01681667)
-        assert res[1] == pytest.approx(-0.71821833)
         assert mock_client.execute_command.call_count == 3
-        mock_service_call.assert_called_once()
