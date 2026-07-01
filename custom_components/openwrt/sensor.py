@@ -242,7 +242,7 @@ class OpenWrtQModemSensorEntity(OpenWrtSensorEntity):
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.unique_id}_qmodem")},
-            name=f"QModem ({entry.unique_id})",
+            name=f"QModem ({entry.title})",
             manufacturer=manufacturer,
             model=model,
             via_device=(
@@ -858,8 +858,36 @@ def _get_qmodem_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             key="qmodem_gps_last_update",
             name="Modem GPS Last Update",
             translation_key="qmodem_gps_last_update",
+            device_class=SensorDeviceClass.TIMESTAMP,
             entity_category=EntityCategory.DIAGNOSTIC,
             value_fn=lambda data: data.qmodem_info.gps_last_update,
+        ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_last_update_attempted",
+            name="Modem GPS Last Update Attempted",
+            translation_key="qmodem_gps_last_update_attempted",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: data.qmodem_info.gps_last_update_attempted,
+        ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_last_update_successful",
+            name="Modem GPS Last Update Successful",
+            translation_key="qmodem_gps_last_update_successful",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: data.qmodem_info.gps_last_update_successful,
+        ),
+        OpenWrtSensorDescription(
+            key="qmodem_gps_last_update_ok",
+            name="Modem GPS Last Update Status",
+            translation_key="qmodem_gps_last_update_ok",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=lambda data: (
+                None
+                if data.qmodem_info.gps_last_update_ok is None
+                else ("OK" if data.qmodem_info.gps_last_update_ok else "Failed")
+            ),
         ),
     )
 

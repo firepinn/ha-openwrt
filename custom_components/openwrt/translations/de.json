@@ -602,6 +602,15 @@
       "qmodem_gps_last_update": {
         "name": "Modem GPS Letzte Aktualisierung"
       },
+      "qmodem_gps_last_update_attempted": {
+        "name": "Modem GPS Letzter Aktualisierungsversuch"
+      },
+      "qmodem_gps_last_update_successful": {
+        "name": "Modem GPS Letzte erfolgreiche Aktualisierung"
+      },
+      "qmodem_gps_last_update_ok": {
+        "name": "Modem GPS Aktualisierungsstatus"
+      },
       "dhcp_lease_count": {
         "name": "DHCP Leases"
       },

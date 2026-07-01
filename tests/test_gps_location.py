@@ -1,5 +1,6 @@
 """Tests for GPS location updates from Quectel modem."""
 
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -76,6 +77,7 @@ async def test_async_update_gps_location(hass):
         assert res is not None
         assert res[0] == pytest.approx(52.01681667)
         assert res[1] == pytest.approx(-0.71821833)
+        assert isinstance(res[2], datetime)
         mock_service_call.assert_called_once_with(
             "homeassistant",
             "set_location",

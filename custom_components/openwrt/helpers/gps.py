@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# ... (skipping unchanged code for clarity, target matching handles replacement)
 
 
 def parse_nmea_coordinate(coord_str: str) -> float | None:
@@ -58,7 +62,7 @@ async def async_update_gps_location(
     hass: HomeAssistant,
     client: Any,
     port: str,
-) -> tuple[float, float, str] | None:
+) -> tuple[float, float, datetime] | None:
     """Query GPS coordinates from modem, update HA location and return coordinates."""
     try:
         # Check if stty and timeout are available on the router
@@ -105,7 +109,7 @@ async def async_update_gps_location(
                     "longitude": lon,
                 },
             )
-            last_update = dt_util.now().isoformat()
+            last_update = dt_util.now()
             return lat, lon, last_update
 
         _LOGGER.debug(

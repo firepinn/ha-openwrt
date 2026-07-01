@@ -470,7 +470,10 @@ class QModemInfo:
     nr5g_sinr: int | None = None
     gps_latitude: float | None = None
     gps_longitude: float | None = None
-    gps_last_update: str | None = None
+    gps_last_update: datetime | None = None
+    gps_last_update_attempted: datetime | None = None
+    gps_last_update_successful: datetime | None = None
+    gps_last_update_ok: bool | None = None
 
 
 @dataclass

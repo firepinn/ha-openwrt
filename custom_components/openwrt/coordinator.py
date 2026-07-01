@@ -467,6 +467,8 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 self._last_gps_check = now_time
                 from .helpers.gps import async_update_gps_location
 
+                data.qmodem_info.gps_last_update_attempted = dt_util.now()
+
                 try:
                     res = await async_update_gps_location(
                         self.hass, self.client, gps_port
@@ -476,8 +478,13 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                         data.qmodem_info.gps_latitude = lat
                         data.qmodem_info.gps_longitude = lon
                         data.qmodem_info.gps_last_update = last_update
+                        data.qmodem_info.gps_last_update_successful = last_update
+                        data.qmodem_info.gps_last_update_ok = True
+                    else:
+                        data.qmodem_info.gps_last_update_ok = False
                 except Exception as gps_err:
                     _LOGGER.debug("GPS location update failed: %s", gps_err)
+                    data.qmodem_info.gps_last_update_ok = False
 
             # Preserve previous GPS data if we are not currently polling it
             if self.data and self.data.qmodem_info:
@@ -488,6 +495,18 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 if data.qmodem_info.gps_last_update is None:
                     data.qmodem_info.gps_last_update = (
                         self.data.qmodem_info.gps_last_update
+                    )
+                if data.qmodem_info.gps_last_update_successful is None:
+                    data.qmodem_info.gps_last_update_successful = (
+                        self.data.qmodem_info.gps_last_update_successful
+                    )
+                if data.qmodem_info.gps_last_update_attempted is None:
+                    data.qmodem_info.gps_last_update_attempted = (
+                        self.data.qmodem_info.gps_last_update_attempted
+                    )
+                if data.qmodem_info.gps_last_update_ok is None:
+                    data.qmodem_info.gps_last_update_ok = (
+                        self.data.qmodem_info.gps_last_update_ok
                     )
 
         return data
