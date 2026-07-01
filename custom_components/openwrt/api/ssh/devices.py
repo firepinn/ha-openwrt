@@ -276,12 +276,10 @@ class SshDevicesMixin:
                                     dev.rx_bytes = bytes_data.get("rx", 0)
                                     dev.tx_bytes = bytes_data.get("tx", 0)
 
-                                # Hostapd returns rate in 100kbps (tenths of Mbps).
-                                # Convert to Kbps by multiplying by 100.
-                                if "rx_rate" in info and not dev.rx_rate:
-                                    dev.rx_rate = info.get("rx_rate", 0) * 100
-                                if "tx_rate" in info and not dev.tx_rate:
-                                    dev.tx_rate = info.get("tx_rate", 0) * 100
+                                if not dev.rx_rate:
+                                    dev.rx_rate = self._get_assoc_rate(info, "rx")
+                                if not dev.tx_rate:
+                                    dev.tx_rate = self._get_assoc_rate(info, "tx")
                                 dev.connection_type = (
                                     "5GHz"
                                     if "5g" in iface_name.lower()

@@ -836,11 +836,33 @@ class OpenWrtClient(abc.ABC):
         self._cached_medium_data: dict[str, Any] = {}
 
     def _get_assoc_rate(self, client: dict[str, Any], direction: str) -> int:
-        """Helper to safely extract wireless rate from assoclist data."""
+        """Helper to safely extract wireless rate from assoclist/hostapd data."""
+        # 1. Check "rate" dict (hostapd format: "rate": {"rx": 866700} in Kbps)
+        rate_obj = client.get("rate")
+        if isinstance(rate_obj, dict):
+            val = rate_obj.get(direction)
+            if isinstance(val, (int, float)):
+                return int(val)
+
+        # 2. Check "rx"/"tx" dict (iwinfo format: "rx": {"rate": 120100} in Kbps)
         val = client.get(direction)
         if isinstance(val, dict):
-            return val.get("rate", 0)
-        return client.get(f"{direction}_rate", 0)
+            rate_val = val.get("rate")
+            if isinstance(rate_val, (int, float)):
+                return int(rate_val)
+        elif isinstance(val, (int, float)):
+            return int(val)
+
+        # 3. Check "rx_rate"/"tx_rate" (hostapd legacy/other format: "rx_rate": 8660 or {"rate": 8660} in tenths of Mbps)
+        dir_rate = client.get(f"{direction}_rate")
+        if isinstance(dir_rate, dict):
+            rate_val = dir_rate.get("rate")
+            if isinstance(rate_val, (int, float)):
+                return int(rate_val * 100)
+        elif isinstance(dir_rate, (int, float)):
+            return int(dir_rate * 100)
+
+        return 0
 
     async def _get_logread_command(self, count: int) -> str:
         """Resolve the correct logread command (detecting -n vs -l)."""

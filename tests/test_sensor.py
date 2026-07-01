@@ -134,3 +134,25 @@ def test_device_sensor_case_insensitivity() -> None:
             assert sensor.native_value == 86.6
         elif "noise" in sensor.entity_description.key:
             assert sensor.native_value == -95
+
+
+def test_assoc_rate_robustness() -> None:
+    """Test that _get_assoc_rate successfully parses multiple nested formats from iwinfo and hostapd."""
+    from custom_components.openwrt.api.base import OpenWrtClient
+
+    # 1. Hostapd nested "rate" dict (in Kbps)
+    assert OpenWrtClient._get_assoc_rate(None, {"rate": {"rx": 866700}}, "rx") == 866700
+
+    # 2. Iwinfo direction dict containing "rate" (in Kbps)
+    assert OpenWrtClient._get_assoc_rate(None, {"rx": {"rate": 120100}}, "rx") == 120100
+
+    # 3. Hostapd legacy/tenths-of-Mbps "rx_rate" or "tx_rate" containing "rate" dict (converted to Kbps)
+    assert (
+        OpenWrtClient._get_assoc_rate(None, {"rx_rate": {"rate": 8660}}, "rx") == 866000
+    )
+
+    # 4. Hostapd legacy/tenths-of-Mbps "rx_rate" as int (converted to Kbps)
+    assert OpenWrtClient._get_assoc_rate(None, {"rx_rate": 8660}, "rx") == 866000
+
+    # 5. Fallback/Direct number
+    assert OpenWrtClient._get_assoc_rate(None, {"rx": 120100}, "rx") == 120100
