@@ -78,7 +78,6 @@ async def async_update_gps_location(
             f"stty 9600 cs8 -parenb -cstopb raw -echo min 0 time 20 <&3 2>/dev/null || "
             f"stty -F {port} 9600 cs8 -parenb -cstopb raw -echo min 0 time 20 2>/dev/null; "
             f"printf 'AT+QGPS?\\r' >&3; "
-            f"sleep 1; "
             f"GPS_STATUS=$(timeout 2 cat <&3); "
             f"if ! echo \"$GPS_STATUS\" | grep -q '+QGPS: 1'; then "
             f"printf 'AT+QGPS=1\\r' >&3; "
@@ -86,7 +85,6 @@ async def async_update_gps_location(
             f"timeout 1 cat <&3 >/dev/null; "
             f"fi; "
             f"printf 'AT+QGPSLOC?\\r' >&3; "
-            f"sleep 1; "
             f"GPS_LOC=$(timeout 3 cat <&3); "
             f"exec 3>&-; "
             f'echo "===GPS_LOC==="; '
