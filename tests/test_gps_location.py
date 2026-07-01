@@ -21,13 +21,13 @@ def enable_socket(socket_enabled):
 def test_parse_nmea_coordinate():
     """Test parsing NMEA coordinate string into decimal degrees."""
     # Test valid North
-    assert parse_nmea_coordinate("5201.0090N") == pytest.approx(52.01681667)
+    assert parse_nmea_coordinate("5201.0090N") == pytest.approx(52.016817)
     # Test valid South (negative)
-    assert parse_nmea_coordinate("5201.0090S") == pytest.approx(-52.01681667)
+    assert parse_nmea_coordinate("5201.0090S") == pytest.approx(-52.016817)
     # Test valid East
-    assert parse_nmea_coordinate("00043.0931E") == pytest.approx(0.71821833)
+    assert parse_nmea_coordinate("00043.0931E") == pytest.approx(0.718218)
     # Test valid West (negative)
-    assert parse_nmea_coordinate("00043.0931W") == pytest.approx(-0.71821833)
+    assert parse_nmea_coordinate("00043.0931W") == pytest.approx(-0.718218)
     # Test empty or short
     assert parse_nmea_coordinate("") is None
     assert parse_nmea_coordinate("12") is None
@@ -48,8 +48,8 @@ def test_parse_qgpsloc_response():
     coords = parse_qgpsloc_response(response)
     assert coords is not None
     lat, lon = coords
-    assert lat == pytest.approx(52.01681667)
-    assert lon == pytest.approx(-0.71821833)
+    assert lat == pytest.approx(52.016817)
+    assert lon == pytest.approx(-0.718218)
 
     # Test invalid response without +QGPSLOC
     assert parse_qgpsloc_response("ERROR") is None
@@ -75,15 +75,15 @@ async def test_async_update_gps_location(hass):
     ) as mock_service_call:
         res = await async_update_gps_location(hass, mock_client, "/dev/ttyUSB3")
         assert res is not None
-        assert res[0] == pytest.approx(52.01681667)
-        assert res[1] == pytest.approx(-0.71821833)
+        assert res[0] == pytest.approx(52.016817)
+        assert res[1] == pytest.approx(-0.718218)
         assert isinstance(res[2], datetime)
         mock_service_call.assert_called_once_with(
             "homeassistant",
             "set_location",
             {
-                "latitude": pytest.approx(52.01681667),
-                "longitude": pytest.approx(-0.71821833),
+                "latitude": pytest.approx(52.016817),
+                "longitude": pytest.approx(-0.718218),
             },
         )
         assert mock_client.execute_command.call_count == 3

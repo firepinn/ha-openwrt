@@ -34,7 +34,7 @@ def parse_nmea_coordinate(coord_str: str) -> float | None:
         val = degrees + (minutes / 60.0)
         if direction in ("S", "W"):
             val = -val
-        return val
+        return round(val, 6)
     except ValueError:
         return None
 

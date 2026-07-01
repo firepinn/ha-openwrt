@@ -44,7 +44,7 @@ CONF_GPS_POLL_INTERVAL: Final = "gps_poll_interval"
 
 DEFAULT_GPS_MODEM_ENABLED: Final = False
 DEFAULT_GPS_MODEM_PORT: Final = "/dev/ttyUSB3"
-DEFAULT_GPS_POLL_INTERVAL: Final = 3600
+DEFAULT_GPS_POLL_INTERVAL: Final = 60
 
 CONF_ENABLE_FIREWALL: Final = "enable_firewall"
 CONF_ENABLE_SERVICES: Final = "enable_services"
