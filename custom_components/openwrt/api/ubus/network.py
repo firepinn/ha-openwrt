@@ -374,79 +374,55 @@ class UbusNetworkMixin:
         return mappings
 
     async def get_wireguard_interfaces(self) -> list[WireGuardInterface]:
-        """Get WireGuard VPN interface and peer information via ubus/CLI."""
+        """Get WireGuard interfaces + peers via the luci.wireguard ubus object.
+
+        Uses ``luci.wireguard`` ``getWgInstances`` (structured JSON) instead of
+        parsing ``wg show`` text output. This is robust against format changes
+        and needs no shell/file.exec access (pure ubus).
+        """
         interfaces: list[WireGuardInterface] = []
         try:
-            # 1. Discover WG interfaces via network.interface dump
-            status = await self._call("network.interface", "dump")
-            if not isinstance(status, dict):
-                return interfaces
+            data = await self._call("luci.wireguard", "getWgInstances")
+        except UbusError:
+            return interfaces
+        if not isinstance(data, dict):
+            return interfaces
 
-            wg_ifaces: dict[str, bool] = {}
-            for iface_data in status.get("interface", []):
-                if iface_data.get("proto") == "wireguard":
-                    wg_ifaces[iface_data.get("interface")] = bool(iface_data.get("up"))
+        def _int(val):
+            try:
+                return int(val)
+            except (TypeError, ValueError):
+                return 0
 
-            if not wg_ifaces:
-                return interfaces
-
-            # 2. Fetch peer info via wg show dump
-            # wg show all dump format:
-            # interface public_key listen_port fwmark
-            # peer_public_key preshared_key endpoint allowed_ips latest_handshake transfer_rx transfer_tx persistent_keepalive
-
-            stdout = await self.execute_command("wg show all dump 2>/dev/null")
-            if not stdout:
-                return interfaces
-
-            iface_map: dict[str, WireGuardInterface] = {}
-            for line in stdout.splitlines():
-                parts = line.split("\t")
-                if len(parts) == 4:
-                    # Interface line
-                    ifname = parts[0]
-                    if ifname not in wg_ifaces:
-                        continue
-                    iface = WireGuardInterface(
-                        name=ifname,
-                        enabled=wg_ifaces[ifname],
-                        public_key=parts[1],
-                        listen_port=int(parts[2]) if parts[2].isdigit() else 0,
-                        fwmark=int(parts[3]) if parts[3].isdigit() else 0,
+        for ifname, ifd in data.items():
+            if not isinstance(ifd, dict):
+                continue
+            iface = WireGuardInterface(
+                name=ifd.get("name") or ifname,
+                enabled=True,
+                public_key=ifd.get("public_key", ""),
+                listen_port=_int(ifd.get("listen_port")),
+                fwmark=_int(ifd.get("fwmark")),
+            )
+            for peer in ifd.get("peers") or []:
+                if not isinstance(peer, dict):
+                    continue
+                endpoint = peer.get("endpoint") or ""
+                if endpoint in ("(none)", None):
+                    endpoint = ""
+                iface.peers.append(
+                    WireGuardPeer(
+                        name=peer.get("name", ""),
+                        public_key=peer.get("public_key", ""),
+                        endpoint=endpoint,
+                        allowed_ips=peer.get("allowed_ips") or [],
+                        latest_handshake=_int(peer.get("latest_handshake")),
+                        transfer_rx=_int(peer.get("transfer_rx")),
+                        transfer_tx=_int(peer.get("transfer_tx")),
+                        persistent_keepalive=_int(peer.get("persistent_keepalive")),
                     )
-                    iface_map[ifname] = iface
-                    interfaces.append(iface)
-                elif len(parts) >= 8:
-                    # Peer line
-                    # Format: interface peer_public_key preshared_key endpoint allowed_ips latest_handshake transfer_rx transfer_tx persistent_keepalive
-                    # Wait, 'wg show all dump' includes the interface name as the first part for peers too?
-                    # Let's check 'wg show dump' output:
-                    # Interface: interface public_key listen_port fwmark
-                    # Peer: peer_public_key preshared_key endpoint allowed_ips latest_handshake transfer_rx transfer_tx persistent_keepalive
-                    # If using 'all', it's:
-                    # interface peer_public_key preshared_key endpoint allowed_ips latest_handshake transfer_rx transfer_tx persistent_keepalive
-
-                    ifname = parts[0]
-                    if ifname in iface_map:
-                        peer = WireGuardPeer(
-                            public_key=parts[1],
-                            endpoint=parts[3] if parts[3] != "(none)" else "",
-                            allowed_ips=(
-                                parts[4].split(",") if parts[4] != "(none)" else []
-                            ),
-                            latest_handshake=int(parts[5]) if parts[5].isdigit() else 0,
-                            transfer_rx=int(parts[6]) if parts[6].isdigit() else 0,
-                            transfer_tx=int(parts[7]) if parts[7].isdigit() else 0,
-                            persistent_keepalive=(
-                                int(parts[8])
-                                if len(parts) > 8 and parts[8].isdigit()
-                                else 0
-                            ),
-                        )
-                        iface_map[ifname].peers.append(peer)
-        except Exception as err:
-            _LOGGER.debug("Failed to fetch WireGuard interfaces: %s", err)
-
+                )
+            interfaces.append(iface)
         return interfaces
 
     async def get_network_interfaces(self) -> list[NetworkInterface]:
