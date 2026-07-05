@@ -725,12 +725,15 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         script = (
             "inst=false; [ -f /etc/init.d/snort ] && inst=true; "
             "run=false; /etc/init.d/snort running >/dev/null 2>&1 && run=true; "
-            "log=/var/log/alert_json.txt; count=0; "
+            "log=/var/log/alert_json.txt; count=0; latest=null; recent='[]'; "
             '[ -f "$log" ] && count=$(wc -l < "$log" 2>/dev/null | tr -dc 0-9); '
-            'latest=null; [ -s "$log" ] && latest=$(tail -n1 "$log" 2>/dev/null); '
+            'if [ -s "$log" ]; then '
+            'latest=$(tail -n1 "$log" 2>/dev/null); '
+            "body=$(tail -n 20 \"$log\" 2>/dev/null | sed ':a;N;$!ba;s/\\n/,/g'); "
+            'recent="[$body]"; fi; '
             "printf '{\"installed\":%s,\"running\":%s,\"alert_count\":%s,"
-            "\"last_alert\":%s}' "
-            '"$inst" "$run" "${count:-0}" "${latest:-null}"'
+            "\"last_alert\":%s,\"recent_alerts\":%s}' "
+            '"$inst" "$run" "${count:-0}" "${latest:-null}" "${recent:-[]}"'
         )
         result = await self.client.file_exec("/bin/sh", ["-c", script])
         if not result:
@@ -769,25 +772,35 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             data.snort_status = empty
             return
 
+        def _fmt_alert(a: dict[str, Any]) -> dict[str, Any]:
+            src = a.get("src_addr")
+            dst = a.get("dst_addr")
+            return {
+                "message": a.get("msg"),
+                "timestamp": a.get("timestamp"),
+                "proto": a.get("proto"),
+                "src": f"{src}:{a.get('src_port')}" if src else None,
+                "dst": f"{dst}:{a.get('dst_port')}" if dst else None,
+                "sid": a.get("sid"),
+                "action": a.get("action"),
+            }
+
         summary: dict[str, Any] = {
             "installed": bool(parsed.get("installed")),
             "running": bool(parsed.get("running")),
             "alert_count": int(parsed.get("alert_count") or 0),
             "last_alert": None,
+            "recent_alerts": [],
         }
         last = parsed.get("last_alert")
         if isinstance(last, dict):
-            src = last.get("src_addr")
-            dst = last.get("dst_addr")
-            summary["last_alert"] = {
-                "message": last.get("msg"),
-                "timestamp": last.get("timestamp"),
-                "proto": last.get("proto"),
-                "src": f"{src}:{last.get('src_port')}" if src else None,
-                "dst": f"{dst}:{last.get('dst_port')}" if dst else None,
-                "sid": last.get("sid"),
-                "action": last.get("action"),
-            }
+            summary["last_alert"] = _fmt_alert(last)
+        recent = parsed.get("recent_alerts")
+        if isinstance(recent, list):
+            # newest first for display
+            summary["recent_alerts"] = [
+                _fmt_alert(a) for a in reversed(recent) if isinstance(a, dict)
+            ]
         data.snort_status = summary
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:

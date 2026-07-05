@@ -1039,7 +1039,10 @@ class OpenWrtSnortSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntity
         status = self.coordinator.data.snort_status
         if not status:
             return {}
-        attrs: dict[str, Any] = {"running": status.get("running", False)}
+        attrs: dict[str, Any] = {
+            "running": status.get("running", False),
+            "recent_alerts": status.get("recent_alerts", []),
+        }
         last = status.get("last_alert")
         if isinstance(last, dict):
             attrs.update(
