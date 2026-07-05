@@ -721,87 +721,92 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             "running": False,
             "alert_count": 0,
             "last_alert": None,
-        }
-        script = (
-            "inst=false; [ -f /etc/init.d/snort ] && inst=true; "
-            "run=false; /etc/init.d/snort running >/dev/null 2>&1 && run=true; "
-            "log=/var/log/alert_json.txt; count=0; latest=null; recent='[]'; "
-            '[ -f "$log" ] && count=$(wc -l < "$log" 2>/dev/null | tr -dc 0-9); '
-            'if [ -s "$log" ]; then '
-            'latest=$(tail -n1 "$log" 2>/dev/null); '
-            "body=$(tail -n 20 \"$log\" 2>/dev/null | sed ':a;N;$!ba;s/\\n/,/g'); "
-            'recent="[$body]"; fi; '
-            "printf '{\"installed\":%s,\"running\":%s,\"alert_count\":%s,"
-            "\"last_alert\":%s,\"recent_alerts\":%s}' "
-            '"$inst" "$run" "${count:-0}" "${latest:-null}" "${recent:-[]}"'
-        )
-        result = await self.client.file_exec("/bin/sh", ["-c", script])
-        if not result:
-            _LOGGER.info(
-                "snort: file_exec returned empty — check the integration account "
-                "has rpcd file.exec permission (or runs as root)"
-            )
-            data.snort_status = empty
-            return
-
-        stdout = result.get("stdout", "")
-        stderr = result.get("stderr", "")
-        combined = (stdout + stderr).lower()
-        if "permission denied" in combined or "access denied" in combined:
-            _LOGGER.warning(
-                "snort sensor requires ubus file.exec permission for /bin/sh in the "
-                "rpcd ACL (or run the integration as root)"
-            )
-            data.snort_status = empty
-            return
-        if not stdout.strip():
-            _LOGGER.debug(
-                "snort: empty stdout (code=%s, stderr=%r)",
-                result.get("code"),
-                stderr[:200] if stderr else "",
-            )
-            data.snort_status = empty
-            return
-
-        try:
-            parsed = json.loads(stdout)
-        except (json.JSONDecodeError, ValueError) as err:
-            _LOGGER.error(
-                "Failed to parse snort status: %s — stdout was: %.300s", err, stdout
-            )
-            data.snort_status = empty
-            return
-
-        def _fmt_alert(a: dict[str, Any]) -> dict[str, Any]:
-            src = a.get("src_addr")
-            dst = a.get("dst_addr")
-            return {
-                "message": a.get("msg"),
-                "timestamp": a.get("timestamp"),
-                "proto": a.get("proto"),
-                "src": f"{src}:{a.get('src_port')}" if src else None,
-                "dst": f"{dst}:{a.get('dst_port')}" if dst else None,
-                "sid": a.get("sid"),
-                "action": a.get("action"),
-            }
-
-        summary: dict[str, Any] = {
-            "installed": bool(parsed.get("installed")),
-            "running": bool(parsed.get("running")),
-            "alert_count": int(parsed.get("alert_count") or 0),
-            "last_alert": None,
             "recent_alerts": [],
         }
-        last = parsed.get("last_alert")
-        if isinstance(last, dict):
-            summary["last_alert"] = _fmt_alert(last)
-        recent = parsed.get("recent_alerts")
-        if isinstance(recent, list):
+
+        # 1. Service state via a direct exec of the init script (no /bin/sh).
+        installed = False
+        running = False
+        try:
+            res = await self.client.file_exec("/etc/init.d/snort", ["running"])
+            if isinstance(res, dict) and "code" in res:
+                installed = True
+                running = res.get("code") == 0
+        except Exception as err:  # noqa: BLE001 - best effort
+            _LOGGER.debug("snort: init 'running' probe failed: %s", err)
+
+        if not installed:
+            data.snort_status = empty
+            return
+
+        # 2. Alert log via bounded direct execs (tail/wc). file.read is avoided
+        #    here because rpcd silently returns nothing past its message-size
+        #    limit (~256KB) — which would blind the sensor exactly when an IDS
+        #    log grows large under attack. tail/wc are read-only and no more
+        #    privileged than the cat/grep already granted; no /bin/sh involved.
+        log_path = "/var/log/alert_json.txt"
+        alerts: list[dict[str, Any]] = []
+        count = 0
+        try:
+            res = await self.client.file_exec("/usr/bin/wc", ["-l", log_path])
+            out = res.get("stdout", "") if isinstance(res, dict) else ""
+            m = re.search(r"\d+", out)
+            if m:
+                count = int(m.group(0))
+        except Exception as err:  # noqa: BLE001 - best effort
+            _LOGGER.debug("snort: wc failed: %s", err)
+
+        if count:
+            try:
+                res = await self.client.file_exec(
+                    "/usr/bin/tail", ["-n", "20", log_path]
+                )
+                body = res.get("stdout", "") if isinstance(res, dict) else ""
+                for ln in body.splitlines():
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        obj = json.loads(ln)
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                    if isinstance(obj, dict):
+                        alerts.append(obj)
+            except Exception as err:  # noqa: BLE001 - best effort
+                _LOGGER.debug("snort: tail failed: %s", err)
+
+        def _clean(value: Any) -> str | None:
+            """Coerce to a single-line, length-capped string (attribute hygiene)."""
+            if value is None:
+                return None
+            return str(value).replace("\n", " ").replace("\r", " ").strip()[:256]
+
+        def _hostport(addr: Any, port: Any) -> str | None:
+            if not addr:
+                return None
+            addr = str(addr)
+            # Bracket IPv6 so "addr:port" stays unambiguous.
+            return f"[{addr}]:{port}" if ":" in addr else f"{addr}:{port}"
+
+        def _fmt_alert(a: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "message": _clean(a.get("msg")),
+                "timestamp": _clean(a.get("timestamp")),
+                "proto": _clean(a.get("proto")),
+                "src": _hostport(a.get("src_addr"), a.get("src_port")),
+                "dst": _hostport(a.get("dst_addr"), a.get("dst_port")),
+                "sid": a.get("sid"),
+                "action": _clean(a.get("action")),
+            }
+
+        data.snort_status = {
+            "installed": True,
+            "running": running,
+            "alert_count": count,
+            "last_alert": _fmt_alert(alerts[-1]) if alerts else None,
             # newest first for display
-            summary["recent_alerts"] = [
-                _fmt_alert(a) for a in reversed(recent) if isinstance(a, dict)
-            ]
-        data.snort_status = summary
+            "recent_alerts": [_fmt_alert(a) for a in reversed(alerts)],
+        }
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:
         """Check for stale permissions."""
