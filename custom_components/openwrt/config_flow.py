@@ -75,6 +75,7 @@ from .const import (
     CONF_ENABLE_LOAD,
     CONF_ENABLE_NLBWMON_SENSORS,
     CONF_ENABLE_SERVICES,
+    CONF_ENABLE_SNORT_SENSORS,
     CONF_ENABLE_SQM,
     CONF_ENABLE_VPN,
     CONF_FORCE_WIRELESS_MACS,
@@ -1839,6 +1840,12 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
                 default=bool(self._packages.nlbwmon),
             )
         ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_SNORT_SENSORS,
+                default=bool(self._packages.snort),
+            )
+        ] = bool
 
         return self.async_show_form(
             step_id="packages",
@@ -2499,6 +2506,19 @@ class OpenWrtOptionsFlow(OptionsFlow):
                         self._config_entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
                     )
                     if self._packages.nlbwmon
+                    else False
+                ),
+            )
+        ] = bool
+        schema_dict[
+            vol.Optional(
+                CONF_ENABLE_SNORT_SENSORS,
+                default=(
+                    current.get(
+                        CONF_ENABLE_SNORT_SENSORS,
+                        self._config_entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
+                    )
+                    if self._packages.snort
                     else False
                 ),
             )

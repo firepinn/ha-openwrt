@@ -705,6 +705,7 @@ class OpenWrtPackages:
     ban_ip: bool | None = None
     miniupnpd: bool | None = None
     nlbwmon: bool | None = None
+    snort: bool | None = None
     pbr: bool | None = None
     adguardhome: bool | None = None
     unbound: bool | None = None
@@ -768,6 +769,7 @@ class OpenWrtData:
     upnp_mappings: list[UpnpMapping] = field(default_factory=list)
     nlbwmon_traffic: dict[str, NlbwmonTraffic] = field(default_factory=dict)
     nlbwmon_top_hosts: dict[str, Any] = field(default_factory=dict)
+    snort_status: dict[str, Any] = field(default_factory=dict)
     wifi_credentials: list[WifiCredentials] = field(default_factory=list)
     sqm: list[SqmStatus] = field(default_factory=list)
     packages: OpenWrtPackages = field(default_factory=OpenWrtPackages)
