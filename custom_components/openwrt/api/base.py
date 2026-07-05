@@ -68,7 +68,7 @@ echo "LOG: TRACE: Password set"
 
 ACL_FILE="/usr/share/rpcd/acl.d/homeassistant.json"
 mkdir -p "$(dirname "$ACL_FILE")"
-printf '{{\\n  "homeassistant": {{\\n    "description": "Home Assistant Integration",\\n    "read": {{\\n      "ubus": {{\\n        "system": ["info", "board", "logread", "upgrade"],\\n        "log": ["read"],\\n        "network": ["*"],\\n        "network.*": ["*"],\\n        "iwinfo": ["*"],\\n        "file": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "system": ["*"],\\n        "uci": ["*"],\\n        "session": ["*"],\\n        "hostapd.*": ["*"],\\n        "luci": ["*"],\\n        "luci-rpc": ["*"],\\n        "attendedsysupgrade": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/etc/config/*": ["read", "stat"],\\n        "/etc/passwd": ["read"],\\n        "/etc/group": ["read"],\\n        "/etc/shadow": ["read"],\\n        "/etc/shells": ["read"],\\n        "/usr/bin/iwinfo": ["read", "stat", "exec"],\\n        "/usr/bin/etherwake": ["read", "stat", "exec"],\\n        "/usr/bin/wg": ["read", "stat", "exec"],\\n        "/usr/sbin/openvpn": ["read", "stat", "exec"],\\n        "/usr/bin/id": ["read", "stat", "exec"],\\n        "/bin/sh": ["read", "stat", "exec"],\\n        "/bin/ash": ["read", "stat", "exec"],\\n        "/bin/ls": ["read", "stat", "exec"],\\n        "/sbin/apk": ["read", "stat", "exec"],\\n        "/bin/opkg": ["read", "stat", "exec"],\\n        "/sbin/logread": ["read", "stat"],\\n        "/etc/presence/*": ["read", "stat"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],\\n        "/usr/sbin/batctl": ["read", "stat", "exec"],\\n        "/sys/module/batman_adv": ["read", "stat"],\\n        "/bin/cat": ["read", "stat", "exec"],\\n        "/bin/grep": ["read", "stat", "exec"],\\n        "/usr/bin/awk": ["read", "stat", "exec"],\\n        "/bin/df": ["read", "stat", "exec"],\\n        "/sbin/ip": ["read", "stat", "exec"],\\n        "/usr/sbin/ip": ["read", "stat", "exec"],\\n        "/bin/ubus": ["read", "stat", "exec"],\\n        "/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/uptime": ["read", "stat", "exec"],\\n        "/usr/bin/killall": ["read", "stat", "exec"],\\n        "/bin/chmod": ["read", "stat", "exec"],\\n        "/bin/mkdir": ["read", "stat", "exec"],\\n        "/bin/rm": ["read", "stat", "exec"],\\n        "/proc/stat": ["read"],\\n        "/proc/meminfo": ["read"],\\n        "/proc/net/arp": ["read"],\\n        "/proc/net/dev": ["read"],\\n        "/tmp/dhcp.leases": ["read"],\\n        "/sys/class/thermal/*": ["read"]\\n      }}\\n    }},\\n    "write": {{\\n      "ubus": {{\\n        "system": ["reboot", "upgrade"],\\n        "network.interface": ["up", "down", "reconnect"],\\n        "network": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "uci": ["*"],\\n        "file": ["exec"],\\n        "hostapd.*": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/bin/sh": ["exec"],\\n        "/bin/ash": ["exec"],\\n        "/usr/bin/id": ["exec"],\\n        "/sbin/apk": ["exec"],\\n        "/bin/opkg": ["exec"],\\n        "/etc/presence/*": ["read", "stat", "write"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]\\n      }}\\n    }}\\n  }}\\n}}' > "$ACL_FILE"
+printf '{{\\n  "homeassistant": {{\\n    "description": "Home Assistant Integration",\\n    "read": {{\\n      "ubus": {{\\n        "system": ["info", "board", "logread", "upgrade"],\\n        "log": ["read"],\\n        "network": ["*"],\\n        "network.*": ["*"],\\n        "iwinfo": ["*"],\\n        "file": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "system": ["*"],\\n        "uci": ["*"],\\n        "session": ["*"],\\n        "hostapd.*": ["*"],\\n        "luci": ["*"],\\n        "luci-rpc": ["*"],\\n        "attendedsysupgrade": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/etc/config/*": ["read", "stat"],\\n        "/etc/passwd": ["read"],\\n        "/etc/group": ["read"],\\n        "/etc/shadow": ["read"],\\n        "/etc/shells": ["read"],\\n        "/usr/bin/iwinfo": ["read", "stat", "exec"],\\n        "/usr/bin/etherwake": ["read", "stat", "exec"],\\n        "/usr/bin/wg": ["read", "stat", "exec"],\\n        "/usr/sbin/openvpn": ["read", "stat", "exec"],\\n        "/usr/bin/id": ["read", "stat", "exec"],\\n        "/bin/sh": ["read", "stat", "exec"],\\n        "/bin/ash": ["read", "stat", "exec"],\\n        "/bin/ls": ["read", "stat", "exec"],\\n        "/sbin/apk": ["read", "stat", "exec"],\\n        "/bin/opkg": ["read", "stat", "exec"],\\n        "/sbin/logread": ["read", "stat"],\\n        "/etc/presence/*": ["read", "stat"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],\\n        "/usr/sbin/batctl": ["read", "stat", "exec"],\\n        "/sys/module/batman_adv": ["read", "stat"],\\n        "/bin/cat": ["read", "stat", "exec"],\\n        "/bin/grep": ["read", "stat", "exec"],\\n        "/usr/bin/awk": ["read", "stat", "exec"],\\n        "/bin/df": ["read", "stat", "exec"],\\n        "/sbin/ip": ["read", "stat", "exec"],\\n        "/usr/sbin/ip": ["read", "stat", "exec"],\\n        "/bin/ubus": ["read", "stat", "exec"],\\n        "/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/uptime": ["read", "stat", "exec"],\\n        "/usr/bin/killall": ["read", "stat", "exec"],\\n        "/bin/chmod": ["read", "stat", "exec"],\\n        "/bin/mkdir": ["read", "stat", "exec"],\\n        "/bin/rm": ["read", "stat", "exec"],\\n        "/proc/stat": ["read"],\\n        "/proc/meminfo": ["read"],\\n        "/proc/net/arp": ["read"],\\n        "/proc/net/dev": ["read"],\\n        "/etc/init.d/banip": ["read", "stat", "exec"],\\n        "/tmp/dhcp.leases": ["read"],\\n        "/sys/class/thermal/*": ["read"]\\n      }}\\n    }},\\n    "write": {{\\n      "ubus": {{\\n        "system": ["reboot", "upgrade"],\\n        "network.interface": ["up", "down", "reconnect"],\\n        "network": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "uci": ["*"],\\n        "file": ["exec"],\\n        "hostapd.*": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/bin/sh": ["exec"],\\n        "/bin/ash": ["exec"],\\n        "/usr/bin/id": ["exec"],\\n        "/sbin/apk": ["exec"],\\n        "/bin/opkg": ["exec"],\\n        "/etc/presence/*": ["read", "stat", "write"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]\\n      }}\\n    }}\\n  }}\\n}}' > "$ACL_FILE"
 chmod 644 "$ACL_FILE"
 echo "LOG: TRACE: ACL created"
 
@@ -514,6 +514,10 @@ class BanIpStatus:
     status: str = "disabled"
     version: str | None = None
     banned_ips: int = 0
+    blocked_packets: int = 0
+    blocked_inbound: int = 0
+    blocked_outbound: int = 0
+    block_stats: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -1631,12 +1635,73 @@ class OpenWrtClient(abc.ABC):
         return False
 
     async def get_banip_status(self) -> BanIpStatus:
-        """Get status of the ban-ip package."""
-        return BanIpStatus()
+        """Get banIP status and runtime block counters."""
+        status = BanIpStatus()
+
+        try:
+            res = await self.file_exec("/etc/init.d/banip", ["enabled"])
+            if isinstance(res, dict) and "code" in res:
+                status.enabled = res.get("code") == 0
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("banip enabled probe failed: %s", err)
+        status.status = "enabled" if status.enabled else "disabled"
+
+        # Element count + packet-block counters from banIP's JSON report.
+        try:
+            res = await self.file_exec("/etc/init.d/banip", ["report", "json"])
+            out = res.get("stdout", "") if isinstance(res, dict) else ""
+            if out:
+                payload = json.loads(out)
+                summary = (
+                    payload[0]
+                    if isinstance(payload, list) and payload
+                    else payload
+                )
+                if isinstance(summary, dict):
+
+                    def _n(key: str) -> int:
+                        try:
+                            return int(str(summary.get(key, "0")).strip() or "0")
+                        except (ValueError, TypeError):
+                            return 0
+
+                    status.banned_ips = _n("sum_cntelements")
+                    status.blocked_inbound = _n("sum_setinbound")
+                    status.blocked_outbound = _n("sum_setoutbound")
+                    status.block_stats = {
+                        "inbound": status.blocked_inbound,
+                        "outbound": status.blocked_outbound,
+                        "syn_flood": _n("sum_synflood"),
+                        "udp_flood": _n("sum_udpflood"),
+                        "icmp_flood": _n("sum_icmpflood"),
+                        "ct_invalid": _n("sum_ctinvalid"),
+                        "tcp_invalid": _n("sum_tcpinvalid"),
+                        "bcp38": _n("sum_bcp38"),
+                        "autoadd_block": _n("autoadd_block"),
+                    }
+                    status.blocked_packets = sum(
+                        v
+                        for k, v in status.block_stats.items()
+                        if k != "autoadd_block"
+                    )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("banip report failed: %s", err)
+        return status
 
     async def set_banip_enabled(self, enabled: bool) -> bool:
-        """Enable/disable the ban-ip service."""
-        return False
+        """Enable/disable the banIP service (uci flag + init start/stop)."""
+        val = "1" if enabled else "0"
+        try:
+            await self.execute_command(
+                f"uci set banip.global.ban_enabled='{val}' && uci commit banip"
+            )
+            await self.execute_command(
+                f"/etc/init.d/banip {'start' if enabled else 'stop'}"
+            )
+            return True
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("banip enable/disable failed: %s", err)
+            return False
 
     async def get_latency(self, target: str = "8.8.8.8") -> LatencyResult | None:
         """Measure network latency via ping."""
