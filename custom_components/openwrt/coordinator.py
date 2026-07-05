@@ -57,6 +57,7 @@ from .const import (
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
     CONF_ENABLE_NLBWMON_SENSORS,
+    CONF_ENABLE_SNORT_SENSORS,
     CONF_FORCE_WIRELESS_MACS,
     CONF_GPS_MODEM_ENABLED,
     CONF_GPS_MODEM_PORT,
@@ -454,6 +455,15 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 await self._async_fetch_nlbwmon_top_hosts_data(data)
             except Exception as err:
                 _LOGGER.debug("nlbwmon top hosts fetch failed: %s", err)
+
+        if self.config_entry.options.get(
+            CONF_ENABLE_SNORT_SENSORS,
+            self.config_entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
+        ):
+            try:
+                await self._async_fetch_snort_data(data)
+            except Exception as err:
+                _LOGGER.debug("snort data fetch failed: %s", err)
         if self.config_entry.options.get(CONF_GPS_MODEM_ENABLED, False):
             data.qmodem_info.enabled = True
             gps_port = self.config_entry.options.get(
@@ -697,6 +707,102 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             "host_count": len(hosts),
             "total_rx_bytes": sum(h["rx_bytes"] for h in hosts),
             "total_tx_bytes": sum(h["tx_bytes"] for h in hosts),
+        }
+
+    async def _async_fetch_snort_data(self, data: OpenWrtData) -> None:
+        """Fetch Snort IDS status and latest alert via rpcd file.exec.
+
+        Reads snort's alert_json log (/var/log/alert_json.txt) for the alert
+        count and most recent alert, plus the service running state. Note the
+        log lives on tmpfs, so the count resets on reboot (alerts since boot).
+        """
+        empty: dict[str, Any] = {
+            "installed": False,
+            "running": False,
+            "alert_count": 0,
+            "last_alert": None,
+            "recent_alerts": [],
+        }
+
+        # 1. Service state via a direct exec of the init script (no /bin/sh).
+        installed = False
+        running = False
+        try:
+            res = await self.client.file_exec("/etc/init.d/snort", ["running"])
+            if isinstance(res, dict) and "code" in res:
+                installed = True
+                running = res.get("code") == 0
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("snort: init 'running' probe failed: %s", err)
+
+        if not installed:
+            data.snort_status = empty
+            return
+
+        # tail/wc rather than file.read: rpcd file.read truncates past ~256KB,
+        # which would blind the sensor on a large IDS log.
+        log_path = "/var/log/alert_json.txt"
+        alerts: list[dict[str, Any]] = []
+        count = 0
+        try:
+            res = await self.client.file_exec("/usr/bin/wc", ["-l", log_path])
+            out = res.get("stdout", "") if isinstance(res, dict) else ""
+            m = re.search(r"\d+", out)
+            if m:
+                count = int(m.group(0))
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("snort: wc failed: %s", err)
+
+        if count:
+            try:
+                res = await self.client.file_exec(
+                    "/usr/bin/tail", ["-n", "20", log_path]
+                )
+                body = res.get("stdout", "") if isinstance(res, dict) else ""
+                for ln in body.splitlines():
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        obj = json.loads(ln)
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                    if isinstance(obj, dict):
+                        alerts.append(obj)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("snort: tail failed: %s", err)
+
+        def _clean(value: Any) -> str | None:
+            """Coerce to a single-line, length-capped string (attribute hygiene)."""
+            if value is None:
+                return None
+            return str(value).replace("\n", " ").replace("\r", " ").strip()[:256]
+
+        def _hostport(addr: Any, port: Any) -> str | None:
+            if not addr:
+                return None
+            addr = str(addr)
+            # Bracket IPv6 so "addr:port" stays unambiguous.
+            return f"[{addr}]:{port}" if ":" in addr else f"{addr}:{port}"
+
+        def _fmt_alert(a: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "message": _clean(a.get("msg")),
+                "timestamp": _clean(a.get("timestamp")),
+                "proto": _clean(a.get("proto")),
+                "src": _hostport(a.get("src_addr"), a.get("src_port")),
+                "dst": _hostport(a.get("dst_addr"), a.get("dst_port")),
+                "sid": a.get("sid"),
+                "action": _clean(a.get("action")),
+            }
+
+        data.snort_status = {
+            "installed": True,
+            "running": running,
+            "alert_count": count,
+            "last_alert": _fmt_alert(alerts[-1]) if alerts else None,
+            # newest first for display
+            "recent_alerts": [_fmt_alert(a) for a in reversed(alerts)],
         }
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:
