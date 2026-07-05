@@ -68,7 +68,7 @@ echo "LOG: TRACE: Password set"
 
 ACL_FILE="/usr/share/rpcd/acl.d/homeassistant.json"
 mkdir -p "$(dirname "$ACL_FILE")"
-printf '{{\\n  "homeassistant": {{\\n    "description": "Home Assistant Integration",\\n    "read": {{\\n      "ubus": {{\\n        "system": ["info", "board", "logread", "upgrade"],\\n        "log": ["read"],\\n        "network": ["*"],\\n        "network.*": ["*"],\\n        "iwinfo": ["*"],\\n        "file": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "system": ["*"],\\n        "uci": ["*"],\\n        "session": ["*"],\\n        "hostapd.*": ["*"],\\n        "luci": ["*"],\\n        "luci-rpc": ["*"],\\n        "attendedsysupgrade": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/etc/config/*": ["read", "stat"],\\n        "/etc/passwd": ["read"],\\n        "/etc/group": ["read"],\\n        "/etc/shadow": ["read"],\\n        "/etc/shells": ["read"],\\n        "/usr/bin/iwinfo": ["read", "stat", "exec"],\\n        "/usr/bin/etherwake": ["read", "stat", "exec"],\\n        "/usr/bin/wg": ["read", "stat", "exec"],\\n        "/usr/sbin/openvpn": ["read", "stat", "exec"],\\n        "/usr/bin/id": ["read", "stat", "exec"],\\n        "/bin/sh": ["read", "stat", "exec"],\\n        "/bin/ash": ["read", "stat", "exec"],\\n        "/bin/ls": ["read", "stat", "exec"],\\n        "/sbin/apk": ["read", "stat", "exec"],\\n        "/bin/opkg": ["read", "stat", "exec"],\\n        "/sbin/logread": ["read", "stat"],\\n        "/etc/presence/*": ["read", "stat"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],\\n        "/usr/sbin/batctl": ["read", "stat", "exec"],\\n        "/sys/module/batman_adv": ["read", "stat"],\\n        "/bin/cat": ["read", "stat", "exec"],\\n        "/bin/grep": ["read", "stat", "exec"],\\n        "/usr/bin/awk": ["read", "stat", "exec"],\\n        "/bin/df": ["read", "stat", "exec"],\\n        "/sbin/ip": ["read", "stat", "exec"],\\n        "/usr/sbin/ip": ["read", "stat", "exec"],\\n        "/bin/ubus": ["read", "stat", "exec"],\\n        "/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/uptime": ["read", "stat", "exec"],\\n        "/usr/bin/killall": ["read", "stat", "exec"],\\n        "/bin/chmod": ["read", "stat", "exec"],\\n        "/bin/mkdir": ["read", "stat", "exec"],\\n        "/bin/rm": ["read", "stat", "exec"],\\n        "/proc/stat": ["read"],\\n        "/proc/meminfo": ["read"],\\n        "/proc/net/arp": ["read"],\\n        "/proc/net/dev": ["read"],\\n        "/tmp/dhcp.leases": ["read"],\\n        "/sys/class/thermal/*": ["read"]\\n      }}\\n    }},\\n    "write": {{\\n      "ubus": {{\\n        "system": ["reboot", "upgrade"],\\n        "network.interface": ["up", "down", "reconnect"],\\n        "network": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "uci": ["*"],\\n        "file": ["exec"],\\n        "hostapd.*": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/bin/sh": ["exec"],\\n        "/bin/ash": ["exec"],\\n        "/usr/bin/id": ["exec"],\\n        "/sbin/apk": ["exec"],\\n        "/bin/opkg": ["exec"],\\n        "/etc/presence/*": ["read", "stat", "write"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]\\n      }}\\n    }}\\n  }}\\n}}' > "$ACL_FILE"
+printf '{{\\n  "homeassistant": {{\\n    "description": "Home Assistant Integration",\\n    "read": {{\\n      "ubus": {{\\n        "system": ["info", "board", "logread", "upgrade"],\\n        "log": ["read"],\\n        "network": ["*"],\\n        "network.*": ["*"],\\n        "iwinfo": ["*"],\\n        "file": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "system": ["*"],\\n        "uci": ["*"],\\n        "session": ["*"],\\n        "hostapd.*": ["*"],\\n        "luci": ["*"],\\n        "luci-rpc": ["*"],\\n        "attendedsysupgrade": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/etc/config/*": ["read", "stat"],\\n        "/etc/passwd": ["read"],\\n        "/etc/group": ["read"],\\n        "/etc/shadow": ["read"],\\n        "/etc/shells": ["read"],\\n        "/usr/bin/iwinfo": ["read", "stat", "exec"],\\n        "/usr/bin/etherwake": ["read", "stat", "exec"],\\n        "/usr/bin/wg": ["read", "stat", "exec"],\\n        "/usr/sbin/openvpn": ["read", "stat", "exec"],\\n        "/usr/bin/id": ["read", "stat", "exec"],\\n        "/bin/sh": ["read", "stat", "exec"],\\n        "/bin/ash": ["read", "stat", "exec"],\\n        "/bin/ls": ["read", "stat", "exec"],\\n        "/sbin/apk": ["read", "stat", "exec"],\\n        "/bin/opkg": ["read", "stat", "exec"],\\n        "/sbin/logread": ["read", "stat"],\\n        "/etc/presence/*": ["read", "stat"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "exec"],\\n        "/usr/sbin/batctl": ["read", "stat", "exec"],\\n        "/sys/module/batman_adv": ["read", "stat"],\\n        "/bin/cat": ["read", "stat", "exec"],\\n        "/bin/grep": ["read", "stat", "exec"],\\n        "/usr/bin/awk": ["read", "stat", "exec"],\\n        "/bin/df": ["read", "stat", "exec"],\\n        "/sbin/ip": ["read", "stat", "exec"],\\n        "/usr/sbin/ip": ["read", "stat", "exec"],\\n        "/bin/ubus": ["read", "stat", "exec"],\\n        "/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/ping": ["read", "stat", "exec"],\\n        "/usr/bin/uptime": ["read", "stat", "exec"],\\n        "/usr/bin/killall": ["read", "stat", "exec"],\\n        "/bin/chmod": ["read", "stat", "exec"],\\n        "/bin/mkdir": ["read", "stat", "exec"],\\n        "/bin/rm": ["read", "stat", "exec"],\\n        "/proc/stat": ["read"],\\n        "/proc/meminfo": ["read"],\\n        "/proc/net/arp": ["read"],\\n        "/proc/net/dev": ["read"],\\n        "/proc/sys/net/netfilter/nf_conntrack_count": ["read"],\\n        "/proc/sys/net/netfilter/nf_conntrack_max": ["read"],\\n        "/tmp/dhcp.leases": ["read"],\\n        "/sys/class/thermal/*": ["read"]\\n      }}\\n    }},\\n    "write": {{\\n      "ubus": {{\\n        "system": ["reboot", "upgrade"],\\n        "network.interface": ["up", "down", "reconnect"],\\n        "network": ["*"],\\n        "firewall": ["*"],\\n        "rc": ["*"],\\n        "service": ["*"],\\n        "uci": ["*"],\\n        "file": ["exec"],\\n        "hostapd.*": ["*"]\\n      }},\\n      "uci": ["*"],\\n      "file": {{\\n        "/bin/sh": ["exec"],\\n        "/bin/ash": ["exec"],\\n        "/usr/bin/id": ["exec"],\\n        "/sbin/apk": ["exec"],\\n        "/bin/opkg": ["exec"],\\n        "/etc/presence/*": ["read", "stat", "write"],\\n        "/etc/init.d/presence_hostapd": ["read", "stat", "write", "exec"]\\n      }}\\n    }}\\n  }}\\n}}' > "$ACL_FILE"
 chmod 644 "$ACL_FILE"
 echo "LOG: TRACE: ACL created"
 
@@ -315,6 +315,8 @@ class SystemResources:
     load_15min: float = 0.0
     uptime: int = 0
     processes: int = 0
+    conntrack_count: int = 0
+    conntrack_max: int = 0
     temperature: float | None = None
     temperatures: dict[str, float] = field(default_factory=dict)
     cpu_frequency: float | None = None
@@ -514,6 +516,12 @@ class BanIpStatus:
     status: str = "disabled"
     version: str | None = None
     banned_ips: int = 0
+    # Runtime packet-block counters (from `banip report json`). Inbound/outbound
+    # require per-set counting (ban_nftcount=1); flood/invalid are always tracked.
+    blocked_packets: int = 0
+    blocked_inbound: int = 0
+    blocked_outbound: int = 0
+    block_stats: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -1641,9 +1649,32 @@ class OpenWrtClient(abc.ABC):
         return False
 
     async def get_latency(self, target: str = "8.8.8.8") -> LatencyResult | None:
-        """Measure network latency via ping."""
+        """Measure network latency via ping.
+
+        Uses a direct binary exec (rpcd file.exec of /bin/ping) with a fixed
+        argument list instead of a /bin/sh command string. This avoids shell
+        interpolation of ``target`` and keeps the operation to a least-privilege
+        binary that the plugin's ACL already permits.
+        """
         try:
-            output = await self.execute_command(f"ping -c 3 -W 2 {target}")
+            args = ["-c", "3", "-W", "2", target]
+            output = ""
+            for ping_bin in ("/bin/ping", "/usr/bin/ping"):
+                try:
+                    res = await self.file_exec(ping_bin, args)
+                except Exception:  # noqa: BLE001 - try next candidate/fallback
+                    res = None
+                if isinstance(res, dict):
+                    output = str(res.get("stdout") or "").strip() or str(
+                        res.get("stderr") or ""
+                    ).strip()
+                if output:
+                    break
+
+            # Fallback for backends without direct file.exec support.
+            if not output:
+                output = await self.execute_command(f"ping -c 3 -W 2 {target}")
+
             if not output:
                 _LOGGER.debug("Ping command returned no output for %s", target)
                 return None

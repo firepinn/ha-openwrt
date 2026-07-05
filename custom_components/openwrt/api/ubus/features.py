@@ -1,7 +1,9 @@
 # mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Any
 
 from ..base import (
@@ -312,27 +314,77 @@ class UbusFeaturesMixin:
             return False
 
     async def get_banip_status(self) -> BanIpStatus:
-        """Get ban-ip status."""
+        """Get banIP status by parsing the banIP init 'status' report.
+
+        banIP (>=1.8) ships as /etc/init.d/banip whose 'status' action prints a
+        runtime report including the active state and total element count.
+        """
         from ..base import BanIpStatus
 
         status = BanIpStatus()
         try:
-            res = await self.execute_command("uci -q get ban-ip.config.enabled")
-            status.enabled = res.strip() == "1"
-            status.status = "enabled" if status.enabled else "disabled"
+            out = await self.execute_command("/etc/init.d/banip status 2>/dev/null")
+            if out:
+                m = re.search(r"status\s*:\s*(\S+)", out)
+                if m:
+                    status.status = m.group(1)
+                    status.enabled = m.group(1).lower() == "active"
+                # e.g. "element_count : 19 110 (chains: 7, sets: 15, ...)"
+                m = re.search(r"element_count\s*:\s*([\d\s]+?)\s*\(", out)
+                if m:
+                    status.banned_ips = int(re.sub(r"\s+", "", m.group(1)))
+        except Exception:
+            pass
+
+        # Runtime packet-block counters from the JSON report summary.
+        try:
+            rep = await self.execute_command(
+                "/etc/init.d/banip report json 2>/dev/null"
+            )
+            if rep:
+                data = json.loads(rep)
+                summary = data[0] if isinstance(data, list) and data else data
+                if isinstance(summary, dict):
+
+                    def _n(key: str) -> int:
+                        try:
+                            return int(str(summary.get(key, "0")).strip() or "0")
+                        except (ValueError, TypeError):
+                            return 0
+
+                    status.blocked_inbound = _n("sum_setinbound")
+                    status.blocked_outbound = _n("sum_setoutbound")
+                    status.block_stats = {
+                        "inbound": status.blocked_inbound,
+                        "outbound": status.blocked_outbound,
+                        "syn_flood": _n("sum_synflood"),
+                        "udp_flood": _n("sum_udpflood"),
+                        "icmp_flood": _n("sum_icmpflood"),
+                        "ct_invalid": _n("sum_ctinvalid"),
+                        "tcp_invalid": _n("sum_tcpinvalid"),
+                        "bcp38": _n("sum_bcp38"),
+                        "autoadd_block": _n("autoadd_block"),
+                    }
+                    status.blocked_packets = sum(
+                        v
+                        for k, v in status.block_stats.items()
+                        if k != "autoadd_block"
+                    )
+                    if not status.banned_ips:
+                        status.banned_ips = _n("sum_cntelements")
         except Exception:
             pass
         return status
 
     async def set_banip_enabled(self, enabled: bool) -> bool:
-        """Enable/disable ban-ip service."""
+        """Enable/disable the banIP service."""
         val = "1" if enabled else "0"
         try:
             await self.execute_command(
-                f"uci set ban-ip.config.enabled='{val}' && uci commit ban-ip",
+                f"uci set banip.global.ban_enabled='{val}' && uci commit banip",
             )
             action = "start" if enabled else "stop"
-            await self.execute_command(f"/etc/init.d/ban-ip {action}")
+            await self.execute_command(f"/etc/init.d/banip {action}")
             self._last_full_poll = 0
             return True
         except Exception:

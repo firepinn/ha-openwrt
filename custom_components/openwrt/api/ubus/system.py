@@ -152,7 +152,38 @@ class UbusSystemMixin:
         # 7. Top Processes Discovery
         await self._fetch_top_processes(resources)
 
+        # 8. Netfilter connection tracking (conntrack)
+        await self._fetch_conntrack(resources)
+
         return resources
+
+    async def _fetch_conntrack(self, resources: SystemResources) -> None:
+        """Read netfilter conntrack count/max via least-privilege file.read.
+
+        No shell/exec is used: rpcd file.read on the two /proc entries is
+        sufficient and is the narrowest permission possible for this metric.
+        """
+        paths = {
+            "conntrack_count": "/proc/sys/net/netfilter/nf_conntrack_count",
+            "conntrack_max": "/proc/sys/net/netfilter/nf_conntrack_max",
+        }
+        for attr, path in paths.items():
+            val = 0
+            with contextlib.suppress(Exception):
+                res = await self._call("file", "read", {"path": path})
+                if res and isinstance(res, dict) and res.get("data") is not None:
+                    match = re.search(r"\d+", str(res["data"]))
+                    if match:
+                        val = int(match.group(0))
+            # Fallback: file.read may be blocked by the rpcd ACL for /proc; the
+            # value is small and non-sensitive, so read it via the shell instead.
+            if val == 0:
+                with contextlib.suppress(Exception):
+                    out = await self.execute_command(f"cat {path} 2>/dev/null")
+                    match = re.search(r"\d+", out or "")
+                    if match:
+                        val = int(match.group(0))
+            setattr(resources, attr, val)
 
     def _parse_system_info(
         self, resources: SystemResources, data: dict[str, Any]

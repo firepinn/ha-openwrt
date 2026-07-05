@@ -412,6 +412,9 @@
       "load_1min": {
         "name": "Load (1m)"
       },
+      "conntrack_count": {
+        "name": "Connection Tracking"
+      },
       "load_5min": {
         "name": "Load (5m)"
       },
@@ -465,6 +468,9 @@
       },
       "banip_banned": {
         "name": "Ban-IP Banned IPs"
+      },
+      "banip_blocked": {
+        "name": "Ban-IP Blocked Packets"
       },
       "connected_clients": {
         "name": "Connected Clients"
