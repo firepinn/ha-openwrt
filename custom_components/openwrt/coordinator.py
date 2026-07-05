@@ -57,6 +57,7 @@ from .const import (
     CONF_CUSTOM_FIRMWARE_REPO,
     CONF_DHCP_SOFTWARE,
     CONF_ENABLE_NLBWMON_SENSORS,
+    CONF_ENABLE_SNORT_SENSORS,
     CONF_FORCE_WIRELESS_MACS,
     CONF_GPS_MODEM_ENABLED,
     CONF_GPS_MODEM_PORT,
@@ -454,6 +455,15 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 await self._async_fetch_nlbwmon_top_hosts_data(data)
             except Exception as err:
                 _LOGGER.debug("nlbwmon top hosts fetch failed: %s", err)
+
+        if self.config_entry.options.get(
+            CONF_ENABLE_SNORT_SENSORS,
+            self.config_entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
+        ):
+            try:
+                await self._async_fetch_snort_data(data)
+            except Exception as err:
+                _LOGGER.debug("snort data fetch failed: %s", err)
         if self.config_entry.options.get(CONF_GPS_MODEM_ENABLED, False):
             data.qmodem_info.enabled = True
             gps_port = self.config_entry.options.get(
@@ -698,6 +708,87 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             "total_rx_bytes": sum(h["rx_bytes"] for h in hosts),
             "total_tx_bytes": sum(h["tx_bytes"] for h in hosts),
         }
+
+    async def _async_fetch_snort_data(self, data: OpenWrtData) -> None:
+        """Fetch Snort IDS status and latest alert via rpcd file.exec.
+
+        Reads snort's alert_json log (/var/log/alert_json.txt) for the alert
+        count and most recent alert, plus the service running state. Note the
+        log lives on tmpfs, so the count resets on reboot (alerts since boot).
+        """
+        empty: dict[str, Any] = {
+            "installed": False,
+            "running": False,
+            "alert_count": 0,
+            "last_alert": None,
+        }
+        script = (
+            "inst=false; [ -f /etc/init.d/snort ] && inst=true; "
+            "run=false; /etc/init.d/snort running >/dev/null 2>&1 && run=true; "
+            "log=/var/log/alert_json.txt; count=0; "
+            '[ -f "$log" ] && count=$(wc -l < "$log" 2>/dev/null | tr -dc 0-9); '
+            'latest=null; [ -s "$log" ] && latest=$(tail -n1 "$log" 2>/dev/null); '
+            "printf '{\"installed\":%s,\"running\":%s,\"alert_count\":%s,"
+            "\"last_alert\":%s}' "
+            '"$inst" "$run" "${count:-0}" "${latest:-null}"'
+        )
+        result = await self.client.file_exec("/bin/sh", ["-c", script])
+        if not result:
+            _LOGGER.info(
+                "snort: file_exec returned empty — check the integration account "
+                "has rpcd file.exec permission (or runs as root)"
+            )
+            data.snort_status = empty
+            return
+
+        stdout = result.get("stdout", "")
+        stderr = result.get("stderr", "")
+        combined = (stdout + stderr).lower()
+        if "permission denied" in combined or "access denied" in combined:
+            _LOGGER.warning(
+                "snort sensor requires ubus file.exec permission for /bin/sh in the "
+                "rpcd ACL (or run the integration as root)"
+            )
+            data.snort_status = empty
+            return
+        if not stdout.strip():
+            _LOGGER.debug(
+                "snort: empty stdout (code=%s, stderr=%r)",
+                result.get("code"),
+                stderr[:200] if stderr else "",
+            )
+            data.snort_status = empty
+            return
+
+        try:
+            parsed = json.loads(stdout)
+        except (json.JSONDecodeError, ValueError) as err:
+            _LOGGER.error(
+                "Failed to parse snort status: %s — stdout was: %.300s", err, stdout
+            )
+            data.snort_status = empty
+            return
+
+        summary: dict[str, Any] = {
+            "installed": bool(parsed.get("installed")),
+            "running": bool(parsed.get("running")),
+            "alert_count": int(parsed.get("alert_count") or 0),
+            "last_alert": None,
+        }
+        last = parsed.get("last_alert")
+        if isinstance(last, dict):
+            src = last.get("src_addr")
+            dst = last.get("dst_addr")
+            summary["last_alert"] = {
+                "message": last.get("msg"),
+                "timestamp": last.get("timestamp"),
+                "proto": last.get("proto"),
+                "src": f"{src}:{last.get('src_port')}" if src else None,
+                "dst": f"{dst}:{last.get('dst_port')}" if dst else None,
+                "sid": last.get("sid"),
+                "action": last.get("action"),
+            }
+        data.snort_status = summary
 
     def _async_check_stale_permissions(self, data: OpenWrtData) -> None:
         """Check for stale permissions."""

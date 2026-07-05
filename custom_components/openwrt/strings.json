@@ -103,6 +103,7 @@
           "enable_sqm": "Enable SQM QoS Controls",
           "enable_vpn": "Enable VPN Monitoring & Controls",
           "enable_nlbwmon_sensors": "Enable NLBWMon Top Hosts Sensor",
+          "enable_snort_sensors": "Enable Snort IDS Sensor",
           "acknowledge": "I have reviewed this information and want to proceed"
         }
       },
@@ -270,6 +271,7 @@
           "enable_sqm": "Enable SQM QoS Controls",
           "enable_vpn": "Enable VPN Monitoring & Controls",
           "enable_nlbwmon_sensors": "Enable NLBWMon Top Hosts Sensor",
+          "enable_snort_sensors": "Enable Snort IDS Sensor",
           "acknowledge": "I have reviewed this information and want to proceed"
         }
       },
@@ -680,7 +682,8 @@
           "ban_ip": "Ban-IP",
           "batman_adv": "Batman-adv Mesh",
           "batctl": "Batman-adv Control (batctl)",
-          "nlbwmon": "Top Bandwidth Hosts Sensor"
+          "nlbwmon": "Top Bandwidth Hosts Sensor",
+          "snort": "Snort IDS Sensor"
         }
       }
     },
