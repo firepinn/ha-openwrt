@@ -1445,7 +1445,6 @@ def _async_setup_wireguard_sensors(
                         entry,
                         wg.name,
                         peer.public_key,
-                        peer.name,
                     )
                 )
 
@@ -1469,16 +1468,13 @@ class OpenWrtWireGuardPeerSensor(
         entry: ConfigEntry,
         iface_name: str,
         public_key: str,
-        peer_name: str = "",
     ) -> None:
         """Initialize the WireGuard peer sensor."""
         super().__init__(coordinator)
         self._iface_name = iface_name
         self._public_key = public_key
         self._attr_unique_id = f"{entry.entry_id}_wg_{iface_name}_{public_key}"
-        self._attr_name = (
-            f"WireGuard {iface_name} Peer {peer_name or public_key[:8]}"
-        )
+        self._attr_name = f"WireGuard {iface_name} Peer {public_key[:8]}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, cast(str, entry.unique_id or entry.data[CONF_HOST]))},
         )
@@ -1507,7 +1503,6 @@ class OpenWrtWireGuardPeerSensor(
                 for peer in wg.peers:
                     if peer.public_key == self._public_key:
                         return {
-                            "name": peer.name,
                             "public_key": peer.public_key,
                             "endpoint": peer.endpoint,
                             "allowed_ips": peer.allowed_ips,

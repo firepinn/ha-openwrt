@@ -431,7 +431,6 @@ class WireGuardInterface:
 class WireGuardPeer:
     """WireGuard VPN peer information."""
 
-    name: str = ""
     public_key: str = ""
     endpoint: str = ""
     allowed_ips: list[str] = field(default_factory=list)
