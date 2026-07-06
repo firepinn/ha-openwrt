@@ -61,7 +61,7 @@ class LuciRpcFeaturesMixin:
     async def install_firmware(self, url: str, keep_settings: bool = True) -> None:
         """Install firmware from the given URL via LuCI RPC."""
         keep = "" if keep_settings else "-n"
-        cmd = f"wget --no-check-certificate -O /tmp/firmware.bin '{url}' && sysupgrade {keep} /tmp/firmware.bin"
+        cmd = f"wget --no-check-certificate -O /tmp/firmware.bin '{url}' && sysupgrade {keep} /tmp/firmware.bin; rm -f /tmp/firmware.bin"
         try:
             _LOGGER.info("Initiating firmware installation via LuCI RPC from: %s", url)
             await self.execute_command(cmd)

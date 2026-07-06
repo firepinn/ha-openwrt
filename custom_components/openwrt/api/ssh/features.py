@@ -338,7 +338,7 @@ class SshFeaturesMixin:
         # Download to /tmp and then run sysupgrade
         keep = "" if keep_settings else "-n"
         safe_url = shlex.quote(url)
-        cmd = f"wget -O /tmp/firmware.bin {safe_url} && sysupgrade {keep} /tmp/firmware.bin"
+        cmd = f"wget -O /tmp/firmware.bin {safe_url} && sysupgrade {keep} /tmp/firmware.bin; rm -f /tmp/firmware.bin"
         try:
             _LOGGER.info("Initiating firmware installation via SSH from: %s", url)
             # We expect this to eventually fail or disconnect as the router reboots

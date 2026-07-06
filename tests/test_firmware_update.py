@@ -1,6 +1,6 @@
 """Tests for firmware update backup failure and URL resolution."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest

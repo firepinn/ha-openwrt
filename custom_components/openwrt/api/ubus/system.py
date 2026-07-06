@@ -728,9 +728,7 @@ class UbusSystemMixin:
     async def install_firmware(self, url: str, keep_settings: bool = True) -> None:
         """Install firmware from the given URL via ubus."""
         keep = "" if keep_settings else "-n"
-        cmd = (
-            f"wget -O /tmp/firmware.bin '{url}' && sysupgrade {keep} /tmp/firmware.bin"
-        )
+        cmd = f"wget -O /tmp/firmware.bin '{url}' && sysupgrade {keep} /tmp/firmware.bin; rm -f /tmp/firmware.bin"
         try:
             _LOGGER.info("Initiating firmware installation via ubus from: %s", url)
             await self.execute_command(cmd)
