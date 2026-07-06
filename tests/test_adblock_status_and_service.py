@@ -58,7 +58,9 @@ async def test_ubus_adblock_exception_fallback() -> None:
             status = await client.get_adblock_status()
             assert status.enabled is True
             assert status.status == "enabled"
-            mock_exec.assert_any_call("uci -q get adblock.global.enabled")
+            mock_exec.assert_any_call(
+                "uci -q get adblock.global.adb_enabled || uci -q get adblock.global.enabled"
+            )
 
 
 @pytest.mark.asyncio

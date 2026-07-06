@@ -55,7 +55,7 @@ async def test_ubus_adblock_toggle():
         success = await client.set_adblock_enabled(True)
         assert success is True
         mock_exec.assert_any_call(
-            "uci set adblock.global.enabled='1' && uci commit adblock",
+            "uci set adblock.global.adb_enabled='1' && uci set adblock.global.enabled='1' && uci commit adblock",
         )
         mock_exec.assert_any_call("/etc/init.d/adblock start")
 
@@ -63,7 +63,7 @@ async def test_ubus_adblock_toggle():
         success = await client.set_adblock_enabled(False)
         assert success is True
         mock_exec.assert_any_call(
-            "uci set adblock.global.enabled='0' && uci commit adblock",
+            "uci set adblock.global.adb_enabled='0' && uci set adblock.global.enabled='0' && uci commit adblock",
         )
         mock_exec.assert_any_call("/etc/init.d/adblock stop")
 

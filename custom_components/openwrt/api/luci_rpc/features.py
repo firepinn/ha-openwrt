@@ -297,7 +297,47 @@ class LuciRpcFeaturesMixin:
         from ..base import AdBlockStatus
 
         status = AdBlockStatus()
-        # 1. Try ubus first (provides more details)
+        # 1. Try reading runtime JSON file first
+        for path in ("/var/run/adblock/adblock.runtime.json", "/tmp/adb_runtime.json"):
+            try:
+                content = await self.read_file(path)
+                if content:
+                    import json
+
+                    res = json.loads(content)
+                    if (
+                        res
+                        and isinstance(res, dict)
+                        and (res.get("adblock_status") or res.get("status"))
+                    ):
+                        status.enabled = (
+                            res.get("adblock_status") == "enabled"
+                            or res.get("status") == "enabled"
+                        )
+                        status.status = res.get("adblock_status") or res.get(
+                            "status", "disabled"
+                        )
+                        status.version = res.get("adblock_version") or res.get(
+                            "version"
+                        )
+
+                        blocked = res.get("blocked_domains") or res.get("blocked") or 0
+                        blocked_str = str(blocked).replace(",", "").replace(".", "")
+                        try:
+                            status.blocked_domains = int(float(blocked_str))
+                        except (ValueError, TypeError):
+                            pass
+
+                        last_run = res.get("last_run") or res.get("last_update")
+                        if isinstance(last_run, dict):
+                            status.last_update = last_run.get("timestamp")
+                        else:
+                            status.last_update = last_run
+                        return status
+            except Exception as err:
+                _LOGGER.debug("AdBlock JSON file read failed (%s): %s", path, err)
+
+        # 2. Try ubus first (provides more details)
         try:
             out = await self._rpc_call(
                 "sys",
@@ -330,12 +370,14 @@ class LuciRpcFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("AdBlock ubus status failed (LuCI RPC): %s", err)
 
-        # 2. Fallback to uci (basic status)
+        # 3. Fallback to uci (basic status)
         try:
             enabled = await self._rpc_call(
                 "sys",
                 "exec",
-                ["uci -q get adblock.global.enabled"],
+                [
+                    "uci -q get adblock.global.adb_enabled || uci -q get adblock.global.enabled"
+                ],
             )
             status.enabled = (enabled or "").strip() == "1"
             status.status = "enabled" if status.enabled else "disabled"
@@ -366,7 +408,9 @@ class LuciRpcFeaturesMixin:
             await self._rpc_call(
                 "sys",
                 "exec",
-                [f"uci set adblock.global.enabled='{val}' && uci commit adblock"],
+                [
+                    f"uci set adblock.global.adb_enabled='{val}' && uci set adblock.global.enabled='{val}' && uci commit adblock"
+                ],
             )
             action = "start" if enabled else "stop"
             await self._rpc_call("sys", "exec", [f"/etc/init.d/adblock {action}"])

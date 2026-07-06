@@ -1,7 +1,6 @@
 # mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
-import json
 import logging
 import shlex
 from typing import Any
@@ -398,7 +397,47 @@ class SshFeaturesMixin:
         from ..base import AdBlockStatus
 
         status = AdBlockStatus()
-        # 1. Try ubus first (provides more details)
+        # 1. Try reading runtime JSON file first
+        for path in ("/var/run/adblock/adblock.runtime.json", "/tmp/adb_runtime.json"):
+            try:
+                content = await self.read_file(path)
+                if content:
+                    import json
+
+                    res = json.loads(content)
+                    if (
+                        res
+                        and isinstance(res, dict)
+                        and (res.get("adblock_status") or res.get("status"))
+                    ):
+                        status.enabled = (
+                            res.get("adblock_status") == "enabled"
+                            or res.get("status") == "enabled"
+                        )
+                        status.status = res.get("adblock_status") or res.get(
+                            "status", "disabled"
+                        )
+                        status.version = res.get("adblock_version") or res.get(
+                            "version"
+                        )
+
+                        blocked = res.get("blocked_domains") or res.get("blocked") or 0
+                        blocked_str = str(blocked).replace(",", "").replace(".", "")
+                        try:
+                            status.blocked_domains = int(float(blocked_str))
+                        except (ValueError, TypeError):
+                            pass
+
+                        last_run = res.get("last_run") or res.get("last_update")
+                        if isinstance(last_run, dict):
+                            status.last_update = last_run.get("timestamp")
+                        else:
+                            status.last_update = last_run
+                        return status
+            except Exception as err:
+                _LOGGER.debug("AdBlock JSON file read failed (%s): %s", path, err)
+
+        # 2. Try ubus first (provides more details)
         try:
             out = await self._exec("ubus call adblock status 2>/dev/null")
             if out:
@@ -425,9 +464,11 @@ class SshFeaturesMixin:
         except Exception as err:
             _LOGGER.debug("AdBlock ubus status failed (SSH): %s", err)
 
-        # 2. Fallback to uci (basic status)
+        # 3. Fallback to uci (basic status)
         try:
-            enabled = await self._exec("uci -q get adblock.global.enabled")
+            enabled = await self._exec(
+                "uci -q get adblock.global.adb_enabled || uci -q get adblock.global.enabled"
+            )
             status.enabled = (enabled or "").strip() == "1"
             status.status = "enabled" if status.enabled else "disabled"
         except Exception as err:
@@ -448,8 +489,10 @@ class SshFeaturesMixin:
             count = await self._exec("wc -l < /tmp/adblock-fast.blocked 2>/dev/null")
             if count and count.strip().isdigit():
                 status.blocked_domains = int(count.strip())
-        except Exception:
-            pass
+            else:
+                status.blocked_domains = 0
+        except Exception as err:
+            _LOGGER.debug("Adblock-fast status query failed via SSH: %s", err)
         return status
 
     async def set_adblock_fast_enabled(self, enabled: bool) -> bool:
@@ -486,8 +529,9 @@ class SshFeaturesMixin:
         """Enable/disable adblock service via SSH."""
         val = "1" if enabled else "0"
         try:
-            safe_val = shlex.quote(f"adblock.global.enabled={val}")
-            await self._exec(f"uci set {safe_val} && uci commit adblock")
+            await self._exec(
+                f"uci set adblock.global.adb_enabled='{val}' && uci set adblock.global.enabled='{val}' && uci commit adblock"
+            )
             action = "start" if enabled else "stop"
             await self._exec(f"/etc/init.d/adblock {action}")
             self._last_full_poll = 0
