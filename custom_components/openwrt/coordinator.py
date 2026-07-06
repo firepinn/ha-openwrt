@@ -1719,11 +1719,26 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             for ident in dev.identifiers:
                 if ident[0] == DOMAIN:
                     ident_str = str(ident[1])
+                    norm_ident = ident_str.replace(":", "").lower()
+                    norm_router_id = self.router_id.replace(":", "").lower()
+                    norm_host = str(self.config_entry.data.get(CONF_HOST, "")).lower()
+                    norm_unique_id = (
+                        str(self.config_entry.unique_id or "").replace(":", "").lower()
+                    )
+
                     if (
                         ident_str == self.router_id
                         or ident_str == self.config_entry.data.get(CONF_HOST)
                         or ident_str == self.config_entry.unique_id
                         or ident_str.startswith(f"{self.router_id}_")
+                        or norm_ident == norm_router_id
+                        or (norm_host and norm_ident == norm_host)
+                        or (norm_unique_id and norm_ident == norm_unique_id)
+                        or norm_ident.startswith(f"{norm_router_id}_")
+                        or (
+                            norm_unique_id
+                            and norm_ident.startswith(f"{norm_unique_id}_")
+                        )
                     ):
                         is_ours = True
                     elif re.match(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$", ident_str):
@@ -1734,9 +1749,18 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 continue
 
             # If it's one of our currently active APs or the router itself, keep it
-            if is_ours and any(
-                ident in active_identifiers for ident in dev.identifiers
-            ):
+            is_active = False
+            if is_ours:
+                for ident in dev.identifiers:
+                    if ident[0] == DOMAIN:
+                        norm_id = str(ident[1]).replace(":", "").lower()
+                        if any(
+                            str(act[1]).replace(":", "").lower() == norm_id
+                            for act in active_identifiers
+                        ):
+                            is_active = True
+                            break
+            if is_active:
                 continue
 
             # Identify if this is an Access Point device (old or new style)
