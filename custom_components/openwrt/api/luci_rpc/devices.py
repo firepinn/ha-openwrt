@@ -111,39 +111,65 @@ class LuciRpcDevicesMixin:
             iw_out = await self.execute_command(
                 "iwinfo 2>/dev/null | grep -E '^[a-z0-9_-]+' | awk '{print $1}'"
             )
+            ifaces = set()
             if iw_out:
-                ifaces = iw_out.strip().split()
-                for iface in ifaces:
-                    assoc_str = await self.execute_command(
-                        f'ubus call iwinfo assoclist \'{{"device":"{iface}"}}\' 2>/dev/null'
-                    )
-                    if assoc_str and assoc_str.strip().startswith("{"):
-                        try:
-                            assoc = json.loads(assoc_str).get("results", [])
-                            for client in assoc:
-                                mac = client.get("mac", "").lower()
-                                if not mac:
-                                    continue
-                                dev = devices.setdefault(
-                                    mac, ConnectedDevice(mac=mac, connected=True)
-                                )
-                                dev.connected = True
-                                dev.is_wireless = True
-                                dev.interface = iface
-                                dev.signal = client.get("signal", 0)
-                                dev.noise = client.get("noise", 0)
-                                dev.rx_rate = self._get_assoc_rate(client, "rx")
-                                dev.tx_rate = self._get_assoc_rate(client, "tx")
+                ifaces.update(iw_out.strip().split())
 
-                                # Set connection type based on interface name
-                                if "5g" in iface.lower():
-                                    dev.connection_type = "5GHz"
-                                elif "2g" in iface.lower():
-                                    dev.connection_type = "2.4GHz"
-                                else:
-                                    dev.connection_type = "wireless"
-                        except Exception:
-                            pass
+            # Fallback: Discovery of all hostapd objects via ubus
+            hostapd_list = await self.execute_command(
+                "ubus list 'hostapd.*' 2>/dev/null"
+            )
+            if hostapd_list:
+                for line in hostapd_list.splitlines():
+                    if "." in line:
+                        ifaces.add(line.split(".", 1)[1])
+
+            # Additional common candidates if nothing found
+            if not ifaces:
+                ifaces.update(
+                    {
+                        "wlan0",
+                        "wlan1",
+                        "wlan0-1",
+                        "wlan1-1",
+                        "ra0",
+                        "ra1",
+                        "rax0",
+                        "rax1",
+                    }
+                )
+
+            for iface in ifaces:
+                assoc_str = await self.execute_command(
+                    f'ubus call iwinfo assoclist \'{{"device":"{iface}"}}\' 2>/dev/null'
+                )
+                if assoc_str and assoc_str.strip().startswith("{"):
+                    try:
+                        assoc = json.loads(assoc_str).get("results", [])
+                        for client in assoc:
+                            mac = client.get("mac", "").lower()
+                            if not mac:
+                                continue
+                            dev = devices.setdefault(
+                                mac, ConnectedDevice(mac=mac, connected=True)
+                            )
+                            dev.connected = True
+                            dev.is_wireless = True
+                            dev.interface = iface
+                            dev.signal = client.get("signal", 0)
+                            dev.noise = client.get("noise", 0)
+                            dev.rx_rate = self._get_assoc_rate(client, "rx")
+                            dev.tx_rate = self._get_assoc_rate(client, "tx")
+
+                            # Set connection type based on interface name
+                            if "5g" in iface.lower():
+                                dev.connection_type = "5GHz"
+                            elif "2g" in iface.lower():
+                                dev.connection_type = "2.4GHz"
+                            else:
+                                dev.connection_type = "wireless"
+                    except Exception:
+                        pass
         except (
             LuciRpcTimeoutError,
             LuciRpcConnectionError,
