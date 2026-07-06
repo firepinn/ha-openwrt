@@ -285,7 +285,9 @@ def _generate_package_table(
         f"| **batctl** | {to_icon(packages.batctl)} | {get_missing(packages.batctl, 'Batman-adv Control (batctl)', 'batctl')} |\n"
         f"| **nlbwmon** | {to_icon(packages.nlbwmon)} | {get_missing(packages.nlbwmon, 'Top Bandwidth Hosts Sensor', 'nlbwmon')} |\n"
         f"| **coreutils-stty** | {to_icon(packages.stty)} | {get_missing(packages.stty, 'GPS Modem Tracking (stty)', 'stty')} |\n"
-        f"| **coreutils-timeout** | {to_icon(packages.timeout)} | {get_missing(packages.timeout, 'GPS Modem Tracking (timeout)', 'timeout')} |"
+        f"| **coreutils-timeout** | {to_icon(packages.timeout)} | {get_missing(packages.timeout, 'GPS Modem Tracking (timeout)', 'timeout')} |\n"
+        f"| **banip** | {to_icon(packages.ban_ip)} | {get_missing(packages.ban_ip, 'banIP Service Control & Sensors', 'ban_ip')} |\n"
+        f"| **snort** | {to_icon(packages.snort)} | {get_missing(packages.snort, 'Snort IDS Alerts Sensor', 'snort')} |"
     )
 
 
