@@ -103,6 +103,7 @@
           "enable_sqm": "SQM QoS-Steuerung aktivieren",
           "enable_vpn": "VPN-Überwachung & Steuerung aktivieren",
           "enable_nlbwmon_sensors": "NLBWMon Top-Hosts-Sensor aktivieren",
+          "enable_snort_sensors": "Snort IDS-Sensor aktivieren",
           "acknowledge": "Ich habe diese Informationen geprüft und möchte fortfahren"
         }
       },
@@ -270,6 +271,7 @@
           "enable_sqm": "SQM QoS-Steuerung aktivieren",
           "enable_vpn": "VPN-Überwachung & Steuerung aktivieren",
           "enable_nlbwmon_sensors": "NLBWMon Top-Hosts-Sensor aktivieren",
+          "enable_snort_sensors": "Snort IDS-Sensor aktivieren",
           "acknowledge": "Ich habe diese Informationen geprüft und möchte fortfahren"
         }
       },
@@ -683,7 +685,8 @@
           "ban_ip": "Ban-IP",
           "batman_adv": "Batman-adv Mesh-Netzwerk",
           "batctl": "Batman-adv Steuerung (batctl)",
-          "nlbwmon": "Top-Bandbreiten-Hosts-Sensor"
+          "nlbwmon": "Top-Bandbreiten-Hosts-Sensor",
+          "snort": "Snort IDS-Sensor"
         }
       }
     },
