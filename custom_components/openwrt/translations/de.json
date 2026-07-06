@@ -207,6 +207,7 @@
       "already_configured": "Dieser Router ist bereits konfiguriert.",
       "already_in_progress": "Ein Einrichtungs-Vorgang für diesen Router läuft bereits.",
       "reauth_successful": "Die erneute Authentifizierung war erfolgreich.",
+      "reconfigure_successful": "Die Neukonfiguration war erfolgreich.",
       "no_host": "Das entdeckte Gerät hat keine gültige Host-Adresse.",
       "not_openwrt": "Das entdeckte Gerät scheint kein OpenWrt-Router zu sein."
     }

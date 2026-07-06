@@ -363,6 +363,15 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         """Get the options flow."""
         return OpenWrtOptionsFlow(config_entry)
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of the integration."""
+        entry = self._get_reconfigure_entry()
+        self._data = dict(entry.data)
+        self._data.update(entry.options)
+        return await self.async_step_manual_entry()
+
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -466,10 +475,15 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="manual_entry",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST, default="192.168.1.1"): str,
+                    vol.Required(
+                        CONF_HOST,
+                        default=self._data.get(CONF_HOST, "192.168.1.1"),
+                    ): str,
                     vol.Required(
                         CONF_CONNECTION_TYPE,
-                        default=CONNECTION_TYPE_LUCI_RPC,
+                        default=self._data.get(
+                            CONF_CONNECTION_TYPE, CONNECTION_TYPE_LUCI_RPC
+                        ),
                     ): vol.In(CONNECTION_TYPE_MAP),
                 },
             ),
@@ -897,22 +911,46 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         is_ubus = connection_type == CONNECTION_TYPE_UBUS
 
         schema_dict: dict[Any, Any] = {
-            vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): str,
-            vol.Required(CONF_PASSWORD): str,
-            vol.Required(CONF_USE_SSL, default=DEFAULT_USE_SSL): bool,
-            vol.Optional(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
-            vol.Optional(CONF_DHCP_SOFTWARE, default="auto"): selector.SelectSelector(
+            vol.Required(
+                CONF_USERNAME,
+                default=self._data.get(CONF_USERNAME, DEFAULT_USERNAME),
+            ): str,
+            vol.Required(
+                CONF_PASSWORD,
+                default=self._data.get(CONF_PASSWORD, ""),
+            ): str,
+            vol.Required(
+                CONF_USE_SSL,
+                default=self._data.get(CONF_USE_SSL, DEFAULT_USE_SSL),
+            ): bool,
+            vol.Optional(
+                CONF_VERIFY_SSL,
+                default=self._data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+            ): bool,
+            vol.Optional(
+                CONF_DHCP_SOFTWARE,
+                default=self._data.get(CONF_DHCP_SOFTWARE, "auto"),
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=["auto", "dnsmasq", "odhcpd", "none"],
                     translation_key="dhcp_software",
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 ),
             ),
-            vol.Optional(CONF_PORT): int,
         }
 
+        if CONF_PORT in self._data:
+            schema_dict[vol.Optional(CONF_PORT, default=self._data[CONF_PORT])] = int
+        else:
+            schema_dict[vol.Optional(CONF_PORT)] = int
+
         if is_ubus:
-            schema_dict[vol.Optional(CONF_UBUS_PATH, default=DEFAULT_UBUS_PATH)] = str
+            schema_dict[
+                vol.Optional(
+                    CONF_UBUS_PATH,
+                    default=self._data.get(CONF_UBUS_PATH, DEFAULT_UBUS_PATH),
+                )
+            ] = str
 
         return vol.Schema(schema_dict)
 
@@ -954,13 +992,26 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
         """Return the schema for SSH step."""
         return vol.Schema(
             {
-                vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): str,
-                vol.Optional(CONF_PASSWORD): str,
-                vol.Optional(CONF_SSH_KEY): str,
-                vol.Optional(CONF_DHCP_SOFTWARE, default="auto"): vol.In(
-                    ["auto", "dnsmasq", "odhcpd", "none"],
-                ),
-                vol.Optional(CONF_PORT, default=DEFAULT_PORT_SSH): int,
+                vol.Required(
+                    CONF_USERNAME,
+                    default=self._data.get(CONF_USERNAME, DEFAULT_USERNAME),
+                ): str,
+                vol.Optional(
+                    CONF_PASSWORD,
+                    default=self._data.get(CONF_PASSWORD, ""),
+                ): str,
+                vol.Optional(
+                    CONF_SSH_KEY,
+                    default=self._data.get(CONF_SSH_KEY, ""),
+                ): str,
+                vol.Optional(
+                    CONF_DHCP_SOFTWARE,
+                    default=self._data.get(CONF_DHCP_SOFTWARE, "auto"),
+                ): vol.In(["auto", "dnsmasq", "odhcpd", "none"]),
+                vol.Optional(
+                    CONF_PORT,
+                    default=self._data.get(CONF_PORT, DEFAULT_PORT_SSH),
+                ): int,
             },
         )
 
@@ -2062,7 +2113,8 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
 
         # Set unique ID and abort if already configured
         await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
+        if getattr(self, "context", {}).get("source") != "reconfigure":
+            self._abort_if_unique_id_configured()
 
     async def _create_entry(self) -> ConfigFlowResult:
         """Create the config entry."""
@@ -2105,6 +2157,15 @@ class OpenWrtConfigFlow(ConfigFlow, domain=DOMAIN):
             options[CONF_TARGET_OVERRIDE] = data.pop(CONF_TARGET_OVERRIDE)
 
         title = hostname if hostname else host
+
+        if getattr(self, "context", {}).get("source") == "reconfigure":
+            entry = self._get_reconfigure_entry()
+            self.hass.config_entries.async_update_entry(
+                entry, title=title, data=data, options=options
+            )
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return self.async_abort(reason="reconfigure_successful")
+
         return self.async_create_entry(title=title, data=data, options=options)
 
 
