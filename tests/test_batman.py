@@ -174,6 +174,7 @@ async def test_get_all_data_batman_permissions_check(client_class) -> None:
     client._call = AsyncMock(return_value={})
     client._rpc_call = AsyncMock(return_value={})
     client.execute_command = AsyncMock(return_value="")
+    client.read_file = AsyncMock(return_value=None)
 
     # Mock get_batman_data to return a dummy structure that populates OpenWrtData attributes
     dummy_batman = {

@@ -601,6 +601,7 @@ class OpenWrtBanIpSwitch(CoordinatorEntity[OpenWrtDataCoordinator], SwitchEntity
     _attr_translation_key = "banip"
     _attr_entity_category = EntityCategory.CONFIG
     _attr_device_class = SwitchDeviceClass.SWITCH
+    _attr_entity_registry_enabled_default = False
 
     def __init__(
         self,

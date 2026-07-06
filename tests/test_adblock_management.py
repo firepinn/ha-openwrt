@@ -110,11 +110,15 @@ async def test_luci_rpc_banip_status():
     client._connected = True
 
     with patch.object(client, "_rpc_call", new_callable=AsyncMock) as mock_rpc:
-        mock_rpc.return_value = "1"
+        mock_rpc.return_value = "1\n__HA_RC__0"
 
         status = await client.get_banip_status()
         assert status.enabled is True
-        mock_rpc.assert_called_with("sys", "exec", ["uci -q get ban-ip.config.enabled"])
+        mock_rpc.assert_any_call(
+            "sys",
+            "exec",
+            ["/bin/sh -c '/etc/init.d/banip enabled; echo __HA_RC__$?' 2>&1"],
+        )
 
 
 @pytest.mark.asyncio

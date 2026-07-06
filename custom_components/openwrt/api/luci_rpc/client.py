@@ -576,7 +576,7 @@ class LuciRpcClient(
             "/etc/init.d/lldpd "
             "/usr/sbin/batctl "
             "/sys/module/batman_adv "
-            "/usr/bin/stty /bin/stty /usr/bin/timeout /bin/timeout; do "
+            "/usr/bin/stty /bin/stty /usr/bin/timeout /bin/timeout /etc/init.d/snort; do "
             "if [ -e $f ]; then echo 1; else echo 0; fi; done"
         )
         out = await self._rpc_call("sys", "exec", [cmd])
@@ -630,6 +630,7 @@ class LuciRpcClient(
                 packages.batman_adv = detect_status(21)
             packages.stty = detect_status(22) or detect_status(23)
             packages.timeout = detect_status(24) or detect_status(25)
+            packages.snort = detect_status(26)
 
         # Step 3: Check UCI configs for remaining packages (very robust fallback)
         if packages.sqm_scripts is not True:

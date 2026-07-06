@@ -427,6 +427,7 @@ class UbusServicesMixin:
             ("/etc/init.d/adblock", "adblock"),
             ("/etc/init.d/simple-adblock", "simple_adblock"),
             ("/etc/init.d/banip", "ban_ip"),
+            ("/etc/init.d/snort", "snort"),
         ]
         for path, attr in check_list:
             if getattr(packages, attr) is not True:
@@ -453,6 +454,7 @@ class UbusServicesMixin:
             "adblock": "adblock",
             "simple_adblock": "simple-adblock",
             "ban_ip": "banip",
+            "snort": "snort",
         }
         for attr, pkg_name in mapping.items():
             if getattr(packages, attr) is not True:

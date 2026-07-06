@@ -966,6 +966,7 @@ def _get_banip_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             icon="mdi:ip-network-outline",
             state_class=SensorStateClass.MEASUREMENT,
             entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
             value_fn=lambda data: data.ban_ip.banned_ips,
         ),
         OpenWrtSensorDescription(
@@ -976,6 +977,7 @@ def _get_banip_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             native_unit_of_measurement="packets",
             state_class=SensorStateClass.TOTAL_INCREASING,
             entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
             value_fn=lambda data: data.ban_ip.blocked_packets,
             attrs_fn=lambda data: data.ban_ip.block_stats,
         ),
@@ -1036,6 +1038,7 @@ class OpenWrtSnortSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntity
     _attr_has_entity_name = True
     _attr_icon = "mdi:shield-bug"
     _attr_name = "Snort Alerts"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(
         self,
@@ -1262,12 +1265,9 @@ async def async_setup_entry(
                 continue
 
             # Cleanup Snort alerts sensor when option is disabled
-            if (
-                unique_id == f"{entry.entry_id}_snort_alerts"
-                and not entry.options.get(
-                    CONF_ENABLE_SNORT_SENSORS,
-                    entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
-                )
+            if unique_id == f"{entry.entry_id}_snort_alerts" and not entry.options.get(
+                CONF_ENABLE_SNORT_SENSORS,
+                entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
             ):
                 ent_reg.async_remove(ent.entity_id)
                 continue

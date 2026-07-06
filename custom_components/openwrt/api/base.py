@@ -716,6 +716,7 @@ class OpenWrtPackages:
     unbound: bool | None = None
     batman_adv: bool | None = None
     batctl: bool | None = None
+    snort: bool | None = None
 
     dhcp: bool | None = None
     wireless: bool | None = None
@@ -1572,9 +1573,9 @@ class OpenWrtClient(abc.ABC):
                             for vpn in vpn_interfaces:
                                 if vpn.name == current_iface:
                                     vpn.peers += 1
-                                    # parts[4] = latest-handshake
-                                    if len(parts) > 4 and parts[4].isdigit():
-                                        handshake = int(parts[4])
+                                    # parts[5] = latest-handshake
+                                    if len(parts) > 5 and parts[5].isdigit():
+                                        handshake = int(parts[5])
                                         vpn.latest_handshake = max(
                                             vpn.latest_handshake, handshake
                                         )
@@ -1673,9 +1674,7 @@ class OpenWrtClient(abc.ABC):
             if out:
                 payload = json.loads(out)
                 summary = (
-                    payload[0]
-                    if isinstance(payload, list) and payload
-                    else payload
+                    payload[0] if isinstance(payload, list) and payload else payload
                 )
                 if isinstance(summary, dict):
 
@@ -1700,9 +1699,7 @@ class OpenWrtClient(abc.ABC):
                         "autoadd_block": _n("autoadd_block"),
                     }
                     status.blocked_packets = sum(
-                        v
-                        for k, v in status.block_stats.items()
-                        if k != "autoadd_block"
+                        v for k, v in status.block_stats.items() if k != "autoadd_block"
                     )
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("banip report failed: %s", err)
