@@ -43,6 +43,7 @@ from .api.base import OpenWrtData, StorageUsage
 from .const import (
     CONF_ENABLE_LOAD,
     CONF_ENABLE_NLBWMON_SENSORS,
+    CONF_ENABLE_SNORT_SENSORS,
     CONF_ENABLE_SQM,
     CONF_ENABLE_VPN,
     CONF_MQTT_PRESENCE,
@@ -473,6 +474,31 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             entity_registry_enabled_default=False,
             suggested_display_precision=2,
             value_fn=lambda data: round(data.system_resources.load_15min, 2),
+        ),
+        OpenWrtSensorDescription(
+            key="conntrack_count",
+            name="Connection Tracking",
+            translation_key="conntrack_count",
+            state_class=SensorStateClass.MEASUREMENT,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            icon="mdi:table-network",
+            native_unit_of_measurement="connections",
+            value_fn=lambda data: data.system_resources.conntrack_count,
+            available_fn=lambda data: data.system_resources.conntrack_max > 0,
+            attrs_fn=lambda data: {
+                "max": data.system_resources.conntrack_max,
+                "usage_percent": (
+                    round(
+                        data.system_resources.conntrack_count
+                        / data.system_resources.conntrack_max
+                        * 100.0,
+                        1,
+                    )
+                    if data.system_resources.conntrack_max > 0
+                    else None
+                ),
+            },
         ),
         OpenWrtSensorDescription(
             key="uptime",
@@ -1004,6 +1030,71 @@ class OpenWrtNlbwmonTopHostsSensor(
         }
 
 
+class OpenWrtSnortSensor(CoordinatorEntity[OpenWrtDataCoordinator], SensorEntity):
+    """Sensor showing the Snort IDS alert count, with the latest alert as attributes."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:shield-bug"
+    _attr_name = "Snort Alerts"
+
+    def __init__(
+        self,
+        coordinator: OpenWrtDataCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_snort_alerts"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.router_id)},
+        )
+
+    @property
+    def available(self) -> bool:
+        if not super().available or not self.coordinator.data:
+            return False
+        status = self.coordinator.data.snort_status
+        return bool(status and status.get("installed"))
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        status = self.coordinator.data.snort_status
+        if not status:
+            return None
+        return status.get("alert_count", 0)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        if not self.coordinator.data:
+            return {}
+        status = self.coordinator.data.snort_status
+        if not status:
+            return {}
+        attrs: dict[str, Any] = {
+            "running": status.get("running", False),
+            "recent_alerts": status.get("recent_alerts", []),
+        }
+        last = status.get("last_alert")
+        if isinstance(last, dict):
+            attrs.update(
+                {
+                    "last_alert_message": last.get("message"),
+                    "last_alert_time": last.get("timestamp"),
+                    "last_alert_proto": last.get("proto"),
+                    "last_alert_src": last.get("src"),
+                    "last_alert_dst": last.get("dst"),
+                    "last_alert_sid": last.get("sid"),
+                    "last_alert_action": last.get("action"),
+                }
+            )
+        return attrs
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -1170,6 +1261,17 @@ async def async_setup_entry(
                 ent_reg.async_remove(ent.entity_id)
                 continue
 
+            # Cleanup Snort alerts sensor when option is disabled
+            if (
+                unique_id == f"{entry.entry_id}_snort_alerts"
+                and not entry.options.get(
+                    CONF_ENABLE_SNORT_SENSORS,
+                    entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
+                )
+            ):
+                ent_reg.async_remove(ent.entity_id)
+                continue
+
             # Cleanup Batman neighbors
             if "batman_neighbor_" in unique_id:
                 current_keys = {
@@ -1201,6 +1303,12 @@ async def async_setup_entry(
         entry.data.get(CONF_ENABLE_NLBWMON_SENSORS, False),
     ):
         async_add_entities([OpenWrtNlbwmonTopHostsSensor(coordinator, entry)])
+
+    if entry.options.get(
+        CONF_ENABLE_SNORT_SENSORS,
+        entry.data.get(CONF_ENABLE_SNORT_SENSORS, False),
+    ):
+        async_add_entities([OpenWrtSnortSensor(coordinator, entry)])
 
 
 def _create_nlbwmon_sensors(

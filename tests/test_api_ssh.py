@@ -239,3 +239,36 @@ async def test_ssh_get_ip_neighbors_filters_ipv6_link_local(ssh_client: SshClien
         assert "192.168.1.5" in ips
         assert "2001:db8::1" in ips
         assert "fe80::1" not in ips
+
+
+@pytest.mark.asyncio
+async def test_ssh_get_connected_devices_iwinfo_fallback_rates(ssh_client: SshClient):
+    """Test that fallback interface names from hostapd are queried via iwinfo assoclist if ubus call iwinfo devices is empty."""
+    ssh_client._connected = True
+    ssh_client.packages.wireless = True
+    with patch.object(ssh_client, "_exec", new_callable=AsyncMock) as mock_exec:
+
+        def exec_side_effect(command: str) -> str:
+            if "cat /proc/net/arp" in command:
+                return ""
+            if "ubus call iwinfo devices" in command:
+                return '{"devices": []}'  # empty devices list
+            if "ubus list 'hostapd.*'" in command:
+                return "hostapd.phy0-ap0"
+            if "ubus call iwinfo assoclist" in command and "phy0-ap0" in command:
+                return '{"results": [{"mac": "11:22:33:44:55:66", "signal": -45, "noise": -90, "rx": {"rate": 240200}, "tx": {"rate": 180100}}]}'
+            if "hostapd.phy0-ap0" in command and "get_clients" in command:
+                return '{"clients": {"11:22:33:44:55:66": {"signal": -45, "bytes": {"rx": 1000, "tx": 2000}}}}'
+            return ""
+
+        mock_exec.side_effect = exec_side_effect
+
+        devices = await ssh_client.get_connected_devices()
+        assert len(devices) == 1
+        dev = devices[0]
+        assert dev.mac == "11:22:33:44:55:66"
+        assert dev.is_wireless is True
+        assert dev.interface == "phy0-ap0"
+        assert dev.rx_rate == 240200
+        assert dev.tx_rate == 180100
+
