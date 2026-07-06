@@ -315,6 +315,8 @@ class SystemResources:
     load_15min: float = 0.0
     uptime: int = 0
     processes: int = 0
+    conntrack_count: int = 0
+    conntrack_max: int = 0
     temperature: float | None = None
     temperatures: dict[str, float] = field(default_factory=dict)
     cpu_frequency: float | None = None
@@ -1212,6 +1214,23 @@ class OpenWrtClient(abc.ABC):
         """Execute a binary via rpcd file.exec. Returns {} if unsupported by this client."""
         return {}
 
+    async def read_file(self, path: str) -> str | None:
+        """Read a file's contents. None if unsupported by this client or on error."""
+        return None
+
+    async def _fetch_conntrack(self, resources: SystemResources) -> None:
+        """Populate nf_conntrack count/max from /proc."""
+        for attr, path in (
+            ("conntrack_count", "/proc/sys/net/netfilter/nf_conntrack_count"),
+            ("conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max"),
+        ):
+            data = await self.read_file(path)
+            if not data:
+                continue
+            match = re.search(r"\d+", data)
+            if match:
+                setattr(resources, attr, int(match.group(0)))
+
     async def kick_device(self, mac_address: str, interface: str) -> bool:
         """Kick a wireless device from the network using hostapd."""
         cmd_ubus = f'ubus call hostapd.{interface} del_client \'{{"addr":"{mac_address}","reason":5,"deauth":true,"ban_time":60000}}\''
@@ -1882,6 +1901,7 @@ class OpenWrtClient(abc.ABC):
         data.system_resources = get_val(
             core_results[0], data.system_resources, "system_resources"
         )
+        await self._fetch_conntrack(data.system_resources)
         data.network_interfaces = get_val(
             core_results[1], data.network_interfaces, "network_interfaces"
         )

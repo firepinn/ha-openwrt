@@ -412,6 +412,9 @@
       "load_1min": {
         "name": "Load (1m)"
       },
+      "conntrack_count": {
+        "name": "Connection Tracking"
+      },
       "load_5min": {
         "name": "Load (5m)"
       },

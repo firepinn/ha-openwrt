@@ -476,6 +476,31 @@ def _get_system_sensors() -> tuple[OpenWrtSensorDescription, ...]:
             value_fn=lambda data: round(data.system_resources.load_15min, 2),
         ),
         OpenWrtSensorDescription(
+            key="conntrack_count",
+            name="Connection Tracking",
+            translation_key="conntrack_count",
+            state_class=SensorStateClass.MEASUREMENT,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            icon="mdi:table-network",
+            native_unit_of_measurement="connections",
+            value_fn=lambda data: data.system_resources.conntrack_count,
+            available_fn=lambda data: data.system_resources.conntrack_max > 0,
+            attrs_fn=lambda data: {
+                "max": data.system_resources.conntrack_max,
+                "usage_percent": (
+                    round(
+                        data.system_resources.conntrack_count
+                        / data.system_resources.conntrack_max
+                        * 100.0,
+                        1,
+                    )
+                    if data.system_resources.conntrack_max > 0
+                    else None
+                ),
+            },
+        ),
+        OpenWrtSensorDescription(
             key="uptime",
             name="Uptime",
             translation_key="uptime",

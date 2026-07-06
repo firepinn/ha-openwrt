@@ -337,3 +337,41 @@ async def test_luci_get_connected_devices_iwinfo_rates(
         assert dev.tx_rate == 86600
         assert dev.rx_bytes == 123  # From hostapd fallback
         assert dev.tx_bytes == 456
+
+
+@pytest.mark.asyncio
+async def test_luci_get_connected_devices_iwinfo_fallback_rates(
+    luci_client: LuciRpcClient,
+):
+    """Test that fallback interface names from hostapd are queried via iwinfo assoclist if iwinfo CLI does not report them."""
+    luci_client._auth_token = "luci_test_token"
+    luci_client._get_wireless_mapping = AsyncMock()
+    luci_client.packages.wireless = True
+
+    with patch.object(
+        luci_client, "execute_command", new_callable=AsyncMock
+    ) as mock_exec:
+
+        def exec_side_effect(command: str) -> str:
+            if "cat /proc/net/arp" in command:
+                return ""
+            if "iwinfo 2>/dev/null" in command:
+                return ""  # iwinfo CLI returns nothing
+            if "ubus call iwinfo assoclist" in command and "phy0-ap0" in command:
+                return '{"results": [{"mac": "11:22:33:44:55:66", "signal": -45, "noise": -90, "rx": {"rate": 240200}, "tx": {"rate": 180100}}]}'
+            if "ubus list 'hostapd.*'" in command:
+                return 'hostapd.phy0-ap0 {"clients": {"11:22:33:44:55:66": {"signal": -45, "bytes": {"rx": 1000, "tx": 2000}}}}'
+            return ""
+
+        mock_exec.side_effect = exec_side_effect
+
+        devices = await luci_client.get_connected_devices()
+        assert len(devices) == 1
+        dev = devices[0]
+        assert dev.mac == "11:22:33:44:55:66"
+        assert dev.is_wireless is True
+        assert dev.interface == "phy0-ap0"
+        assert dev.rx_rate == 240200
+        assert dev.tx_rate == 180100
+        assert dev.rx_bytes == 1000
+        assert dev.tx_bytes == 2000

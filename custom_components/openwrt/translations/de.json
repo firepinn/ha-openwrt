@@ -412,6 +412,9 @@
       "load_1min": {
         "name": "Systemlast (1m)"
       },
+      "conntrack_count": {
+        "name": "Verbindungsverfolgung"
+      },
       "load_5min": {
         "name": "Systemlast (5m)"
       },
