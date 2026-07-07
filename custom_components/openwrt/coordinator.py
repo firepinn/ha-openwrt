@@ -503,17 +503,20 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 if data.qmodem_info.gps_longitude is None:
                     data.qmodem_info.gps_longitude = self.data.qmodem_info.gps_longitude
                 if data.qmodem_info.gps_last_update is None:
-                    data.qmodem_info.gps_last_update = (
-                        self.data.qmodem_info.gps_last_update
-                    )
+                    val = self.data.qmodem_info.gps_last_update
+                    if isinstance(val, str):
+                        val = dt_util.parse_datetime(val)
+                    data.qmodem_info.gps_last_update = val
                 if data.qmodem_info.gps_last_update_successful is None:
-                    data.qmodem_info.gps_last_update_successful = (
-                        self.data.qmodem_info.gps_last_update_successful
-                    )
+                    val = self.data.qmodem_info.gps_last_update_successful
+                    if isinstance(val, str):
+                        val = dt_util.parse_datetime(val)
+                    data.qmodem_info.gps_last_update_successful = val
                 if data.qmodem_info.gps_last_update_attempted is None:
-                    data.qmodem_info.gps_last_update_attempted = (
-                        self.data.qmodem_info.gps_last_update_attempted
-                    )
+                    val = self.data.qmodem_info.gps_last_update_attempted
+                    if isinstance(val, str):
+                        val = dt_util.parse_datetime(val)
+                    data.qmodem_info.gps_last_update_attempted = val
                 if data.qmodem_info.gps_last_update_ok is None:
                     data.qmodem_info.gps_last_update_ok = (
                         self.data.qmodem_info.gps_last_update_ok
