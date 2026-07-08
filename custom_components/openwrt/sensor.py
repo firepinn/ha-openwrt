@@ -1457,7 +1457,9 @@ def _async_setup_wireguard_sensors(
                         name=f"WireGuard {wg.name} Peer Count",
                         icon="mdi:account-group",
                         entity_category=EntityCategory.DIAGNOSTIC,
-                        entity_registry_enabled_default=False,
+                        entity_registry_enabled_default=entry.options.get(
+                            CONF_ENABLE_VPN, True
+                        ),
                         value_fn=lambda data, n=wg.name: next(
                             (
                                 len(w.peers)
@@ -1511,6 +1513,9 @@ class OpenWrtWireGuardPeerSensor(
         self._public_key = public_key
         self._attr_unique_id = f"{entry.entry_id}_wg_{iface_name}_{public_key}"
         self._attr_name = f"WireGuard {iface_name} Peer {public_key[:8]}"
+        self._attr_entity_registry_enabled_default = entry.options.get(
+            CONF_ENABLE_VPN, True
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, cast(str, entry.unique_id or entry.data[CONF_HOST]))},
         )
@@ -2546,7 +2551,9 @@ def _create_vpn_sensors(
                 device_class=SensorDeviceClass.DATA_SIZE,
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 entity_category=EntityCategory.DIAGNOSTIC,
-                entity_registry_enabled_default=False,
+                entity_registry_enabled_default=entry.options.get(
+                    CONF_ENABLE_VPN, True
+                ),
                 value_fn=lambda data, n=iface_name: next(
                     (
                         _bytes_to_mb(v.rx_bytes)
@@ -2572,7 +2579,9 @@ def _create_vpn_sensors(
                 device_class=SensorDeviceClass.DATA_SIZE,
                 state_class=SensorStateClass.TOTAL_INCREASING,
                 entity_category=EntityCategory.DIAGNOSTIC,
-                entity_registry_enabled_default=False,
+                entity_registry_enabled_default=entry.options.get(
+                    CONF_ENABLE_VPN, True
+                ),
                 value_fn=lambda data, n=iface_name: next(
                     (
                         _bytes_to_mb(v.tx_bytes)
@@ -2595,7 +2604,9 @@ def _create_vpn_sensors(
                     name=f"{label} Peers",
                     translation_key="vpn_peers",
                     state_class=SensorStateClass.MEASUREMENT,
-                    entity_registry_enabled_default=False,
+                    entity_registry_enabled_default=entry.options.get(
+                        CONF_ENABLE_VPN, True
+                    ),
                     value_fn=lambda data, n=iface_name: next(
                         (v.peers for v in data.vpn_interfaces if v.name == n),
                         0,

@@ -100,3 +100,34 @@ async def test_ubus_wireguard_none_values_and_unknown_iface(ubus_client: UbusCli
         assert peer.public_key == "PEER_A"
         assert peer.endpoint == ""
         assert peer.allowed_ips == []
+
+
+@pytest.mark.asyncio
+async def test_ubus_wireguard_4_columns(ubus_client: UbusClient):
+    """Test fetching WireGuard interfaces via Ubus with 4-column interface line."""
+    with (
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "execute_command", new_callable=AsyncMock
+        ) as mock_exec,
+    ):
+        mock_call.side_effect = [
+            {"interface": [{"interface": "wg0", "proto": "wireguard", "up": True}]}
+        ]
+        mock_exec.return_value = (
+            "wg0\tPUBKEY0\t51820\t0\n"
+            "wg0\tPEER_A\t(none)\t(none)\t(none)\t0\t0\t0\t0\n"
+        )
+
+        interfaces = await ubus_client.get_wireguard_interfaces()
+
+        assert len(interfaces) == 1
+        wg0 = interfaces[0]
+        assert wg0.enabled is True
+        assert wg0.public_key == "PUBKEY0"
+        assert wg0.listen_port == 51820
+        assert wg0.fwmark == 0
+        assert len(wg0.peers) == 1
+        peer = wg0.peers[0]
+        assert peer.public_key == "PEER_A"
+
