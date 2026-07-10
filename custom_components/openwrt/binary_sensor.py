@@ -301,7 +301,7 @@ def _async_setup_wireguard_peer_binary_sensors(
                                 CONF_ENABLE_VPN, True
                             ),
                             is_on_fn=lambda data, i=wg.name, p=peer.public_key: any(
-                                (time.time() - peer_data.latest_handshake < 180)
+                                (time.time() - peer_data.latest_handshake < 600)
                                 for w in data.wireguard_interfaces
                                 if w.name == i
                                 for peer_data in w.peers

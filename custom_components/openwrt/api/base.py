@@ -1997,7 +1997,6 @@ class OpenWrtClient(abc.ABC):
                 "firewall_rules": self.get_firewall_rules(),
                 "access_control": self.get_access_control(),
                 "sqm": self.get_sqm_status(),
-                "wireguard": self.get_wireguard_interfaces(),
                 "packages": self.check_packages(),
                 "permissions": self.check_permissions(),
                 "reboot_required": self.is_reboot_required(),
@@ -2029,9 +2028,6 @@ class OpenWrtClient(abc.ABC):
                 slow_map["access_control"], data.access_control, "access control"
             )
             data.sqm = get_val(slow_map["sqm"], data.sqm, "SQM")
-            data.wireguard_interfaces = get_val(
-                slow_map["wireguard"], data.wireguard_interfaces, "wireguard"
-            )
             data.packages = get_val(slow_map["packages"], data.packages, "packages")
             data.permissions = get_val(
                 slow_map["permissions"], data.permissions, "permissions"
@@ -2061,7 +2057,6 @@ class OpenWrtClient(abc.ABC):
                     "firewall_rules",
                     "access_control",
                     "sqm",
-                    "wireguard_interfaces",
                     "packages",
                     "permissions",
                     "reboot_required",
@@ -2092,6 +2087,7 @@ class OpenWrtClient(abc.ABC):
                 "external_ip": self.get_external_ip(),
                 "gateway_mac": self.get_gateway_mac(),
                 "wifi_credentials": self.get_wifi_credentials(),
+                "wireguard": self.get_wireguard_interfaces(),
             }
 
             if data.packages.wireless is not False:
@@ -2124,6 +2120,9 @@ class OpenWrtClient(abc.ABC):
             data.qmodem_info = get_val(med_map.get("qmodem"), data.qmodem_info, "modem")
             data.vpn_interfaces = get_val(
                 med_map.get("vpn"), data.vpn_interfaces, "VPN"
+            )
+            data.wireguard_interfaces = get_val(
+                med_map.get("wireguard"), data.wireguard_interfaces, "wireguard"
             )
             data.latency = get_val(med_map.get("latency"), data.latency, "latency")
             data.external_ip = get_val(
@@ -2175,6 +2174,7 @@ class OpenWrtClient(abc.ABC):
                     "mwan_status",
                     "qmodem_info",
                     "vpn_interfaces",
+                    "wireguard_interfaces",
                     "latency",
                     "external_ip",
                     "wifi_credentials",
