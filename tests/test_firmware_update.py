@@ -117,10 +117,10 @@ async def test_check_snapshot_update_release_branch(hass: HomeAssistant) -> None
                         {
                             "name": "openwrt-25.12-SNAPSHOT-x86-64-generic-squashfs-sysupgrade.img.gz",
                             "type": "sysupgrade",
-                        }
+                        },
                     ]
                 }
-            }
+            },
         }
     )
 

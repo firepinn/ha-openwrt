@@ -66,6 +66,7 @@ from .const import (
     CONF_MQTT_PRESENCE,
     CONF_PASSWORD,
     CONF_PORT,
+    CONF_REVERSE_DNS,
     CONF_SKIP_RANDOM_MAC,
     CONF_SSH_KEY,
     CONF_TARGET_OVERRIDE,
@@ -87,6 +88,7 @@ from .const import (
     DEFAULT_PORT_SSH,
     DEFAULT_PORT_UBUS,
     DEFAULT_PORT_UBUS_SSL,
+    DEFAULT_REVERSE_DNS,
     DEFAULT_SKIP_RANDOM_MAC,
     DEFAULT_TRACK_DEVICES,
     DEFAULT_UBUS_PATH,
@@ -339,6 +341,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
         """Fetch data."""
         try:
             data = await self._async_fetch_all_data()
+            await self._async_resolve_reverse_dns(data)
             # Reset backoff on success
             if self._current_backoff_interval != self._configured_update_interval:
                 self._current_backoff_interval = self._configured_update_interval
@@ -874,6 +877,52 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             )
         else:
             async_delete_stale_permissions_repair(self.hass, self.config_entry)
+
+    async def _async_resolve_reverse_dns(self, data: OpenWrtData) -> None:
+        """Resolve reverse DNS for connected devices and DHCP leases if they have no hostname."""
+        if not self.config_entry.options.get(CONF_REVERSE_DNS, DEFAULT_REVERSE_DNS):
+            return
+
+        import socket
+
+        tasks = []
+
+        async def resolve_device(device) -> None:
+            try:
+                resolved = await self.hass.async_add_executor_job(
+                    socket.gethostbyaddr, device.ip
+                )
+                if resolved and resolved[0]:
+                    device.hostname = resolved[0]
+            except Exception as err:
+                _LOGGER.debug(
+                    "Reverse DNS failed for device %s (%s): %s",
+                    device.mac,
+                    device.ip,
+                    err,
+                )
+
+        async def resolve_lease(lease) -> None:
+            try:
+                resolved = await self.hass.async_add_executor_job(
+                    socket.gethostbyaddr, lease.ip
+                )
+                if resolved and resolved[0]:
+                    lease.hostname = resolved[0]
+            except Exception as err:
+                _LOGGER.debug(
+                    "Reverse DNS failed for lease %s (%s): %s", lease.mac, lease.ip, err
+                )
+
+        for device in data.connected_devices:
+            if device.ip and (not device.hostname or device.hostname == "*"):
+                tasks.append(resolve_device(device))
+        for lease in data.dhcp_leases:
+            if lease.ip and (not lease.hostname or lease.hostname == "*"):
+                tasks.append(resolve_lease(lease))
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _async_fetch_all_data(self) -> OpenWrtData:
         """Fetch all data with retry logic."""
@@ -1868,11 +1917,14 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             return
 
         import re
+
         current_version = data.device_info.release_version or ""
         match = re.search(r"(\d+\.\d+)-SNAPSHOT", current_version, re.IGNORECASE)
         if match:
             branch = f"{match.group(1)}-SNAPSHOT"
-            base_url = f"https://downloads.openwrt.org/releases/{branch}/targets/{target}/"
+            base_url = (
+                f"https://downloads.openwrt.org/releases/{branch}/targets/{target}/"
+            )
         else:
             base_url = f"https://downloads.openwrt.org/snapshots/targets/{target}/"
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.openwrt.api.base import OpenWrtData, SystemResources
@@ -98,3 +99,51 @@ async def test_coordinator_update_failed_on_new_install() -> None:
     # Run update - should raise UpdateFailed
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_coordinator_reverse_dns_resolution(hass: HomeAssistant) -> None:
+    """Test that coordinator resolves reverse DNS if option is enabled."""
+    import socket
+
+    from custom_components.openwrt.api.base import ConnectedDevice, DhcpLease
+    from custom_components.openwrt.const import CONF_REVERSE_DNS
+
+    entry = MagicMock()
+    entry.entry_id = "test_entry"
+    entry.options = {CONF_REVERSE_DNS: True}
+    entry.data = {"host": "192.168.1.1"}
+
+    mock_client = AsyncMock()
+    coordinator = OpenWrtDataCoordinator(hass, entry, mock_client)
+
+    data = OpenWrtData()
+    data.connected_devices = [
+        ConnectedDevice(mac="aa:bb:cc:dd:ee:ff", ip="192.168.1.100", hostname=""),
+        ConnectedDevice(
+            mac="11:22:33:44:55:66", ip="192.168.1.101", hostname="Existing"
+        ),
+    ]
+    data.dhcp_leases = [
+        DhcpLease(mac="22:33:44:55:66:77", ip="192.168.1.102", hostname="*"),
+    ]
+
+    def mock_gethostbyaddr(ip):
+        if ip == "192.168.1.100":
+            return ("resolved-device.local", [], [ip])
+        if ip == "192.168.1.102":
+            return ("resolved-lease.local", [], [ip])
+        raise socket.herror()
+
+    async def mock_async_add_executor_job(func, *args):
+        return func(*args)
+
+    with patch.object(
+        hass, "async_add_executor_job", side_effect=mock_async_add_executor_job
+    ):
+        with patch("socket.gethostbyaddr", side_effect=mock_gethostbyaddr):
+            await coordinator._async_resolve_reverse_dns(data)
+
+    assert data.connected_devices[0].hostname == "resolved-device.local"
+    assert data.connected_devices[1].hostname == "Existing"
+    assert data.dhcp_leases[0].hostname == "resolved-lease.local"

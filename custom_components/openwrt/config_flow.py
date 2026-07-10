@@ -90,6 +90,7 @@ from .const import (
     CONF_MQTT_USERNAME,
     CONF_REDEPLOY_MQTT,
     CONF_REDEPLOY_USER,
+    CONF_REVERSE_DNS,
     CONF_SKIP_RANDOM_MAC,
     CONF_SSH_KEY,
     CONF_TARGET_OVERRIDE,
@@ -114,6 +115,7 @@ from .const import (
     DEFAULT_PORT_SSH,
     DEFAULT_PORT_UBUS,
     DEFAULT_PORT_UBUS_SSL,
+    DEFAULT_REVERSE_DNS,
     DEFAULT_SKIP_RANDOM_MAC,
     DEFAULT_TRACK_WIRED,
     DEFAULT_TRUST_BRIDGE_FDB,
@@ -2310,6 +2312,10 @@ class OpenWrtOptionsFlow(OptionsFlow):
                         CONF_GPS_POLL_INTERVAL, DEFAULT_GPS_POLL_INTERVAL
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=10, max=86400)),
+                vol.Optional(
+                    CONF_REVERSE_DNS,
+                    default=current.get(CONF_REVERSE_DNS, DEFAULT_REVERSE_DNS),
+                ): bool,
                 vol.Optional(
                     CONF_REDEPLOY_USER,
                     default=False,
