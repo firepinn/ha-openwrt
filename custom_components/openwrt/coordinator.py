@@ -930,12 +930,7 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
             try:
                 await self.client.connect()
             except Exception as err:
-                if self.data:
-                    _LOGGER.info(
-                        "Reconnection failed, using stale data: %s",
-                        err,
-                    )
-                    return self.data
+                self.client._connected = False
                 raise UpdateFailed(f"Cannot connect: {err}") from err
 
         try:
@@ -956,11 +951,13 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
 
             return data
         except (UbusAuthError, LuciRpcAuthError, SshAuthError) as err:
+            self.client._connected = False
             async_create_auth_repair(self.hass, self.config_entry)
             raise UpdateFailed(
                 "Authentication failed. Check your credentials."
             ) from err
         except (UbusPackageMissingError, LuciRpcPackageMissingError) as err:
+            self.client._connected = False
             packages = (
                 ["uhttpd-mod-ubus"] if "ubus" in str(err).lower() else ["luci-mod-rpc"]
             )
@@ -981,14 +978,12 @@ class OpenWrtDataCoordinator(DataUpdateCoordinator[OpenWrtData]):
                 return await self.client.get_all_data()
             except Exception as retry_err:
                 _LOGGER.warning("Updating data failed: %s", retry_err)
-                if self.data:
-                    _LOGGER.info("Using stale data")
-                    return self.data
                 self.client._connected = False
                 async_create_connection_lost_repair(self.hass, self.config_entry)
                 raise UpdateFailed(f"Error fetching data: {retry_err}") from retry_err
         except Exception as err:
             _LOGGER.exception("Unexpected error updating OpenWrt data: %s", err)
+            self.client._connected = False
             raise UpdateFailed(f"Unexpected error: {err}") from err
 
     def _async_sync_firmware_state(self, data: OpenWrtData) -> None:

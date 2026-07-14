@@ -13,8 +13,8 @@ from custom_components.openwrt.coordinator import OpenWrtDataCoordinator
 
 
 @pytest.mark.asyncio
-async def test_coordinator_stale_data_on_timeout() -> None:
-    """Test that coordinator returns stale data when update fails with timeout."""
+async def test_coordinator_raises_update_failed_on_timeout() -> None:
+    """Test that coordinator raises UpdateFailed when update fails with timeout."""
     hass = MagicMock()
     hass.loop = MagicMock()
     hass.loop.time = MagicMock(return_value=123456789.0)
@@ -54,12 +54,11 @@ async def test_coordinator_stale_data_on_timeout() -> None:
     mock_client.get_all_data = get_all_data_err
     mock_client.connect = connect_err
 
-    # Run update
-    data = await coordinator._async_update_data()
+    # Run update - should raise UpdateFailed and set client connected to False
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
 
-    # Should return initial_data
-    assert data == initial_data
-    assert coordinator.data == initial_data
+    assert mock_client._connected is False
 
 
 @pytest.mark.asyncio
